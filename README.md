@@ -27,3 +27,7 @@ npx cap open android
 ```
 
 La app web está estructurada para compilarse en `dist/`, que Capacitor empaqueta en Android. La activación final del modo kiosco/launcher requiere configuración nativa y permisos del dispositivo; esta base deja el contenedor preparado para incorporarla.
+
+## Contexto del proyecto
+
+Las conversaciones exportadas del proyecto de ChatGPT **Pablo Tablet** y el chat compartido de Codex están indexados en [`chats/README.md`](chats/README.md).
