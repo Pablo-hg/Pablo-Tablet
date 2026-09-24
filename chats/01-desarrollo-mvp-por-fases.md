@@ -1,5 +1,7 @@
 # Desarrollo del MVP por fases
 
+> **Documento histórico.** Conserva la conversación original y puede contener decisiones sustituidas. Para los acuerdos vigentes, consulta [la especificación funcional](../ESPECIFICACION-FUNCIONAL.md) y [el README](../README.md).
+
 - Proyecto de origen: ChatGPT / Pablo Tablet
 - ID de conversación: `6aaa7267-7940-83ed-9412-6bd6386fa6d9`
 - Creado: 2026-09-16T10:41:44.872Z
@@ -503,4 +505,3 @@ Le he indicado que:
 - haga commits claros y deje el repo listo para seguir.
 
 A partir de aquí, el desarrollo debe continuar en ese nuevo chat de Work/Codex.
-

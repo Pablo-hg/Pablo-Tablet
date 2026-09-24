@@ -1,5 +1,7 @@
 # Diseño interfaz widgets
 
+> **Documento histórico.** Conserva la conversación original y puede contener decisiones sustituidas, especialmente sobre perfiles. Para los acuerdos vigentes, consulta [la especificación funcional](../ESPECIFICACION-FUNCIONAL.md) y [el README](../README.md).
+
 - Proyecto de origen: ChatGPT / Pablo Tablet
 - ID de conversación: `6aaa723c-f81c-83ed-b9d4-19ca7a9ba7cc`
 - Creado: 2026-09-16T10:41:03.288Z
@@ -1013,4 +1015,3 @@ Perfecto. Entonces habrá **perfiles manuales y automáticos**, pudiendo cambiar
 Con esto ya tenemos **una base funcional cerrada y lista para diseñar/implementar**: dashboard adaptable, widgets configurables, páginas fullscreen con slider, navegación, barra contextual, modos día/noche, salvapantallas, accesibilidad, sincronización, bloqueo, perfiles y comportamiento de reinicio.
 
 **Ya tenemos algo funcional listo.**
-

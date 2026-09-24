@@ -1,5 +1,7 @@
 # Arquitectura local segura
 
+> **Documento histórico.** Conserva la conversación original y puede contener decisiones sustituidas, especialmente sobre QR, conflictos y PIN. Para los acuerdos vigentes, consulta [la especificación funcional](../ESPECIFICACION-FUNCIONAL.md) y [la arquitectura consolidada](08-arquitectura-tecnica.md).
+
 - Proyecto de origen: ChatGPT / Pablo Tablet
 - ID de conversación: `6aaa724b-b314-83ed-8f64-432421ddf436`
 - Creado: 2026-09-16T10:41:17.303Z
@@ -707,4 +709,3 @@ Perfecto.
 **Decisión 20 cerrada:** si un dispositivo no está vinculado, verá únicamente una **pantalla bloqueada indicando que no está autorizado**. No podrá iniciar el emparejamiento desde ahí ni acceder a información privada.
 
 Con esto, **ya tenemos esta parte funcionalmente definida y lista para empezar**: arquitectura local, descubrimiento, QR, emparejamiento, sesiones, permisos, seguridad, sincronización, conflictos, almacenamiento y copias de seguridad.
-

@@ -1,5 +1,7 @@
 # Configura MVP 0.1 de Pablo Tablet
 
+> **Documento histórico.** Describe el arranque del prototipo y no sustituye el [README](../README.md) ni la [especificación funcional vigente](../ESPECIFICACION-FUNCIONAL.md).
+
 - Origen: chat compartido de Codex
 - URL: https://chatgpt.com/s/cx_6aaab2ac96d48191a7eeef6e5629684b
 - Estado observado: conversación compartida completa visible; los detalles internos de ejecución permanecen colapsados en la vista compartida.
