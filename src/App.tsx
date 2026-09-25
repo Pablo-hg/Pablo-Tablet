@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import {
   AlarmClock,
   Archive,
@@ -93,6 +93,7 @@ function App() {
   const [interactionVersion, setInteractionVersion] = useState(0)
   const [interactionLocked, setInteractionLocked] = useState(false)
   const pointerStart = useRef<{ x: number; y: number } | null>(null)
+  const suppressClick = useRef(false)
 
   const enabledPages = useMemo(
     () => DASHBOARD_PAGES.filter((page) => dashboardState.preferences.enabledPageIds.includes(page.id)),
@@ -366,14 +367,15 @@ function App() {
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     const target = event.target as HTMLElement
-    const gestureBlocked = target.closest('.widget-card, button, input, textarea, select, [data-swipe-block]')
+    const isWidget = target.closest('.widget-card')
+    const gestureBlocked = !isWidget && target.closest('button, input, textarea, select, [data-swipe-block]')
     if (gestureBlocked) {
       pointerStart.current = null
       registerInteraction()
       return
     }
 
-    event.currentTarget.setPointerCapture(event.pointerId)
+    if (!isWidget) event.currentTarget.setPointerCapture(event.pointerId)
     pointerStart.current = { x: event.clientX, y: event.clientY }
     registerInteraction()
   }
@@ -387,7 +389,18 @@ function App() {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
     if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
+    suppressClick.current = true
+    window.setTimeout(() => {
+      suppressClick.current = false
+    }, 0)
     moveToPage(activePageIndex + (deltaX < 0 ? 1 : -1))
+  }
+
+  const handleClickCapture = (event: ReactMouseEvent<HTMLElement>) => {
+    if (!suppressClick.current) return
+    event.preventDefault()
+    event.stopPropagation()
+    suppressClick.current = false
   }
 
   const handlePointerCancel = (event: ReactPointerEvent<HTMLElement>) => {
@@ -403,6 +416,7 @@ function App() {
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
+      onClickCapture={handleClickCapture}
     >
       <div className="wallpaper" aria-hidden="true">
         <span className="orb orb-one" />
