@@ -1,4 +1,4 @@
-.tablet-shell { isolation: isolate; min-height: 100svh; overflow: hidden; position: relative; color: #f7f8ff; background: #101a32; user-select: none; }
+.tablet-shell { isolation: isolate; min-height: 100svh; overflow: hidden; position: relative; color: #f7f8ff; background: #101a32; touch-action: pan-y; user-select: none; }
 .wallpaper { inset: 0; overflow: hidden; position: fixed; z-index: -1; background: linear-gradient(135deg, #0f1830 0%, #172c4a 48%, #0a2135 100%); }
 .orb { position: absolute; width: 56vw; aspect-ratio: 1; border-radius: 50%; filter: blur(4px); opacity: .8; }
 .orb-one { top: -34vw; left: -10vw; background: radial-gradient(circle, rgba(86, 129, 255, .55), rgba(86, 129, 255, 0) 70%); }
@@ -43,6 +43,92 @@
 .focus-clock time { font-size: clamp(8rem, 24vw, 19rem); font-variant-numeric: tabular-nums; font-weight: 250; letter-spacing: -.085em; line-height: .9; margin: 18px 0; text-shadow: 0 30px 90px rgba(0, 8, 27, .3); }
 .focus-clock p { color: #cbd6ec; font-size: clamp(1.15rem, 2vw, 1.65rem); margin: 0; text-transform: capitalize; }
 
+.clock-page { min-height: 0; overflow: hidden; }
+.clock-module { background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.055)); border: 1px solid rgba(255,255,255,.15); border-radius: 30px; box-shadow: 0 24px 55px rgba(0, 8, 27, .18); display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; padding: 10px; backdrop-filter: blur(22px); }
+.clock-tabs { background: rgba(5, 15, 35, .25); border-radius: 20px; display: grid; flex: 0 0 auto; gap: 5px; grid-template-columns: repeat(3, 1fr); padding: 5px; }
+.clock-tabs button { align-items: center; background: transparent; border: 0; border-radius: 15px; color: #9eacc5; cursor: pointer; display: flex; font: inherit; font-size: .79rem; font-weight: 650; gap: 8px; justify-content: center; padding: 11px 14px; }
+.clock-tabs button > span { align-items: center; background: rgba(255,255,255,.1); border-radius: 99px; display: inline-flex; font-size: .62rem; height: 19px; justify-content: center; min-width: 19px; padding: 0 5px; }
+.clock-tabs button.is-active { background: rgba(116, 151, 245, .2); color: #fff; }
+.clock-module-focus { padding-bottom: 2vh; }
+.clock-tool-view { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow-y: auto; padding: clamp(20px, 3vw, 34px); scrollbar-color: rgba(255,255,255,.22) transparent; }
+.clock-tool-heading { align-items: center; display: flex; gap: 20px; justify-content: space-between; margin-bottom: 20px; }
+.clock-tool-heading .eyebrow { margin-bottom: 3px; }
+.clock-tool-heading h1 { font-size: clamp(1.45rem, 3vw, 2.1rem); letter-spacing: -.04em; margin: 0; }
+.clock-primary-button { align-items: center; background: #6f91f4; border: 0; border-radius: 13px; box-shadow: 0 8px 20px rgba(58, 95, 202, .25); color: #fff; cursor: pointer; display: inline-flex; font: inherit; font-size: .8rem; font-weight: 650; gap: 7px; padding: 11px 15px; }
+.alarm-list, .timer-list { display: grid; gap: 10px; }
+.alarm-row, .timer-row { align-items: center; background: rgba(4, 13, 31, .22); border: 1px solid rgba(255,255,255,.09); border-radius: 18px; display: grid; gap: 15px; padding: 15px; transition: opacity .2s ease, border-color .2s ease; }
+.alarm-row { grid-template-columns: 42px minmax(105px, 145px) 1fr 40px; }
+.alarm-row.is-disabled { opacity: .48; }
+.alarm-toggle, .clock-icon-button, .timer-actions button { align-items: center; background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.09); border-radius: 12px; color: #9eacc5; cursor: pointer; display: flex; height: 40px; justify-content: center; width: 40px; }
+.alarm-toggle.is-on { background: rgba(111, 145, 244, .22); border-color: rgba(144, 174, 255, .3); color: #c5d7ff; }
+.alarm-time-input { background: transparent; border: 0; color: #f5f7ff; color-scheme: dark; font: inherit; font-size: clamp(1.5rem, 3vw, 2rem); font-variant-numeric: tabular-nums; font-weight: 350; outline: none; width: 100%; }
+.alarm-copy { display: grid; gap: 4px; }
+.alarm-copy input { background: transparent; border: 0; color: #f2f5ff; font: inherit; font-size: .9rem; font-weight: 650; outline: none; padding: 3px 0; width: 100%; }
+.alarm-copy input:focus { border-bottom: 1px solid rgba(154, 184, 255, .55); }
+.alarm-copy small { color: #8493ad; font-size: .68rem; }
+.clock-icon-button.danger:hover, .timer-actions button.danger:hover { background: rgba(255, 111, 112, .14); color: #ffadad; }
+.native-feature-note { color: #8291aa; font-size: .68rem; line-height: 1.5; margin: auto 2px 0; padding-top: 18px; }
+.clock-empty { align-items: center; color: #8493ad; display: flex; flex-direction: column; gap: 7px; justify-content: center; min-height: 190px; text-align: center; }
+.clock-empty svg { color: #9eb9ff; }
+.clock-empty strong { color: #e8edfa; font-size: .9rem; margin-top: 5px; }
+.clock-empty span { font-size: .72rem; }
+.timer-presets { display: flex; gap: 7px; }
+.timer-presets button { background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.1); border-radius: 11px; color: #c8d3e9; cursor: pointer; font: inherit; font-size: .72rem; padding: 9px 11px; }
+.timer-creator { background: rgba(4, 13, 31, .2); border: 1px solid rgba(255,255,255,.075); border-radius: 17px; display: grid; gap: 10px; grid-template-columns: 1fr 112px auto; margin-bottom: 15px; padding: 11px; }
+.timer-creator > input, .timer-creator label { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08); border-radius: 11px; color: #fff; font: inherit; outline: none; }
+.timer-creator > input { padding: 0 13px; }
+.timer-creator label { align-items: center; display: flex; overflow: hidden; }
+.timer-creator label input { background: transparent; border: 0; color: #fff; flex: 1; font: inherit; min-width: 0; outline: none; padding: 9px 4px 9px 12px; }
+.timer-creator label span { color: #8493ad; font-size: .7rem; padding-right: 10px; }
+.timer-row { grid-template-columns: 58px 1fr auto; }
+.timer-row.is-finished { border-color: rgba(255, 193, 95, .35); box-shadow: inset 0 0 34px rgba(255, 193, 95, .055); }
+.timer-dial { align-items: center; background: rgba(112, 146, 239, .13); border-radius: 16px; color: #a9c1ff; display: flex; flex-direction: column; gap: 4px; height: 55px; justify-content: center; }
+.timer-dial span { font-size: .58rem; }
+.timer-copy { align-items: center; display: grid; gap: 10px; grid-template-columns: minmax(115px, 1fr) auto; min-width: 0; }
+.timer-copy > div { display: grid; gap: 3px; min-width: 0; }
+.timer-copy strong { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timer-copy small { color: #8493ad; font-size: .65rem; }
+.timer-copy time { font-size: clamp(1.45rem, 3vw, 2rem); font-variant-numeric: tabular-nums; font-weight: 350; }
+.timer-copy progress { appearance: none; grid-column: 1 / -1; height: 4px; width: 100%; }
+.timer-copy progress::-webkit-progress-bar { background: rgba(255,255,255,.09); border-radius: 99px; }
+.timer-copy progress::-webkit-progress-value { background: #7da0ff; border-radius: 99px; }
+.timer-actions { display: flex; gap: 6px; }
+.timer-actions button { height: 37px; width: 37px; }
+.timer-actions button.primary { background: #6f91f4; color: #fff; }
+
+.weather-page { min-height: 0; }
+.weather-layout { display: grid; flex: 1; gap: clamp(16px, 2vw, 24px); grid-template-columns: minmax(0, 1.45fr) minmax(300px, .85fr); min-height: 0; }
+.weather-current-panel, .weather-forecast-panel { background: linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.065)); border: 1px solid rgba(255,255,255,.16); border-radius: 30px; box-shadow: 0 24px 55px rgba(0, 8, 27, .18); min-height: 0; overflow: hidden; padding: clamp(22px, 3vw, 38px); backdrop-filter: blur(22px); }
+.weather-current-panel { display: flex; flex-direction: column; }
+.weather-page-heading, .forecast-heading { align-items: center; display: flex; justify-content: space-between; }
+.weather-page-heading > span { align-items: center; display: inline-flex; font-size: .94rem; font-weight: 650; gap: 7px; }
+.weather-page-heading small, .forecast-heading small { color: #92a1bd; font-size: .7rem; }
+.weather-current-main { align-items: center; display: flex; gap: clamp(18px, 3vw, 36px); margin: clamp(24px, 5vh, 46px) 0 clamp(20px, 4vh, 38px); }
+.weather-current-icon { align-items: center; background: linear-gradient(145deg, rgba(255, 205, 116, .2), rgba(255,255,255,.06)); border: 1px solid rgba(255, 217, 146, .15); border-radius: 28px; color: #ffd17e; display: flex; height: clamp(105px, 14vw, 145px); justify-content: center; width: clamp(105px, 14vw, 145px); }
+.weather-current-main strong { font-size: clamp(5rem, 10vw, 8rem); font-weight: 280; letter-spacing: -.085em; line-height: .78; }
+.weather-current-main p { color: #eef3ff; font-size: clamp(1rem, 1.7vw, 1.3rem); font-weight: 600; margin: 18px 0 5px; }
+.weather-current-main span { color: #aab8d1; font-size: .79rem; }
+.weather-stats { display: grid; gap: 10px; grid-template-columns: repeat(3, 1fr); }
+.weather-stats > div { align-items: center; background: rgba(4, 14, 33, .2); border: 1px solid rgba(255,255,255,.075); border-radius: 15px; color: #a9c7ff; display: flex; gap: 10px; min-width: 0; padding: 12px; }
+.weather-stats span { color: #93a1ba; display: grid; font-size: .67rem; gap: 2px; min-width: 0; }
+.weather-stats strong { color: #edf2ff; font-size: .79rem; white-space: nowrap; }
+.hourly-forecast { border-top: 1px solid rgba(255,255,255,.1); display: grid; gap: 8px; grid-template-columns: repeat(5, 1fr); margin-top: auto; padding-top: clamp(20px, 3vh, 30px); }
+.hourly-forecast > div { align-items: center; color: #b9c7df; display: flex; flex-direction: column; gap: 10px; }
+.hourly-forecast span { font-size: .69rem; }
+.hourly-forecast svg { color: #ffd17e; }
+.hourly-forecast strong { color: #f4f7ff; font-size: .94rem; }
+.weather-forecast-panel { display: flex; flex-direction: column; }
+.forecast-heading { border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 17px; }
+.forecast-heading > span { font-size: .96rem; font-weight: 700; }
+.daily-forecast { display: grid; }
+.daily-forecast-row { align-items: center; border-bottom: 1px solid rgba(255,255,255,.075); display: grid; gap: 12px; grid-template-columns: 38px 1fr auto; padding: clamp(15px, 2.4vh, 22px) 0; }
+.daily-icon { color: #ffd17e; display: flex; }
+.daily-copy { display: grid; gap: 4px; }
+.daily-copy strong, .daily-forecast-row > strong { font-size: .82rem; }
+.daily-copy small { color: #8f9db7; font-size: .68rem; }
+.daily-forecast-row > strong { white-space: nowrap; }
+.weather-source-note { color: #8695ae; font-size: .68rem; line-height: 1.5; margin: auto 0 0; padding-top: 20px; }
+
 .notes-workspace { background: linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.07)); border: 1px solid rgba(255,255,255,.16); border-radius: 30px; box-shadow: 0 24px 55px rgba(0, 8, 27, .18); display: flex; flex: 1; flex-direction: column; min-height: 0; padding: clamp(24px, 3vw, 42px); backdrop-filter: blur(22px); }
 .notes-title { align-items: center; display: flex; gap: 14px; }
 .notes-title h1 { font-size: clamp(1.25rem, 2vw, 1.7rem); margin: 0; }
@@ -51,6 +137,58 @@
 .notes-workspace textarea:focus { border-color: rgba(158, 189, 255, .65); box-shadow: 0 0 0 4px rgba(127, 163, 255, .1); }
 .notes-workspace textarea::placeholder { color: #8493af; }
 .notes-meta { color: #9eacc5; display: flex; font-size: .76rem; justify-content: space-between; }
+
+.heading-icon.green { background: rgba(92, 221, 165, .16); color: #9cf0ca; }
+.heading-icon.amber { background: rgba(255, 191, 92, .16); color: #ffd18a; }
+.note-color-coral { --note-accent: #ff9d7e; }
+.note-color-blue { --note-accent: #78a4ff; }
+.note-color-green { --note-accent: #62dca8; }
+.note-color-amber { --note-accent: #ffc15f; }
+
+.notes-page { overflow: hidden; }
+.notes-manager { background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.065)); border: 1px solid rgba(255,255,255,.16); border-radius: 28px; box-shadow: 0 24px 55px rgba(0, 8, 27, .18); display: grid; flex: 1; grid-template-columns: minmax(245px, 29%) 1fr; min-height: 0; overflow: hidden; backdrop-filter: blur(22px); }
+.notes-sidebar { background: rgba(4, 13, 31, .2); border-right: 1px solid rgba(255,255,255,.1); display: flex; flex-direction: column; min-height: 0; padding: 20px; }
+.notes-sidebar-header { align-items: center; display: flex; justify-content: space-between; }
+.notes-sidebar-header > div { display: grid; gap: 2px; }
+.notes-sidebar-header strong { font-size: 1.45rem; }
+.notes-kicker { color: #9dadcb; font-size: .7rem; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
+.icon-button { align-items: center; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.12); border-radius: 13px; color: #fff; cursor: pointer; display: flex; height: 41px; justify-content: center; width: 41px; }
+.icon-button.primary { background: #6f91f4; border-color: transparent; box-shadow: 0 8px 20px rgba(58, 95, 202, .27); }
+.notes-filter { background: rgba(4, 12, 29, .22); border-radius: 12px; display: grid; gap: 4px; grid-template-columns: 1fr 1fr; margin: 16px 0 12px; padding: 4px; }
+.notes-filter button { background: transparent; border: 0; border-radius: 9px; color: #9facbf; cursor: pointer; font: inherit; font-size: .71rem; padding: 8px 5px; }
+.notes-filter button.is-active { background: rgba(255,255,255,.12); color: #fff; }
+.notes-list { display: grid; gap: 8px; min-height: 0; overflow-y: auto; padding: 1px 4px 20px 1px; scrollbar-color: rgba(255,255,255,.2) transparent; }
+.note-list-item { background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.08); border-left: 3px solid var(--note-accent); border-radius: 13px; color: #dce4f4; cursor: pointer; display: grid; font: inherit; gap: 5px; padding: 12px; text-align: left; width: 100%; }
+.note-list-item:hover { background: rgba(255,255,255,.09); }
+.note-list-item.is-active { background: rgba(126, 158, 244, .16); border-color: rgba(154, 182, 255, .34); border-left-color: var(--note-accent); }
+.note-list-heading { align-items: center; display: flex; gap: 6px; justify-content: space-between; }
+.note-list-heading strong { font-size: .83rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-list-preview { color: #9facc4; display: block; font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-list-item small { color: #7786a2; font-size: .65rem; }
+.notes-list-empty { align-items: center; color: #8795af; display: flex; flex-direction: column; font-size: .76rem; gap: 8px; justify-content: center; min-height: 150px; text-align: center; }
+
+.note-editor { display: flex; flex-direction: column; min-height: 0; padding: clamp(22px, 3vw, 38px); }
+.note-editor-toolbar { align-items: center; display: flex; justify-content: space-between; }
+.note-color-dot { background: var(--note-accent); border-radius: 99px; box-shadow: 0 0 0 6px color-mix(in srgb, var(--note-accent) 14%, transparent); display: block; height: 10px; width: 10px; }
+.note-editor-actions { display: flex; gap: 7px; }
+.note-editor-actions button { align-items: center; background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.1); border-radius: 11px; color: #aebbd4; cursor: pointer; display: flex; height: 37px; justify-content: center; width: 37px; }
+.note-editor-actions button:hover, .note-editor-actions button.is-active { background: rgba(123, 157, 244, .2); color: #dce7ff; }
+.note-editor-actions button.danger:hover { background: rgba(255, 111, 112, .14); color: #ffadad; }
+.note-title-input { background: transparent; border: 0; border-bottom: 1px solid rgba(255,255,255,.08); color: #f6f8ff; font: inherit; font-size: clamp(1.55rem, 3vw, 2.35rem); font-weight: 650; letter-spacing: -.035em; margin-top: 12px; outline: none; padding: 8px 0 14px; width: 100%; }
+.note-title-input::placeholder { color: #7f8da7; }
+.note-title-input:disabled { opacity: .72; }
+.note-editor textarea { background: transparent; border: 0; color: #dae2f2; flex: 1; font: inherit; font-size: clamp(.95rem, 1.5vw, 1.15rem); line-height: 1.7; min-height: 150px; outline: none; padding: 18px 0; resize: none; }
+.note-editor textarea::placeholder { color: #78869f; }
+.note-editor textarea:disabled { opacity: .65; }
+.note-editor-footer { align-items: center; color: #8997b0; display: flex; font-size: .7rem; justify-content: space-between; }
+.note-colors { display: flex; gap: 8px; }
+.note-colors button { background: var(--note-accent); border: 2px solid transparent; border-radius: 99px; cursor: pointer; height: 18px; opacity: .55; padding: 0; width: 18px; }
+.note-colors button.is-active { border-color: #fff; opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--note-accent) 16%, transparent); }
+.note-colors button:disabled { cursor: default; opacity: .3; }
+.note-editor-empty { align-items: center; color: #9eabc3; display: flex; flex: 1; flex-direction: column; justify-content: center; text-align: center; }
+.note-editor-empty h1 { color: #f5f7ff; font-size: 1.35rem; margin: 15px 0 6px; }
+.note-editor-empty p { font-size: .82rem; margin: 0 0 18px; }
+.create-note-button { align-items: center; background: #6f91f4; border: 0; border-radius: 13px; color: #fff; cursor: pointer; display: inline-flex; font: inherit; font-size: .82rem; gap: 7px; padding: 10px 14px; }
 
 .settings-page { max-height: calc(100svh - clamp(52px, 8vw, 108px)); overflow-y: auto; padding: 2px 4px 100px; scrollbar-color: rgba(255,255,255,.24) transparent; }
 .settings-section { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 26px; margin-bottom: 20px; padding: clamp(18px, 3vw, 28px); }
@@ -77,6 +215,15 @@
   .note-card, .agenda-card { min-height: 165px; }
   .note-content { margin: 16px 0 10px; }
   .focus-clock time { font-size: clamp(7rem, 20vw, 12rem); }
+  .weather-current-main { margin: 16px 0; }
+  .weather-current-icon { height: 88px; width: 88px; }
+  .weather-current-main strong { font-size: 5.4rem; }
+  .daily-forecast-row { padding: 11px 0; }
+  .weather-source-note { padding-top: 12px; }
+  .clock-tool-view { padding-bottom: 18px; padding-top: 18px; }
+  .clock-tool-heading { margin-bottom: 13px; }
+  .alarm-row, .timer-row { padding: 11px 13px; }
+  .clock-empty { min-height: 125px; }
 }
 
 @media (max-width: 720px) {
@@ -88,4 +235,29 @@
   .tablet-shell.has-navigation .page-indicators { bottom: 91px; }
   .settings-page { max-height: none; overflow: visible; }
   .settings-header { align-items: center; }
+  .notes-page { overflow: visible; }
+  .notes-manager { display: flex; flex-direction: column; min-height: 820px; overflow: visible; }
+  .notes-sidebar { border-bottom: 1px solid rgba(255,255,255,.1); border-right: 0; flex: 0 0 285px; }
+  .notes-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .note-editor { flex: 1; min-height: 470px; }
+  .weather-page { min-height: 900px; }
+  .weather-layout { grid-template-columns: 1fr; }
+  .weather-current-main { margin: 28px 0; }
+  .weather-stats { grid-template-columns: 1fr; }
+  .hourly-forecast { margin-top: 25px; }
+  .clock-page { min-height: 760px; overflow: visible; }
+  .clock-module { overflow: visible; }
+  .clock-tabs button { font-size: .7rem; padding: 10px 5px; }
+  .clock-tabs button > span { display: none; }
+  .clock-tool-view { overflow: visible; padding: 18px 10px 24px; }
+  .clock-tool-heading { align-items: flex-start; flex-direction: column; }
+  .timer-heading { gap: 12px; }
+  .alarm-row { grid-template-columns: 40px 1fr 40px; }
+  .alarm-time-input { grid-column: 2; }
+  .alarm-copy { grid-column: 1 / -1; grid-row: 2; padding-left: 55px; }
+  .clock-icon-button { grid-column: 3; grid-row: 1; }
+  .timer-creator { grid-template-columns: 1fr 90px; }
+  .timer-creator .clock-primary-button { grid-column: 1 / -1; justify-content: center; }
+  .timer-row { grid-template-columns: 50px 1fr; }
+  .timer-actions { grid-column: 1 / -1; justify-content: flex-end; }
 }
