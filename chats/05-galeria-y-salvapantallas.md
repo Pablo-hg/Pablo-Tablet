@@ -1,5 +1,7 @@
 # Galería y salvapantallas
 
+> **Documento histórico.** Su alcance inicial fue ampliado y sustituido por [la especificación funcional vigente](../ESPECIFICACION-FUNCIONAL.md).
+
 - Proyecto de origen: ChatGPT / Pablo Tablet
 - ID de conversación: `6aaa725c-8e84-83eb-8d12-71878e3d766b`
 - Creado: 2026-09-16T10:41:33.894Z
@@ -34,4 +36,3 @@ Usa esta conversación únicamente como contexto del proyecto **Pablo Tablet**. 
 Entendido. Usaré esa conversación únicamente como contexto del proyecto **Pablo Tablet**, sin desarrollar código, sin tomar nuevas decisiones y sin avanzar por mi cuenta.
 
 Quedo a la espera de tus siguientes instrucciones.
-

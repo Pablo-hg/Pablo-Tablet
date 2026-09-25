@@ -1,5 +1,7 @@
 # Calendario e integración Google
 
+> **Documento histórico.** Google Calendar quedó pospuesto hasta después del MVP. Para el alcance vigente del calendario local, consulta [la especificación funcional](../ESPECIFICACION-FUNCIONAL.md).
+
 - Proyecto de origen: ChatGPT / Pablo Tablet
 - ID de conversación: `6aaa7252-e4bc-83ed-bb67-fe89cc6426cd`
 - Creado: 2026-09-16T10:41:24.382Z
@@ -59,4 +61,3 @@ Usa esta conversación únicamente como contexto del proyecto **Pablo Tablet**. 
 Entendido. Usaré esa conversación únicamente como contexto del proyecto **Pablo Tablet** y, por ahora, no desarrollaré código ni tomaré decisiones nuevas.
 
 Espero tus siguientes instrucciones.
-

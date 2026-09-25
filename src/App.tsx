@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { LocalNotifications } from '@capacitor/local-notifications'
 import {
   AlarmClock,
   Archive,
-  ArchiveRestore,
-  Bell,
+  BellRing,
   CalendarDays,
   Check,
   ChevronRight,
@@ -12,6 +13,7 @@ import {
   CloudRain,
   CloudSun,
   Compass,
+  Droplets,
   FileText,
   Home,
   LockKeyhole,
@@ -19,40 +21,37 @@ import {
   Maximize,
   Menu,
   Pause,
-  Pin,
   Play,
+  Pin,
   Plus,
-  RotateCw,
   RotateCcw,
+  RotateCw,
   Settings,
-  Sunrise,
   SunMedium,
-  Timer,
+  Sunrise,
   Trash2,
-  Wind,
-  Droplets,
   Volume2,
+  Wind,
   X,
 } from 'lucide-react'
 import {
-  createAlarm,
-  createCountdownTimer,
-  createNote,
   DASHBOARD_PAGES,
-  getDashboardNote,
   loadDashboardState,
   saveDashboardState,
-  type Alarm,
-  type CountdownTimer,
   type DashboardPageDefinition,
   type DashboardPageId,
-  type DashboardPreferences,
+  type Alarm,
   type Note,
   type NoteColor,
+  type Timer,
+  type DashboardPreferences,
 } from './dashboardState'
+import { syncAlarmNotifications, syncReminderNotifications } from './reminderNotifications'
+import { placeWidgets, type DashboardOrientation, type PlacedWidget } from './widgetLayout'
 import './App.css'
 
 type Screen = 'home' | 'settings'
+type SimulatedAlert = { title: string; body: string }
 
 const weekdayFormatter = new Intl.DateTimeFormat('es-ES', {
   weekday: 'long',
@@ -66,24 +65,6 @@ const timeFormatter = new Intl.DateTimeFormat('es-ES', {
   hour12: false,
 })
 
-function getTimerRemaining(timer: CountdownTimer, now: Date) {
-  if (timer.status !== 'running' || !timer.endsAt) return timer.remainingSeconds
-  return Math.max(0, Math.min(
-    timer.remainingSeconds,
-    Math.ceil((new Date(timer.endsAt).getTime() - now.getTime()) / 1000),
-  ))
-}
-
-function formatDuration(totalSeconds: number) {
-  const safeSeconds = Math.max(0, totalSeconds)
-  const hours = Math.floor(safeSeconds / 3600)
-  const minutes = Math.floor((safeSeconds % 3600) / 60)
-  const seconds = safeSeconds % 60
-  return hours > 0
-    ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-    : `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-}
-
 function App() {
   const [screen, setScreen] = useState<Screen>('home')
   const [navigationVisible, setNavigationVisible] = useState(false)
@@ -92,8 +73,10 @@ function App() {
   const [activePageId, setActivePageId] = useState<DashboardPageId>('dashboard')
   const [interactionVersion, setInteractionVersion] = useState(0)
   const [interactionLocked, setInteractionLocked] = useState(false)
-  const pointerStart = useRef<{ x: number; y: number } | null>(null)
+  const [simulatedAlert, setSimulatedAlert] = useState<SimulatedAlert | null>(null)
+  const pointerStart = useRef<{ x: number; y: number; pointerId: number } | null>(null)
   const suppressClick = useRef(false)
+  const deliveredSimulationIds = useRef(new Set<string>())
 
   const enabledPages = useMemo(
     () => DASHBOARD_PAGES.filter((page) => dashboardState.preferences.enabledPageIds.includes(page.id)),
@@ -105,19 +88,7 @@ function App() {
   const date = weekdayFormatter.format(now)
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      const nextNow = new Date()
-      setNow(nextNow)
-      setDashboardState((current) => {
-        let changed = false
-        const timers = current.timers.map((timer) => {
-          if (timer.status !== 'running' || !timer.endsAt || new Date(timer.endsAt).getTime() > nextNow.getTime()) return timer
-          changed = true
-          return { ...timer, status: 'finished' as const, remainingSeconds: 0, endsAt: null }
-        })
-        return changed ? { ...current, timers } : current
-      })
-    }, 1000)
+    const interval = window.setInterval(() => setNow(new Date()), 1_000)
     return () => window.clearInterval(interval)
   }, [])
 
@@ -125,10 +96,72 @@ function App() {
     saveDashboardState(dashboardState)
   }, [dashboardState])
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void syncReminderNotifications(dashboardState.notes), 600)
+    return () => window.clearTimeout(timeout)
+  }, [dashboardState.notes])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void syncAlarmNotifications(dashboardState.alarms), 600)
+    return () => window.clearTimeout(timeout)
+  }, [dashboardState.alarms])
+
   const registerInteraction = useCallback(() => {
     setNavigationVisible(true)
     setInteractionVersion((version) => version + 1)
   }, [])
+
+  const showSimulatedAlert = useCallback((title: string, body: string) => {
+    setSimulatedAlert({ title, body })
+  }, [])
+
+  useEffect(() => {
+    const finished = dashboardState.timers.filter((timer) => timer.endsAt && new Date(timer.endsAt).getTime() <= now.getTime())
+    if (finished.length === 0) return
+    const timeout = window.setTimeout(() => {
+      setDashboardState((current) => ({ ...current, timers: current.timers.map((timer) => finished.some((item) => item.id === timer.id) ? { ...timer, remainingSeconds: 0, endsAt: null } : timer) }))
+      const timer = finished[0]
+      showSimulatedAlert(timer.label || 'Temporizador', 'El temporizador ha terminado.')
+    }, 0)
+    return () => window.clearTimeout(timeout)
+  }, [dashboardState.timers, now, showSimulatedAlert])
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return
+    const cutoff = now.getTime() - 35_000
+    const dueNote = dashboardState.notes.find((note) => !note.archived && note.reminderAt && new Date(note.reminderAt).getTime() <= now.getTime() && new Date(note.reminderAt).getTime() > cutoff && !deliveredSimulationIds.current.has(`note:${note.id}:${note.reminderAt}`))
+    if (dueNote) {
+      deliveredSimulationIds.current.add(`note:${dueNote.id}:${dueNote.reminderAt}`)
+      showSimulatedAlert(dueNote.title || 'Recordatorio', dueNote.content || 'Tienes un recordatorio en Pablo Tablet.')
+      return
+    }
+    const currentTime = timeFormatter.format(now)
+    const dueAlarm = dashboardState.alarms.find((alarm) => alarm.enabled && alarm.time === currentTime && !deliveredSimulationIds.current.has(`alarm:${alarm.id}:${now.toDateString()}`))
+    if (dueAlarm) {
+      deliveredSimulationIds.current.add(`alarm:${dueAlarm.id}:${now.toDateString()}`)
+      showSimulatedAlert(dueAlarm.label || 'Alarma', `Alarma programada para las ${dueAlarm.time}.`)
+    }
+  }, [dashboardState.alarms, dashboardState.notes, now, showSimulatedAlert])
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+    let removeListener: (() => void) | undefined
+
+    void LocalNotifications.addListener('localNotificationActionPerformed', ({ notification }) => {
+      const noteId = notification.extra?.noteId
+      if (typeof noteId !== 'string') return
+      setDashboardState((current) => current.preferences.enabledPageIds.includes('notes') ? current : {
+        ...current,
+        preferences: { ...current.preferences, enabledPageIds: [...current.preferences.enabledPageIds, 'notes'] },
+      })
+      window.location.hash = `note=${noteId}`
+      setActivePageId('notes')
+      setScreen('home')
+      registerInteraction()
+    }).then((listener) => { removeListener = () => listener.remove() })
+
+    return () => removeListener?.()
+  }, [registerInteraction])
 
   useEffect(() => {
     if (!navigationVisible) return
@@ -203,7 +236,72 @@ function App() {
     })
   }
 
-  const openNotes = () => {
+  const createNote = () => {
+    const now = new Date().toISOString()
+    const note: Note = {
+      id: crypto.randomUUID(),
+      title: 'Nueva nota',
+      content: '',
+      color: 'coral',
+      pinned: false,
+      reminderAt: null,
+      archived: false,
+      createdAt: now,
+      updatedAt: now,
+    }
+    setDashboardState((current) => ({ ...current, notes: [note, ...current.notes] }))
+    return note.id
+  }
+
+  const updateNote = (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned' | 'reminderAt'>>) => {
+    setDashboardState((current) => ({
+      ...current,
+      notes: current.notes.map((note) => note.id === noteId ? { ...note, ...patch, updatedAt: new Date().toISOString() } : note),
+    }))
+  }
+
+  const archiveNote = (noteId: string) => {
+    setDashboardState((current) => ({
+      ...current,
+      notes: current.notes.map((note) => note.id === noteId ? { ...note, archived: true, pinned: false, updatedAt: new Date().toISOString() } : note),
+    }))
+  }
+
+  const restoreNote = (noteId: string) => {
+    setDashboardState((current) => ({
+      ...current,
+      notes: current.notes.map((note) => note.id === noteId ? { ...note, archived: false, updatedAt: new Date().toISOString() } : note),
+    }))
+  }
+
+  const deleteNote = (noteId: string) => {
+    setDashboardState((current) => ({ ...current, notes: current.notes.filter((note) => note.id !== noteId) }))
+  }
+
+  const createAlarm = () => {
+    const now = new Date()
+    now.setMinutes(now.getMinutes() + 5, 0, 0)
+    const time = now.toTimeString().slice(0, 5)
+    const alarm: Alarm = { id: crypto.randomUUID(), label: 'Alarma', time, enabled: true, createdAt: new Date().toISOString() }
+    setDashboardState((current) => ({ ...current, alarms: [...current.alarms, alarm] }))
+  }
+
+  const updateAlarm = (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled'>>) => {
+    setDashboardState((current) => ({ ...current, alarms: current.alarms.map((alarm) => alarm.id === alarmId ? { ...alarm, ...patch } : alarm) }))
+  }
+
+  const deleteAlarm = (alarmId: string) => {
+    setDashboardState((current) => ({ ...current, alarms: current.alarms.filter((alarm) => alarm.id !== alarmId) }))
+  }
+
+  const createTimer = () => {
+    const timer: Timer = { id: crypto.randomUUID(), label: 'Temporizador', durationSeconds: 300, remainingSeconds: 300, endsAt: null, createdAt: new Date().toISOString() }
+    setDashboardState((current) => ({ ...current, timers: [...current.timers, timer] }))
+  }
+  const updateTimer = (timerId: string, patch: Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt'>>) => setDashboardState((current) => ({ ...current, timers: current.timers.map((timer) => timer.id === timerId ? { ...timer, ...patch } : timer) }))
+  const deleteTimer = (timerId: string) => setDashboardState((current) => ({ ...current, timers: current.timers.filter((timer) => timer.id !== timerId) }))
+
+  const openNotes = (noteId?: string) => {
     if (!dashboardState.preferences.enabledPageIds.includes('notes')) {
       updatePreferences({
         enabledPageIds: DASHBOARD_PAGES
@@ -211,26 +309,8 @@ function App() {
           .filter((id) => dashboardState.preferences.enabledPageIds.includes(id) || id === 'notes'),
       })
     }
-    setDashboardState((current) => ({
-      ...current,
-      activeNoteId: current.activeNoteId
-        ?? getDashboardNote(current.notes)?.id
-        ?? current.notes[0]?.id
-        ?? null,
-    }))
     setActivePageId('notes')
-    registerInteraction()
-  }
-
-  const openClock = () => {
-    if (!dashboardState.preferences.enabledPageIds.includes('clock')) {
-      updatePreferences({
-        enabledPageIds: DASHBOARD_PAGES
-          .map((page) => page.id)
-          .filter((id) => dashboardState.preferences.enabledPageIds.includes(id) || id === 'clock'),
-      })
-    }
-    setActivePageId('clock')
+    if (noteId) window.location.hash = `note=${noteId}`
     registerInteraction()
   }
 
@@ -246,125 +326,6 @@ function App() {
     registerInteraction()
   }
 
-  const createNewNote = () => {
-    const note = createNote()
-    setDashboardState((current) => ({
-      ...current,
-      notes: [...current.notes, note],
-      activeNoteId: note.id,
-      preferences: {
-        ...current.preferences,
-        enabledPageIds: current.preferences.enabledPageIds.includes('notes')
-          ? current.preferences.enabledPageIds
-          : [...current.preferences.enabledPageIds, 'notes'],
-      },
-    }))
-    setActivePageId('notes')
-    registerInteraction()
-  }
-
-  const updateNote = (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned'>>) => {
-    setDashboardState((current) => ({
-      ...current,
-      notes: current.notes.map((note) => note.id === noteId
-        ? { ...note, ...patch, updatedAt: new Date().toISOString() }
-        : note),
-    }))
-  }
-
-  const archiveNote = (noteId: string) => {
-    setDashboardState((current) => {
-      const nextNotes = current.notes.map((note) => note.id === noteId
-        ? { ...note, archived: true, pinned: false, updatedAt: new Date().toISOString() }
-        : note)
-      return {
-        ...current,
-        notes: nextNotes,
-        activeNoteId: nextNotes.find((note) => !note.archived)?.id ?? null,
-      }
-    })
-  }
-
-  const restoreNote = (noteId: string) => {
-    setDashboardState((current) => ({
-      ...current,
-      notes: current.notes.map((note) => note.id === noteId
-        ? { ...note, archived: false, updatedAt: new Date().toISOString() }
-        : note),
-      activeNoteId: noteId,
-    }))
-  }
-
-  const deleteNote = (noteId: string) => {
-    setDashboardState((current) => {
-      const nextNotes = current.notes.filter((note) => note.id !== noteId)
-      return {
-        ...current,
-        notes: nextNotes,
-        activeNoteId: nextNotes.find((note) => !note.archived)?.id ?? nextNotes[0]?.id ?? null,
-      }
-    })
-  }
-
-  const addAlarm = () => {
-    const alarm = createAlarm()
-    setDashboardState((current) => ({ ...current, alarms: [...current.alarms, alarm] }))
-  }
-
-  const updateAlarm = (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled'>>) => {
-    setDashboardState((current) => ({
-      ...current,
-      alarms: current.alarms.map((alarm) => alarm.id === alarmId ? { ...alarm, ...patch } : alarm),
-    }))
-  }
-
-  const deleteAlarm = (alarmId: string) => {
-    setDashboardState((current) => ({ ...current, alarms: current.alarms.filter((alarm) => alarm.id !== alarmId) }))
-  }
-
-  const addTimer = (minutes: number, label: string) => {
-    const timer = createCountdownTimer(minutes * 60, label)
-    setDashboardState((current) => ({ ...current, timers: [...current.timers, timer] }))
-  }
-
-  const startTimer = (timerId: string) => {
-    setDashboardState((current) => ({
-      ...current,
-      timers: current.timers.map((timer) => {
-        if (timer.id !== timerId) return timer
-        const remainingSeconds = timer.remainingSeconds > 0 ? timer.remainingSeconds : timer.durationSeconds
-        return {
-          ...timer,
-          remainingSeconds,
-          status: 'running',
-          endsAt: new Date(Date.now() + remainingSeconds * 1000).toISOString(),
-        }
-      }),
-    }))
-  }
-
-  const pauseTimer = (timerId: string) => {
-    setDashboardState((current) => ({
-      ...current,
-      timers: current.timers.map((timer) => timer.id === timerId
-        ? { ...timer, remainingSeconds: getTimerRemaining(timer, new Date()), status: 'paused', endsAt: null }
-        : timer),
-    }))
-  }
-
-  const resetTimer = (timerId: string) => {
-    setDashboardState((current) => ({
-      ...current,
-      timers: current.timers.map((timer) => timer.id === timerId
-        ? { ...timer, remainingSeconds: timer.durationSeconds, status: 'idle', endsAt: null }
-        : timer),
-    }))
-  }
-
-  const deleteTimer = (timerId: string) => {
-    setDashboardState((current) => ({ ...current, timers: current.timers.filter((timer) => timer.id !== timerId) }))
-  }
-
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     const target = event.target as HTMLElement
     const isWidget = target.closest('.widget-card')
@@ -375,19 +336,17 @@ function App() {
       return
     }
 
+    pointerStart.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId }
     if (!isWidget) event.currentTarget.setPointerCapture(event.pointerId)
-    pointerStart.current = { x: event.clientX, y: event.clientY }
     registerInteraction()
   }
 
   const handlePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
-    if (!pointerStart.current || screen !== 'home') return
+    if (!pointerStart.current || pointerStart.current.pointerId !== event.pointerId || screen !== 'home') return
     const deltaX = event.clientX - pointerStart.current.x
     const deltaY = event.clientY - pointerStart.current.y
     pointerStart.current = null
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
     suppressClick.current = true
     window.setTimeout(() => {
@@ -404,10 +363,9 @@ function App() {
   }
 
   const handlePointerCancel = (event: ReactPointerEvent<HTMLElement>) => {
+    if (pointerStart.current?.pointerId !== event.pointerId) return
     pointerStart.current = null
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
   }
 
   return (
@@ -429,30 +387,27 @@ function App() {
           <DashboardPage
             key={activePage.id}
             page={activePage}
+            now={now}
             time={time}
             date={date}
-            now={now}
+            widgets={dashboardState.widgets}
             notes={dashboardState.notes}
             alarms={dashboardState.alarms}
             timers={dashboardState.timers}
-            activeNoteId={dashboardState.activeNoteId}
-            onOpenClock={openClock}
-            onOpenNotes={openNotes}
-            onOpenWeather={openWeather}
-            onAddAlarm={addAlarm}
-            onUpdateAlarm={updateAlarm}
-            onDeleteAlarm={deleteAlarm}
-            onAddTimer={addTimer}
-            onStartTimer={startTimer}
-            onPauseTimer={pauseTimer}
-            onResetTimer={resetTimer}
-            onDeleteTimer={deleteTimer}
-            onCreateNote={createNewNote}
-            onSelectNote={(activeNoteId) => setDashboardState((current) => ({ ...current, activeNoteId }))}
+            onCreateNote={createNote}
             onUpdateNote={updateNote}
             onArchiveNote={archiveNote}
             onRestoreNote={restoreNote}
             onDeleteNote={deleteNote}
+            onCreateAlarm={createAlarm}
+            onUpdateAlarm={updateAlarm}
+            onDeleteAlarm={deleteAlarm}
+            onPreviewNotification={showSimulatedAlert}
+            onCreateTimer={createTimer}
+            onUpdateTimer={updateTimer}
+            onDeleteTimer={deleteTimer}
+            onOpenNotes={openNotes}
+            onOpenWeather={openWeather}
             onEditingChange={(isEditing) => {
               setInteractionLocked(isEditing)
               if (!isEditing) registerInteraction()
@@ -467,6 +422,8 @@ function App() {
           />
         )}
       </section>
+
+      {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>Simulación web de aviso local</small></div><button type="button" onClick={() => setSimulatedAlert(null)} aria-label="Cerrar aviso"><X size={18} /></button></div> : null}
 
       {screen === 'home' && enabledPages.length > 1 ? (
         <nav className="page-indicators" aria-label="Páginas del dashboard">
@@ -523,108 +480,57 @@ function App() {
 
 function DashboardPage({
   page,
+  now,
   time,
   date,
-  now,
+  widgets,
   notes,
   alarms,
   timers,
-  activeNoteId,
-  onOpenClock,
-  onOpenNotes,
-  onOpenWeather,
-  onAddAlarm,
-  onUpdateAlarm,
-  onDeleteAlarm,
-  onAddTimer,
-  onStartTimer,
-  onPauseTimer,
-  onResetTimer,
-  onDeleteTimer,
   onCreateNote,
-  onSelectNote,
   onUpdateNote,
   onArchiveNote,
   onRestoreNote,
   onDeleteNote,
+  onCreateAlarm,
+  onUpdateAlarm,
+  onDeleteAlarm,
+  onCreateTimer,
+  onUpdateTimer,
+  onDeleteTimer,
+  onPreviewNotification,
+  onOpenNotes,
+  onOpenWeather,
   onEditingChange,
 }: {
   page: DashboardPageDefinition
+  now: Date
   time: string
   date: string
-  now: Date
+  widgets: import('./widgetLayout').DashboardWidget[]
   notes: Note[]
   alarms: Alarm[]
-  timers: CountdownTimer[]
-  activeNoteId: string | null
-  onOpenClock: () => void
-  onOpenNotes: () => void
-  onOpenWeather: () => void
-  onAddAlarm: () => void
-  onUpdateAlarm: (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled'>>) => void
-  onDeleteAlarm: (alarmId: string) => void
-  onAddTimer: (minutes: number, label: string) => void
-  onStartTimer: (timerId: string) => void
-  onPauseTimer: (timerId: string) => void
-  onResetTimer: (timerId: string) => void
-  onDeleteTimer: (timerId: string) => void
-  onCreateNote: () => void
-  onSelectNote: (noteId: string) => void
-  onUpdateNote: (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned'>>) => void
+  timers: Timer[]
+  onCreateNote: () => string
+  onUpdateNote: (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned' | 'reminderAt'>>) => void
   onArchiveNote: (noteId: string) => void
   onRestoreNote: (noteId: string) => void
   onDeleteNote: (noteId: string) => void
+  onCreateAlarm: () => void
+  onUpdateAlarm: (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled'>>) => void
+  onDeleteAlarm: (alarmId: string) => void
+  onCreateTimer: () => void
+  onUpdateTimer: (timerId: string, patch: Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt'>>) => void
+  onDeleteTimer: (timerId: string) => void
+  onPreviewNotification: (title: string, body: string) => void
+  onOpenNotes: (noteId?: string) => void
+  onOpenWeather: () => void
   onEditingChange: (isEditing: boolean) => void
 }) {
-  if (page.id === 'clock') {
-    return (
-      <ClockPage
-        time={time}
-        date={date}
-        now={now}
-        alarms={alarms}
-        timers={timers}
-        onAddAlarm={onAddAlarm}
-        onUpdateAlarm={onUpdateAlarm}
-        onDeleteAlarm={onDeleteAlarm}
-        onAddTimer={onAddTimer}
-        onStartTimer={onStartTimer}
-        onPauseTimer={onPauseTimer}
-        onResetTimer={onResetTimer}
-        onDeleteTimer={onDeleteTimer}
-        onEditingChange={onEditingChange}
-      />
-    )
-  }
+  if (page.id === 'clock') return <ClockPage time={time} date={date} now={now} alarms={alarms} timers={timers} onCreateAlarm={onCreateAlarm} onUpdateAlarm={onUpdateAlarm} onDeleteAlarm={onDeleteAlarm} onCreateTimer={onCreateTimer} onUpdateTimer={onUpdateTimer} onDeleteTimer={onDeleteTimer} onPreviewNotification={onPreviewNotification} />
   if (page.id === 'weather') return <WeatherPage />
-  if (page.id === 'notes') {
-    return (
-      <NotesPage
-        notes={notes}
-        activeNoteId={activeNoteId}
-        onCreateNote={onCreateNote}
-        onSelectNote={onSelectNote}
-        onUpdateNote={onUpdateNote}
-        onArchiveNote={onArchiveNote}
-        onRestoreNote={onRestoreNote}
-        onDeleteNote={onDeleteNote}
-        onEditingChange={onEditingChange}
-      />
-    )
-  }
-  return (
-    <GridDashboard
-      time={time}
-      date={date}
-      now={now}
-      notes={notes}
-      alarms={alarms}
-      timers={timers}
-      onOpenClock={onOpenClock}
-      onOpenNotes={onOpenNotes}
-      onOpenWeather={onOpenWeather}
-    />
-  )
+  if (page.id === 'notes') return <NotesPage notes={notes} onCreateNote={onCreateNote} onUpdateNote={onUpdateNote} onArchiveNote={onArchiveNote} onRestoreNote={onRestoreNote} onDeleteNote={onDeleteNote} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} />
+  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} />
 }
 
 function PageHeader({ pageLabel }: { pageLabel: string }) {
@@ -642,48 +548,29 @@ function PageHeader({ pageLabel }: { pageLabel: string }) {
   )
 }
 
-function GridDashboard({
-  time,
-  date,
-  now,
-  notes,
-  alarms,
-  timers,
-  onOpenClock,
-  onOpenNotes,
-  onOpenWeather,
-}: {
-  time: string
-  date: string
-  now: Date
-  notes: Note[]
-  alarms: Alarm[]
-  timers: CountdownTimer[]
-  onOpenClock: () => void
-  onOpenNotes: () => void
-  onOpenWeather: () => void
-}) {
-  const dashboardNote = getDashboardNote(notes)
-  const activeNoteCount = notes.filter((note) => !note.archived).length
-  const notePreview = dashboardNote?.content || dashboardNote?.title || ''
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
-  const nextAlarm = alarms
-    .filter((alarm) => alarm.enabled)
-    .sort((first, second) => {
-      const toMinutes = (value: string) => {
-        const [hours, minutes] = value.split(':').map(Number)
-        return (hours * 60 + minutes - currentMinutes + 1440) % 1440
-      }
-      return toMinutes(first.time) - toMinutes(second.time)
-    })[0]
-  const activeTimer = timers.find((timer) => timer.status === 'running' || timer.status === 'finished')
-  const clockSummary = activeTimer
-    ? activeTimer.status === 'finished'
-      ? `${activeTimer.label} terminado`
-      : `${activeTimer.label} · ${formatDuration(getTimerRemaining(activeTimer, now))}`
-    : nextAlarm
-      ? `Próxima alarma · ${nextAlarm.time}`
-      : 'Configurar alarmas y temporizadores'
+function useDashboardOrientation(): DashboardOrientation {
+  const getOrientation = () => window.innerWidth >= window.innerHeight ? 'landscape' : 'portrait'
+  const [orientation, setOrientation] = useState<DashboardOrientation>(getOrientation)
+
+  useEffect(() => {
+    const updateOrientation = () => setOrientation(getOrientation())
+    window.addEventListener('resize', updateOrientation)
+    return () => window.removeEventListener('resize', updateOrientation)
+  }, [])
+
+  return orientation
+}
+
+function GridDashboard({ now, time, date, widgets, notes, onOpenNotes, onOpenWeather }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void }) {
+  const orientation = useDashboardOrientation()
+  const placedWidgets = useMemo(() => placeWidgets(widgets, orientation), [orientation, widgets])
+  const featuredNote = notes
+    .filter((note) => !note.archived)
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt))[0]
+  const upcomingReminders = notes
+    .filter((note) => !note.archived && note.reminderAt && new Date(note.reminderAt).getTime() > now.getTime())
+    .sort((a, b) => (a.reminderAt as string).localeCompare(b.reminderAt as string))
+    .slice(0, 2)
   return (
     <div className="dashboard-page page-enter">
       <header className="dashboard-header">
@@ -696,213 +583,63 @@ function GridDashboard({
           <span>Modo hogar</span>
         </div>
       </header>
-      <div className="dashboard-grid">
-        <button type="button" className="clock-card widget-card interactive-card" onClick={onOpenClock}>
-          <div className="widget-label"><span>Ahora</span><span className="live-dot">En directo</span></div>
-          <time className="time">{time}</time>
-          <p className="date">{date}</p>
-          <div className="morning-line"><AlarmClock size={18} /><span>{clockSummary}</span></div>
-        </button>
-        <button type="button" className="weather-card widget-card interactive-card" onClick={onOpenWeather}>
-          <div className="weather-icon"><CloudSun size={38} strokeWidth={1.5} /></div>
-          <div><p className="temperature">22°</p><p className="weather-copy">Parcialmente nublado</p></div>
-          <span className="location">Casa</span>
-        </button>
-        <button type="button" className="note-card widget-card interactive-card" onClick={onOpenNotes}>
-          <div className="widget-heading">
-            <div className={`heading-icon ${dashboardNote?.color ?? 'coral'}`}><Check size={18} /></div>
-            <div>
-              <p className="widget-title">{dashboardNote?.title || 'Notas'}</p>
-              <p className="widget-subtitle">{dashboardNote?.pinned ? 'Nota fijada' : 'Guardadas en esta tablet'}</p>
-            </div>
-          </div>
-          <p className={`note-content ${notePreview ? '' : 'is-placeholder'}`}>
-            {notePreview || 'Toca aquí para crear una nota o recordatorio.'}
-          </p>
-          <div className="note-footer">
-            <span>{activeNoteCount === 0 ? 'Sin notas' : `${activeNoteCount} ${activeNoteCount === 1 ? 'nota' : 'notas'}`}</span>
-            <ChevronRight size={17} />
-          </div>
-        </button>
-        <article className="agenda-card widget-card">
-          <div className="widget-heading">
-            <div className="heading-icon blue"><CalendarDays size={18} /></div>
-            <div><p className="widget-title">Próximamente</p><p className="widget-subtitle">Sin eventos pendientes</p></div>
-          </div>
-          <div className="agenda-empty"><Compass size={22} /><span>Tu agenda aparecerá aquí</span></div>
-        </article>
+      <div className={`dashboard-grid is-${orientation}`}>
+        {placedWidgets.length > 0
+          ? placedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} time={time} date={date} featuredNote={featuredNote} upcomingReminders={upcomingReminders} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} />)
+          : <DashboardEmptyState time={time} date={date} />}
       </div>
     </div>
   )
 }
 
-type ClockSection = 'clock' | 'alarms' | 'timers'
+function DashboardEmptyState({ time, date }: { time: string; date: string }) {
+  return <section className="dashboard-empty-state">
+    <p>Panel sin módulos</p>
+    <time>{time}</time>
+    <span>{date}</span>
+    <small>Configura los widgets desde el móvil vinculado.</small>
+  </section>
+}
 
-function ClockPage({
-  time,
-  date,
-  now,
-  alarms,
-  timers,
-  onAddAlarm,
-  onUpdateAlarm,
-  onDeleteAlarm,
-  onAddTimer,
-  onStartTimer,
-  onPauseTimer,
-  onResetTimer,
-  onDeleteTimer,
-  onEditingChange,
-}: {
-  time: string
-  date: string
-  now: Date
-  alarms: Alarm[]
-  timers: CountdownTimer[]
-  onAddAlarm: () => void
-  onUpdateAlarm: (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled'>>) => void
-  onDeleteAlarm: (alarmId: string) => void
-  onAddTimer: (minutes: number, label: string) => void
-  onStartTimer: (timerId: string) => void
-  onPauseTimer: (timerId: string) => void
-  onResetTimer: (timerId: string) => void
-  onDeleteTimer: (timerId: string) => void
-  onEditingChange: (isEditing: boolean) => void
-}) {
-  const [section, setSection] = useState<ClockSection>('clock')
-  const [timerMinutes, setTimerMinutes] = useState(5)
-  const [timerLabel, setTimerLabel] = useState('')
+function DashboardWidgetCard({ widget, time, date, featuredNote, upcomingReminders, onOpenNotes, onOpenWeather }: { widget: PlacedWidget; time: string; date: string; featuredNote: Note | undefined; upcomingReminders: Note[]; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void }) {
+  const style = {
+    gridColumn: `${widget.layout.x + 1} / span ${widget.layout.width}`,
+    gridRow: `${widget.layout.y + 1} / span ${widget.layout.height}`,
+  } satisfies CSSProperties
 
-  const addCustomTimer = () => {
-    onAddTimer(Math.max(1, Math.min(180, timerMinutes)), timerLabel)
-    setTimerLabel('')
-  }
+  if (widget.id === 'clock') return <article className="clock-card widget-card" style={style}>
+    <div className="widget-label"><span>Ahora</span><span className="live-dot">En directo</span></div>
+    <time className="time">{time}</time>
+    <p className="date">{date}</p>
+    <div className="morning-line"><SunMedium size={18} /><span>Que tengas un día estupendo</span></div>
+  </article>
 
-  return (
-    <div className="fullscreen-page clock-page page-enter">
-      <PageHeader pageLabel="Reloj" />
-      <section className="clock-module" data-swipe-block>
-        <nav className="clock-tabs" aria-label="Secciones del reloj">
-          <button type="button" className={section === 'clock' ? 'is-active' : ''} onClick={() => setSection('clock')}><Clock3 size={18} />Reloj</button>
-          <button type="button" className={section === 'alarms' ? 'is-active' : ''} onClick={() => setSection('alarms')}><AlarmClock size={18} />Alarmas <span>{alarms.length}</span></button>
-          <button type="button" className={section === 'timers' ? 'is-active' : ''} onClick={() => setSection('timers')}><Timer size={18} />Temporizadores <span>{timers.length}</span></button>
-        </nav>
+  if (widget.id === 'weather') return <button type="button" className="weather-card widget-card interactive-card" style={style} onClick={onOpenWeather}>
+    <div className="weather-icon"><CloudSun size={38} strokeWidth={1.5} /></div>
+    <div><p className="temperature">22°</p><p className="weather-copy">Parcialmente nublado</p></div>
+    <span className="location">Casa</span>
+  </button>
 
-        {section === 'clock' ? (
-          <div className="focus-clock clock-module-focus" aria-label="Reloj a pantalla completa">
-            <span className="focus-clock-kicker">Ahora</span>
-            <time>{time}</time>
-            <p>{date}</p>
-          </div>
-        ) : null}
-
-        {section === 'alarms' ? (
-          <div className="clock-tool-view">
-            <div className="clock-tool-heading">
-              <div><span className="eyebrow">Rutinas diarias</span><h1>Alarmas</h1></div>
-              <button type="button" className="clock-primary-button" onClick={onAddAlarm}><Plus size={18} />Nueva alarma</button>
-            </div>
-            <div className="alarm-list">
-              {alarms.map((alarm) => (
-                <article className={`alarm-row ${alarm.enabled ? '' : 'is-disabled'}`} key={alarm.id}>
-                  <button
-                    type="button"
-                    className={`alarm-toggle ${alarm.enabled ? 'is-on' : ''}`}
-                    onClick={() => onUpdateAlarm(alarm.id, { enabled: !alarm.enabled })}
-                    aria-label={alarm.enabled ? 'Desactivar alarma' : 'Activar alarma'}
-                    aria-pressed={alarm.enabled}
-                  ><Bell size={18} /></button>
-                  <input
-                    className="alarm-time-input"
-                    type="time"
-                    value={alarm.time}
-                    onFocus={() => onEditingChange(true)}
-                    onBlur={() => onEditingChange(false)}
-                    onChange={(event) => onUpdateAlarm(alarm.id, { time: event.target.value })}
-                    aria-label="Hora de la alarma"
-                  />
-                  <div className="alarm-copy">
-                    <input
-                      value={alarm.label}
-                      onFocus={() => onEditingChange(true)}
-                      onBlur={() => onEditingChange(false)}
-                      onChange={(event) => onUpdateAlarm(alarm.id, { label: event.target.value })}
-                      aria-label="Nombre de la alarma"
-                      placeholder="Nombre de la alarma"
-                    />
-                    <small>Todos los días · guardada en esta tablet</small>
-                  </div>
-                  <button type="button" className="clock-icon-button danger" onClick={() => onDeleteAlarm(alarm.id)} aria-label="Eliminar alarma"><Trash2 size={18} /></button>
-                </article>
-              ))}
-              {alarms.length === 0 ? (
-                <div className="clock-empty"><AlarmClock size={32} /><strong>No hay alarmas</strong><span>Crea una para empezar tu rutina.</span></div>
-              ) : null}
-            </div>
-            <p className="native-feature-note">Las alarmas ya se guardan localmente. El aviso con sonido y pantalla bloqueada llegará con las notificaciones nativas de Android.</p>
-          </div>
-        ) : null}
-
-        {section === 'timers' ? (
-          <div className="clock-tool-view">
-            <div className="clock-tool-heading timer-heading">
-              <div><span className="eyebrow">Cuenta atrás</span><h1>Temporizadores</h1></div>
-              <div className="timer-presets" aria-label="Temporizadores rápidos">
-                {[5, 15, 30].map((minutes) => <button type="button" key={minutes} onClick={() => onAddTimer(minutes, '')}>+ {minutes} min</button>)}
-              </div>
-            </div>
-            <div className="timer-creator">
-              <input
-                type="text"
-                value={timerLabel}
-                onFocus={() => onEditingChange(true)}
-                onBlur={() => onEditingChange(false)}
-                onChange={(event) => setTimerLabel(event.target.value)}
-                placeholder="Nombre opcional"
-                aria-label="Nombre del temporizador"
-              />
-              <label><input
-                type="number"
-                min="1"
-                max="180"
-                value={timerMinutes}
-                onFocus={() => onEditingChange(true)}
-                onBlur={() => onEditingChange(false)}
-                onChange={(event) => setTimerMinutes(Number(event.target.value))}
-                aria-label="Duración en minutos"
-              /><span>min</span></label>
-              <button type="button" className="clock-primary-button" onClick={addCustomTimer}><Plus size={18} />Crear</button>
-            </div>
-            <div className="timer-list">
-              {timers.map((timer) => {
-                const remaining = getTimerRemaining(timer, now)
-                return (
-                  <article className={`timer-row is-${timer.status}`} key={timer.id}>
-                    <div className="timer-dial"><Timer size={22} /><span>{Math.round((remaining / timer.durationSeconds) * 100)}%</span></div>
-                    <div className="timer-copy">
-                      <div><strong>{timer.label}</strong><small>{timer.status === 'running' ? 'En marcha' : timer.status === 'paused' ? 'En pausa' : timer.status === 'finished' ? 'Terminado' : 'Preparado'}</small></div>
-                      <time>{formatDuration(remaining)}</time>
-                      <progress max={timer.durationSeconds} value={remaining} aria-label={`Tiempo restante de ${timer.label}`} />
-                    </div>
-                    <div className="timer-actions">
-                      {timer.status === 'running'
-                        ? <button type="button" onClick={() => onPauseTimer(timer.id)} aria-label="Pausar"><Pause size={18} /></button>
-                        : <button type="button" className="primary" onClick={() => onStartTimer(timer.id)} aria-label="Iniciar"><Play size={18} /></button>}
-                      <button type="button" onClick={() => onResetTimer(timer.id)} aria-label="Reiniciar"><RotateCcw size={18} /></button>
-                      <button type="button" className="danger" onClick={() => onDeleteTimer(timer.id)} aria-label="Eliminar"><Trash2 size={18} /></button>
-                    </div>
-                  </article>
-                )
-              })}
-              {timers.length === 0 ? (
-                <div className="clock-empty"><Timer size={32} /><strong>No hay temporizadores</strong><span>Usa un acceso rápido o crea uno personalizado.</span></div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-      </section>
+  if (widget.id === 'notes') return <button type="button" className={`note-card widget-card interactive-card ${featuredNote ? `note-${featuredNote.color}` : ''}`} style={style} onClick={() => onOpenNotes(featuredNote?.id)}>
+    <div className="widget-heading">
+      <div className="heading-icon coral"><Check size={18} /></div>
+      <div><p className="widget-title">Nota rápida</p><p className="widget-subtitle">Guardada en esta tablet</p></div>
     </div>
-  )
+    <p className={`note-content ${featuredNote?.content ? '' : 'is-placeholder'}`}>{featuredNote?.content || 'Toca aquí para escribir una nota o recordatorio.'}</p>
+    <div className="note-footer"><span>{featuredNote ? (featuredNote.pinned ? 'Fijada' : 'Editada') : 'Sin contenido'}</span><ChevronRight size={17} /></div>
+  </button>
+
+  return <article className="agenda-card widget-card" style={style}>
+    <div className="widget-heading">
+      <div className="heading-icon blue"><CalendarDays size={18} /></div>
+      <div><p className="widget-title">Próximamente</p><p className="widget-subtitle">{upcomingReminders.length ? `${upcomingReminders.length} recordatorio${upcomingReminders.length > 1 ? 's' : ''} programado${upcomingReminders.length > 1 ? 's' : ''}` : 'Sin recordatorios pendientes'}</p></div>
+    </div>
+    {upcomingReminders.length > 0 ? <div className="reminder-list">{upcomingReminders.map((note) => <button key={note.id} type="button" onClick={() => onOpenNotes(note.id)}><span><strong>{note.title || 'Recordatorio'}</strong><small>{note.content || 'Sin contenido'}</small></span><time>{formatReminder(note.reminderAt as string)}</time></button>)}</div> : <div className="agenda-empty"><Compass size={22} /><span>Tu agenda aparecerá aquí</span></div>}
+  </article>
+}
+
+function formatReminder(value: string) {
+  return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 }
 
 function WeatherPage() {
@@ -924,7 +661,7 @@ function WeatherPage() {
     <div className="fullscreen-page weather-page page-enter">
       <PageHeader pageLabel="Tiempo" />
       <div className="weather-layout">
-        <section className="weather-current-panel" data-swipe-block>
+        <section className="weather-current-panel">
           <div className="weather-page-heading">
             <span><MapPin size={16} />Madrid</span>
             <small>Datos de demostración</small>
@@ -948,7 +685,7 @@ function WeatherPage() {
             ))}
           </div>
         </section>
-        <section className="weather-forecast-panel" data-swipe-block>
+        <section className="weather-forecast-panel">
           <div className="forecast-heading"><span>Próximos días</span><small>Máx. / mín.</small></div>
           <div className="daily-forecast">
             {dailyForecast.map((forecast) => (
@@ -966,154 +703,126 @@ function WeatherPage() {
   )
 }
 
-const noteDateFormatter = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' })
+function ClockPage({
+  now,
+  time,
+  date,
+  alarms,
+  timers,
+  onCreateAlarm,
+  onUpdateAlarm,
+  onDeleteAlarm,
+  onCreateTimer,
+  onUpdateTimer,
+  onDeleteTimer,
+  onPreviewNotification,
+}: {
+  now: Date
+  time: string
+  date: string
+  alarms: Alarm[]
+  timers: Timer[]
+  onCreateAlarm: () => void
+  onUpdateAlarm: (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled'>>) => void
+  onDeleteAlarm: (alarmId: string) => void
+  onCreateTimer: () => void
+  onUpdateTimer: (timerId: string, patch: Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt'>>) => void
+  onDeleteTimer: (timerId: string) => void
+  onPreviewNotification: (title: string, body: string) => void
+}) {
+  return (
+    <div className="fullscreen-page clock-page page-enter">
+      <PageHeader pageLabel="Reloj" />
+      <section className="focus-clock" aria-label="Reloj a pantalla completa">
+        <span className="focus-clock-kicker">Ahora</span>
+        <time>{time}</time>
+        <p>{date}</p>
+      </section>
+      <section className="alarm-panel" aria-labelledby="alarms-title">
+        <div className="alarm-panel-heading"><div><p className="eyebrow">Diariamente</p><h1 id="alarms-title">Alarmas</h1></div><button type="button" className="text-action is-active" onClick={onCreateAlarm}><Plus size={16} />Nueva alarma</button></div>
+        {alarms.length > 0 ? <div className="alarm-list">{[...alarms].sort((a, b) => a.time.localeCompare(b.time)).map((alarm) => <div key={alarm.id} className={`alarm-row ${alarm.enabled ? '' : 'is-disabled'}`}><input type="time" value={alarm.time} onChange={(event) => onUpdateAlarm(alarm.id, { time: event.target.value })} aria-label={`Hora de ${alarm.label}`} /><input className="alarm-label-input" value={alarm.label} maxLength={60} onChange={(event) => onUpdateAlarm(alarm.id, { label: event.target.value })} aria-label="Nombre de alarma" /><button type="button" className="alarm-test-button" onClick={() => onPreviewNotification(alarm.label || 'Alarma', `Alarma programada para las ${alarm.time}.`)} aria-label={`Probar ${alarm.label}`}><BellRing size={15} /></button><button type="button" className={`alarm-toggle ${alarm.enabled ? 'is-on' : ''}`} role="switch" aria-checked={alarm.enabled} onClick={() => onUpdateAlarm(alarm.id, { enabled: !alarm.enabled })}><span /></button><button type="button" className="text-action danger" onClick={() => onDeleteAlarm(alarm.id)} aria-label={`Eliminar ${alarm.label}`}><Trash2 size={16} /></button></div>)}</div> : <div className="alarm-empty"><AlarmClock size={22} /><span>No hay alarmas. Crea una para recibir un aviso diario.</span></div>}
+      </section>
+      <section className="timer-panel" aria-labelledby="timers-title">
+        <div className="alarm-panel-heading"><div><p className="eyebrow">Cuenta atrás</p><h1 id="timers-title">Temporizadores</h1></div><button type="button" className="text-action is-active" onClick={onCreateTimer}><Plus size={16} />Nuevo</button></div>
+        {timers.length > 0 ? <div className="timer-list">{timers.map((timer) => {
+          const remaining = timer.endsAt ? Math.max(0, Math.ceil((new Date(timer.endsAt).getTime() - now.getTime()) / 1000)) : timer.remainingSeconds
+          const running = Boolean(timer.endsAt)
+          return <div key={timer.id} className="timer-row"><input className="alarm-label-input" value={timer.label} maxLength={60} onChange={(event) => onUpdateTimer(timer.id, { label: event.target.value })} aria-label="Nombre del temporizador" /><strong>{formatCountdown(remaining)}</strong><button type="button" className="text-action" onClick={() => running ? onUpdateTimer(timer.id, { remainingSeconds: remaining, endsAt: null }) : onUpdateTimer(timer.id, { endsAt: new Date(now.getTime() + remaining * 1000).toISOString() })}>{running ? 'Pausar' : 'Iniciar'}</button><button type="button" className="text-action" onClick={() => onUpdateTimer(timer.id, { remainingSeconds: timer.durationSeconds, endsAt: null })}>Reiniciar</button><button type="button" className="text-action danger" onClick={() => onDeleteTimer(timer.id)} aria-label={`Eliminar ${timer.label}`}><Trash2 size={16} /></button></div>
+        })}</div> : <div className="alarm-empty"><Clock3 size={22} /><span>No hay temporizadores activos.</span></div>}
+      </section>
+    </div>
+  )
+}
+
+function formatCountdown(seconds: number) {
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+}
 
 function NotesPage({
   notes,
-  activeNoteId,
   onCreateNote,
-  onSelectNote,
   onUpdateNote,
   onArchiveNote,
   onRestoreNote,
   onDeleteNote,
+  onPreviewNotification,
   onEditingChange,
 }: {
   notes: Note[]
-  activeNoteId: string | null
-  onCreateNote: () => void
-  onSelectNote: (noteId: string) => void
-  onUpdateNote: (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned'>>) => void
+  onCreateNote: () => string
+  onUpdateNote: (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned' | 'reminderAt'>>) => void
   onArchiveNote: (noteId: string) => void
   onRestoreNote: (noteId: string) => void
   onDeleteNote: (noteId: string) => void
+  onPreviewNotification: (title: string, body: string) => void
   onEditingChange: (isEditing: boolean) => void
 }) {
   const [showArchived, setShowArchived] = useState(false)
-  const visibleNotes = useMemo(() => notes
-    .filter((note) => note.archived === showArchived)
-    .sort((first, second) => {
-      if (!showArchived && first.pinned !== second.pinned) return first.pinned ? -1 : 1
-      return second.updatedAt.localeCompare(first.updatedAt)
-    }), [notes, showArchived])
-  const activeNote = visibleNotes.find((note) => note.id === activeNoteId) ?? visibleNotes[0] ?? null
-  const archivedCount = notes.filter((note) => note.archived).length
+  const visibleNotes = useMemo(
+    () => notes.filter((note) => !note.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt)),
+    [notes],
+  )
+  const archivedNotes = useMemo(() => notes.filter((note) => note.archived).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), [notes])
+  const notesForView = showArchived ? archivedNotes : visibleNotes
+  const hashNoteId = window.location.hash.startsWith('#note=') ? window.location.hash.slice(6) : null
+  const [selectedId, setSelectedId] = useState<string | null>(hashNoteId)
+  const selectedNote = notesForView.find((note) => note.id === selectedId) ?? notesForView[0]
 
-  const requestDelete = (note: Note) => {
-    const noteName = note.title.trim() || 'esta nota'
-    if (window.confirm(`¿Eliminar definitivamente ${noteName}?`)) onDeleteNote(note.id)
+  const createAndSelect = () => {
+    const noteId = onCreateNote()
+    setSelectedId(noteId)
   }
 
   return (
-    <div className="fullscreen-page page-enter notes-page">
-      <PageHeader pageLabel="Notas" />
-      <section className="notes-manager" data-swipe-block>
-        <aside className="notes-sidebar" aria-label="Lista de notas">
-          <div className="notes-sidebar-header">
-            <div><span className="notes-kicker">Tus notas</span><strong>{visibleNotes.length}</strong></div>
-            <button type="button" className="icon-button primary" onClick={onCreateNote} aria-label="Crear nota">
-              <Plus size={20} />
-            </button>
-          </div>
-          <div className="notes-filter" role="group" aria-label="Filtrar notas">
-            <button type="button" className={!showArchived ? 'is-active' : ''} onClick={() => setShowArchived(false)}>Activas</button>
-            <button type="button" className={showArchived ? 'is-active' : ''} onClick={() => setShowArchived(true)}>Archivadas ({archivedCount})</button>
-          </div>
-          <div className="notes-list">
-            {visibleNotes.map((note) => (
-              <button
-                key={note.id}
-                type="button"
-                className={`note-list-item note-color-${note.color} ${note.id === activeNote?.id ? 'is-active' : ''}`}
-                onClick={() => onSelectNote(note.id)}
-              >
-                <span className="note-list-heading">
-                  <strong>{note.title.trim() || 'Sin título'}</strong>
-                  {note.pinned ? <Pin size={13} fill="currentColor" /> : null}
-                </span>
-                <span className="note-list-preview">{note.content.trim() || 'Nota vacía'}</span>
-                <small>{noteDateFormatter.format(new Date(note.updatedAt))}</small>
-              </button>
-            ))}
-            {visibleNotes.length === 0 ? (
-              <div className="notes-list-empty">
-                <FileText size={24} />
-                <span>{showArchived ? 'No hay notas archivadas' : 'Todavía no hay notas'}</span>
-              </div>
-            ) : null}
+    <div className="fullscreen-page page-enter">
+      <PageHeader pageLabel="Nota rápida" />
+      <section className="notes-workspace" aria-label="Notas locales">
+        <aside className="notes-sidebar">
+          <div className="notes-sidebar-header"><div><h1>{showArchived ? 'Archivo' : 'Mis notas'}</h1><p>{showArchived ? `${archivedNotes.length} archivadas` : `${visibleNotes.length} guardadas en esta tablet`}</p></div>{!showArchived ? <button type="button" className="icon-button" onClick={createAndSelect} aria-label="Crear una nota"><Plus size={20} /></button> : null}</div>
+          <div className="note-filter" role="tablist" aria-label="Filtrar notas"><button type="button" className={!showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(false); setSelectedId(null) }} role="tab" aria-selected={!showArchived}>Activas</button><button type="button" className={showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(true); setSelectedId(null) }} role="tab" aria-selected={showArchived}>Archivo</button></div>
+          <div className="note-list">
+            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => setSelectedId(note.id)}><span className="note-list-color" /><span><strong>{note.title || 'Sin título'}</strong><small>{note.content || 'Sin contenido'}</small></span>{note.pinned ? <Pin size={14} /> : null}</button>)}
+            {notesForView.length === 0 ? <div className="notes-empty"><FileText size={24} /><p>{showArchived ? 'No hay notas archivadas.' : 'Aún no hay notas.'}</p>{!showArchived ? <button type="button" onClick={createAndSelect}>Crear la primera</button> : null}</div> : null}
           </div>
         </aside>
-
-        <div className="note-editor">
-          {activeNote ? (
-            <>
-              <div className="note-editor-toolbar">
-                <span className={`note-color-dot note-color-${activeNote.color}`} />
-                <div className="note-editor-actions">
-                  {!activeNote.archived ? (
-                    <>
-                      <button
-                        type="button"
-                        className={activeNote.pinned ? 'is-active' : ''}
-                        onClick={() => onUpdateNote(activeNote.id, { pinned: !activeNote.pinned })}
-                        aria-label={activeNote.pinned ? 'Desfijar nota' : 'Fijar nota'}
-                        title={activeNote.pinned ? 'Desfijar' : 'Fijar'}
-                      ><Pin size={18} /></button>
-                      <button type="button" onClick={() => onArchiveNote(activeNote.id)} aria-label="Archivar nota" title="Archivar"><Archive size={18} /></button>
-                    </>
-                  ) : (
-                    <button type="button" onClick={() => onRestoreNote(activeNote.id)} aria-label="Restaurar nota" title="Restaurar"><ArchiveRestore size={18} /></button>
-                  )}
-                  <button type="button" className="danger" onClick={() => requestDelete(activeNote)} aria-label="Eliminar nota" title="Eliminar"><Trash2 size={18} /></button>
-                </div>
-              </div>
-              <input
-                className="note-title-input"
-                value={activeNote.title}
-                maxLength={80}
-                disabled={activeNote.archived}
-                onChange={(event) => onUpdateNote(activeNote.id, { title: event.target.value })}
-                onFocus={() => onEditingChange(true)}
-                onBlur={() => onEditingChange(false)}
-                placeholder="Título de la nota"
-                aria-label="Título de la nota"
-              />
-              <textarea
-                value={activeNote.content}
-                maxLength={2000}
-                disabled={activeNote.archived}
-                onChange={(event) => onUpdateNote(activeNote.id, { content: event.target.value })}
-                onFocus={() => onEditingChange(true)}
-                onBlur={() => onEditingChange(false)}
-                placeholder="Escribe una nota o recordatorio…"
-                aria-label="Contenido de la nota"
-              />
-              <div className="note-editor-footer">
-                <div className="note-colors" aria-label="Color de la nota">
-                  {(['coral', 'blue', 'green', 'amber'] as NoteColor[]).map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={`note-color-${color} ${activeNote.color === color ? 'is-active' : ''}`}
-                      disabled={activeNote.archived}
-                      onClick={() => onUpdateNote(activeNote.id, { color })}
-                      aria-label={`Color ${color}`}
-                    />
-                  ))}
-                </div>
-                <span>{activeNote.archived ? 'Archivada' : 'Guardado local'} · {activeNote.content.length}/2000</span>
-              </div>
-            </>
-          ) : (
-            <div className="note-editor-empty">
-              <div className="heading-icon coral"><FileText size={22} /></div>
-              <h1>{showArchived ? 'Archivo vacío' : 'Crea tu primera nota'}</h1>
-              <p>{showArchived ? 'Las notas archivadas aparecerán aquí.' : 'Podrás escribirla, fijarla y elegir su color.'}</p>
-              {!showArchived ? <button type="button" className="create-note-button" onClick={onCreateNote}><Plus size={18} />Nueva nota</button> : null}
-            </div>
-          )}
-        </div>
+        {selectedNote ? <NoteEditor note={selectedNote} readOnly={showArchived} onUpdate={onUpdateNote} onArchive={() => { onArchiveNote(selectedNote.id); setSelectedId(null) }} onRestore={() => { onRestoreNote(selectedNote.id); setShowArchived(false); setSelectedId(selectedNote.id) }} onDelete={() => { if (window.confirm('¿Eliminar esta nota de forma permanente?')) { onDeleteNote(selectedNote.id); setSelectedId(null) } }} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} /> : <div className="notes-editor-placeholder"><FileText size={32} /><h2>{showArchived ? 'Archivo vacío' : 'Tu espacio de notas'}</h2><p>{showArchived ? 'Las notas archivadas aparecerán aquí.' : 'Crea una nota para guardar ideas y recordatorios locales.'}</p>{!showArchived ? <button type="button" onClick={createAndSelect}>Nueva nota</button> : null}</div>}
       </section>
+    </div>
+  )
+}
+
+function NoteEditor({ note, readOnly, onUpdate, onArchive, onRestore, onDelete, onPreviewNotification, onEditingChange }: { note: Note; readOnly: boolean; onUpdate: (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned' | 'reminderAt'>>) => void; onArchive: () => void; onRestore: () => void; onDelete: () => void; onPreviewNotification: (title: string, body: string) => void; onEditingChange: (isEditing: boolean) => void }) {
+  const colors: NoteColor[] = ['coral', 'violet', 'mint', 'sun']
+  return (
+    <div className="note-editor">
+      <div className="note-editor-actions">
+        <div className="note-colors" aria-label="Color de la nota">{colors.map((color) => <button key={color} type="button" disabled={readOnly} className={`color-dot ${color} ${note.color === color ? 'is-active' : ''}`} onClick={() => onUpdate(note.id, { color })} aria-label={`Usar color ${color}`} />)}</div>
+        {!readOnly ? <button type="button" className={`text-action ${note.pinned ? 'is-active' : ''}`} onClick={() => onUpdate(note.id, { pinned: !note.pinned })}><Pin size={16} />{note.pinned ? 'Fijada' : 'Fijar'}</button> : null}
+        <div className="editor-destructive-actions">{readOnly ? <button type="button" className="text-action" onClick={onRestore}><RotateCcw size={16} />Restaurar</button> : <button type="button" className="text-action" onClick={onArchive}><Archive size={16} />Archivar</button>}<button type="button" className="text-action danger" onClick={onDelete} aria-label="Eliminar nota"><Trash2 size={16} /></button></div>
+      </div>
+      <input className="note-title-input" value={note.title} maxLength={80} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { title: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Título de la nota" aria-label="Título de la nota" />
+      <textarea value={note.content} maxLength={2000} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { content: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Escribe una nota o recordatorio…" aria-label="Contenido de la nota" />
+      <div className="note-editor-footer">{readOnly ? <span>Nota archivada</span> : <span className="reminder-controls"><label>Recordatorio<input type="datetime-local" value={note.reminderAt ?? ''} onChange={(event) => onUpdate(note.id, { reminderAt: event.target.value || null })} /></label><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || 'Recordatorio', note.content || 'Tienes un recordatorio en Pablo Tablet.')}><BellRing size={15} />Probar aviso</button></span>}<span>{note.content.length}/2000 · Guardado local</span></div>
     </div>
   )
 }
@@ -1166,11 +875,7 @@ function SettingsScreen({
           {DASHBOARD_PAGES.filter((page) => page.id !== 'dashboard').map((page) => (
             <SettingToggle
               key={page.id}
-              icon={page.id === 'clock'
-                ? <Clock3 size={20} />
-                : page.id === 'weather'
-                  ? <CloudSun size={20} />
-                  : <FileText size={20} />}
+              icon={page.id === 'clock' ? <Clock3 size={20} /> : <FileText size={20} />}
               title={`Página ${page.label}`}
               detail="Página fullscreen incluida en el swipe y en la rotación."
               checked={preferences.enabledPageIds.includes(page.id)}

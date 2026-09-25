@@ -1,5 +1,7 @@
 # Requisitos funcionales
 
+> **Documento histórico.** Conserva la conversación original. Para los requisitos vigentes y ya cerrados, consulta [la especificación funcional](../ESPECIFICACION-FUNCIONAL.md).
+
 - Proyecto de origen: ChatGPT / Pablo Tablet
 - ID de conversación: `6aaa7231-b680-83eb-9617-bad05431d38b`
 - Creado: 2026-09-16T10:40:51.293Z
@@ -50,4 +52,3 @@ Sí, el contexto general está claro y ya hay bastante definido. No veo ahora mi
 Lo que sí queda por concretar más adelante, sin tomar todavía ninguna decisión, son algunos detalles funcionales finos: qué módulos exactos entran en el MVP, qué acciones se podrán hacer desde móvil frente a la tablet, cómo se gestionarán usuarios/permisos si finalmente hay más de un perfil, reglas concretas de sincronización y copias de seguridad, comportamiento exacto del modo reposo/nocturno, y ciertos detalles de calendario, notas, galería, alarmas y widgets.
 
 Pero a nivel de visión del proyecto y funcionalidades principales, está suficientemente claro para continuar.
-
