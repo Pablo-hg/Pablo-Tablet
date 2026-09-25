@@ -65,6 +65,11 @@ const timeFormatter = new Intl.DateTimeFormat('es-ES', {
   hour12: false,
 })
 
+function createLocalId() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID()
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 function App() {
   const [screen, setScreen] = useState<Screen>('home')
   const [navigationVisible, setNavigationVisible] = useState(false)
@@ -107,7 +112,6 @@ function App() {
   }, [dashboardState.alarms])
 
   const registerInteraction = useCallback(() => {
-    setNavigationVisible(true)
     setInteractionVersion((version) => version + 1)
   }, [])
 
@@ -239,7 +243,7 @@ function App() {
   const createNote = () => {
     const now = new Date().toISOString()
     const note: Note = {
-      id: crypto.randomUUID(),
+      id: createLocalId(),
       title: 'Nueva nota',
       content: '',
       color: 'coral',
@@ -282,7 +286,7 @@ function App() {
     const now = new Date()
     now.setMinutes(now.getMinutes() + 5, 0, 0)
     const time = now.toTimeString().slice(0, 5)
-    const alarm: Alarm = { id: crypto.randomUUID(), label: 'Alarma', time, enabled: true, createdAt: new Date().toISOString() }
+    const alarm: Alarm = { id: createLocalId(), label: 'Alarma', time, enabled: true, createdAt: new Date().toISOString() }
     setDashboardState((current) => ({ ...current, alarms: [...current.alarms, alarm] }))
   }
 
@@ -295,7 +299,7 @@ function App() {
   }
 
   const createTimer = () => {
-    const timer: Timer = { id: crypto.randomUUID(), label: 'Temporizador', durationSeconds: 300, remainingSeconds: 300, endsAt: null, createdAt: new Date().toISOString() }
+    const timer: Timer = { id: createLocalId(), label: 'Temporizador', durationSeconds: 300, remainingSeconds: 300, endsAt: null, createdAt: new Date().toISOString() }
     setDashboardState((current) => ({ ...current, timers: [...current.timers, timer] }))
   }
   const updateTimer = (timerId: string, patch: Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt'>>) => setDashboardState((current) => ({ ...current, timers: current.timers.map((timer) => timer.id === timerId ? { ...timer, ...patch } : timer) }))
@@ -332,7 +336,6 @@ function App() {
     const gestureBlocked = !isWidget && target.closest('button, input, textarea, select, [data-swipe-block]')
     if (gestureBlocked) {
       pointerStart.current = null
-      registerInteraction()
       return
     }
 
@@ -362,6 +365,13 @@ function App() {
     suppressClick.current = false
   }
 
+  const handleClick = (event: ReactMouseEvent<HTMLElement>) => {
+    if (screen !== 'home') return
+    const target = event.target as HTMLElement
+    if (target.closest('.page-indicators, .navigation-reveal, .bottom-navigation')) return
+    registerInteraction()
+  }
+
   const handlePointerCancel = (event: ReactPointerEvent<HTMLElement>) => {
     if (pointerStart.current?.pointerId !== event.pointerId) return
     pointerStart.current = null
@@ -375,6 +385,7 @@ function App() {
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
       onClickCapture={handleClickCapture}
+      onClick={handleClick}
     >
       <div className="wallpaper" aria-hidden="true">
         <span className="orb orb-one" />

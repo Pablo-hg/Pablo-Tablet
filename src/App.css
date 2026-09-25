@@ -118,6 +118,25 @@
   .focus-clock time { font-size: clamp(7rem, 20vw, 12rem); }
 }
 
+@media (min-width: 721px) and (orientation: landscape) {
+  .settings-page { box-sizing: border-box; column-gap: 14px; display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(250px, .8fr); grid-template-rows: auto minmax(0, 1fr); height: 100%; max-height: none; max-width: none; overflow: hidden; padding: 0 4px; row-gap: 12px; }
+  .settings-header { grid-column: 1 / -1; margin-bottom: 0; }
+  .settings-header h1 { font-size: 2.3rem; }
+  .settings-section { margin: 0; min-height: 0; padding: 14px; }
+  .section-heading { margin-bottom: 10px; }
+  .settings-section > .settings-row { border-radius: 16px; padding: 10px 12px; }
+  .settings-section .settings-icon { height: 36px; width: 36px; }
+  .settings-select-row { padding: 8px 4px; }
+  .page-toggle-list { gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 8px; }
+  .page-toggle-list .settings-row { border-radius: 15px; gap: 8px; padding: 10px; }
+  .page-toggle-list .settings-icon, .page-toggle-list .settings-copy small { display: none; }
+  .page-toggle-list .settings-copy strong { font-size: .8rem; }
+  .settings-list { align-content: start; gap: 8px; min-height: 0; }
+  .settings-list .settings-row { border-radius: 18px; gap: 10px; padding: 12px; }
+  .settings-list .settings-icon { height: 36px; width: 36px; }
+  .settings-list .settings-copy small { font-size: .7rem; }
+}
+
 @media (max-width: 720px) {
   .tablet-shell { overflow-y: auto; }
   .fullscreen-page { min-height: calc(100svh - 114px); }
