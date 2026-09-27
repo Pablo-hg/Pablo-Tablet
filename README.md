@@ -20,21 +20,21 @@ La arquitectura final sigue planteada como híbrida y local, pero la parte ya im
 
 ## Estado real del proyecto
 
-| Área | Estado | Evidencia real en el repositorio |
-| --- | --- | --- |
-| Base web | Implementado | React + TypeScript + Vite + Capacitor Android + build y lint configurados |
-| Dashboard y navegación | Implementado | páginas, rotación, widgets, navegación por gestos, indicadores y layout persistente |
-| Notas y recordatorios | Implementado | crear, editar, colores, fijar, archivar, restaurar, eliminar y avisos simulados |
-| Alarmas y temporizadores | Implementado | alarmas diarias, temporizadores con cuenta atrás, cronómetro y activación de avisos |
-| Notificaciones del sistema | Implementado parcialmente | integración con Local Notifications para alarmas, temporizadores y eventos del calendario |
-| Calendario local | Implementado | eventos, tareas, fechas, repeticiones, recordatorios y ocultado de tareas completadas |
-| Galería y salvapantallas | Implementado | selección de fotos, papelera de 30 días, carrusel aleatorio y cierre táctil |
-| Ajustes del dispositivo | Implementado | brillo, volumen, bloqueo de pantalla, rotación, inactividad, sonido de interacción |
-| Gestión desde móvil | Pendiente | aún no hay servidor, QR, credenciales ni PWA de administración |
-| Persistencia definitiva | Pendiente | localStorage es funcional para prototipo, pero no es la base final definitiva |
-| Servidor local / Room / SQLite | Pendiente | la arquitectura está diseñada, pero no está implementada todavía |
-| Copias y restauración | Pendiente | no está desarrollada en esta rama |
-| Integración con Google Calendar / datos reales | Pendiente | queda fuera del MVP actual |
+| Área                                           | Estado                    | Evidencia real en el repositorio                                                          |
+| ---------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------- |
+| Base web                                       | Implementado              | React + TypeScript + Vite + Capacitor Android + build y lint configurados                 |
+| Dashboard y navegación                         | Implementado              | páginas, rotación, widgets, navegación por gestos, indicadores y layout persistente       |
+| Notas y recordatorios                          | Implementado              | crear, editar, colores, fijar, archivar, restaurar, eliminar y avisos simulados           |
+| Alarmas y temporizadores                       | Implementado              | alarmas diarias, temporizadores con cuenta atrás, cronómetro y activación de avisos       |
+| Notificaciones del sistema                     | Implementado parcialmente | integración con Local Notifications para alarmas, temporizadores y eventos del calendario |
+| Calendario local                               | Implementado              | eventos, tareas, fechas, repeticiones, recordatorios y ocultado de tareas completadas     |
+| Galería y salvapantallas                       | Implementado              | selección de fotos, papelera de 30 días, carrusel aleatorio y cierre táctil               |
+| Ajustes del dispositivo                        | Implementado              | brillo, volumen, bloqueo de pantalla, rotación, inactividad, sonido de interacción        |
+| Gestión desde móvil                            | Pendiente                 | aún no hay servidor, QR, credenciales ni PWA de administración                            |
+| Persistencia definitiva                        | Pendiente                 | localStorage es funcional para prototipo, pero no es la base final definitiva             |
+| Servidor local / Room / SQLite                 | Pendiente                 | la arquitectura está diseñada, pero no está implementada todavía                          |
+| Copias y restauración                          | Pendiente                 | no está desarrollada en esta rama                                                         |
+| Integración con Google Calendar / datos reales | Pendiente                 | queda fuera del MVP actual                                                                |
 
 ## Qué ya está implementado en este repositorio
 
@@ -114,18 +114,18 @@ La parte funcional ya hecha es sólida como prototipo local, pero aún queda la 
 
 ## Fases del MVP y estado real
 
-| Fase | Alcance | Estado actual |
-| --- | --- | --- |
-| 0. Base técnica | Web + Android + configuración inicial | Completada en gran parte |
-| 1. Dashboard y widgets | Grid, páginas y widgets | Completada funcionalmente |
-| 2. Notas y recordatorios | Notas, recordatorios, archivado | Completada funcionalmente |
-| 3. Reloj, alarmas y temporizadores | Alarmas, temporizadores, cronómetro | Completada funcionalmente |
-| 4. Meteorología | Datos reales y widget | En prototipo visual, pendiente integración real |
-| 5. Calendario | Calendario local | Implementado localmente |
-| 6. Galería y salvapantallas | Galería + carrusel | Implementado |
-| 7. Administración móvil | Servidor, QR, PWA móvil | Pendiente |
-| 8. Copias y recuperación | Backup / restore | Pendiente |
-| 9. Seguridad y cierre | Tokens, logs, recuperación | Pendiente |
+| Fase                               | Alcance                               | Estado actual                                   |
+| ---------------------------------- | ------------------------------------- | ----------------------------------------------- |
+| 0. Base técnica                    | Web + Android + configuración inicial | Completada en gran parte                        |
+| 1. Dashboard y widgets             | Grid, páginas y widgets               | Completada funcionalmente                       |
+| 2. Notas y recordatorios           | Notas, recordatorios, archivado       | Completada funcionalmente                       |
+| 3. Reloj, alarmas y temporizadores | Alarmas, temporizadores, cronómetro   | Completada funcionalmente                       |
+| 4. Meteorología                    | Datos reales y widget                 | En prototipo visual, pendiente integración real |
+| 5. Calendario                      | Calendario local                      | Implementado localmente                         |
+| 6. Galería y salvapantallas        | Galería + carrusel                    | Implementado                                    |
+| 7. Administración móvil            | Servidor, QR, PWA móvil               | Pendiente                                       |
+| 8. Copias y recuperación           | Backup / restore                      | Pendiente                                       |
+| 9. Seguridad y cierre              | Tokens, logs, recuperación            | Pendiente                                       |
 
 ## Desarrollo
 

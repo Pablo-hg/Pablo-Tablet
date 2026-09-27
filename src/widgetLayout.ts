@@ -24,17 +24,17 @@ export interface PlacedWidget extends DashboardWidget {
 }
 
 export const WIDGET_SIZES: Record<DashboardWidgetId, readonly WidgetSize[]> = {
-  clock: [{ width: 2, height: 1 }, { width: 2, height: 2 }, { width: 3, height: 1 }, { width: 3, height: 2 }],
+  clock: [{ width: 1, height: 1 }, { width: 1, height: 2 }, { width: 2, height: 1 }, { width: 2, height: 2 }, { width: 3, height: 1 }, { width: 3, height: 2 }],
   weather: [{ width: 1, height: 1 }, { width: 1, height: 2 }, { width: 2, height: 1 }, { width: 2, height: 2 }],
   notes: [{ width: 1, height: 1 }, { width: 2, height: 1 }, { width: 2, height: 2 }, { width: 3, height: 1 }],
   agenda: [{ width: 1, height: 1 }, { width: 2, height: 1 }, { width: 2, height: 2 }, { width: 3, height: 1 }],
 }
 
 export const DEFAULT_WIDGETS: DashboardWidget[] = [
-  { id: 'clock', visible: true, layouts: { landscape: { x: 0, y: 0, width: 2, height: 2 }, portrait: { x: 0, y: 0, width: 3, height: 1 } } },
-  { id: 'weather', visible: true, layouts: { landscape: { x: 2, y: 0, width: 1, height: 2 }, portrait: { x: 0, y: 1, width: 1, height: 1 } } },
-  { id: 'notes', visible: true, layouts: { landscape: { x: 0, y: 2, width: 1, height: 1 }, portrait: { x: 1, y: 1, width: 2, height: 1 } } },
-  { id: 'agenda', visible: true, layouts: { landscape: { x: 1, y: 2, width: 2, height: 1 }, portrait: { x: 0, y: 2, width: 3, height: 1 } } },
+  { id: 'agenda', visible: true, layouts: { landscape: { x: 0, y: 0, width: 2, height: 2 }, portrait: { x: 0, y: 0, width: 3, height: 2 } } },
+  { id: 'clock', visible: true, layouts: { landscape: { x: 2, y: 0, width: 1, height: 1 }, portrait: { x: 0, y: 2, width: 3, height: 1 } } },
+  { id: 'weather', visible: true, layouts: { landscape: { x: 2, y: 1, width: 1, height: 2 }, portrait: { x: 0, y: 3, width: 1, height: 1 } } },
+  { id: 'notes', visible: true, layouts: { landscape: { x: 0, y: 2, width: 2, height: 1 }, portrait: { x: 1, y: 3, width: 2, height: 1 } } },
 ]
 
 export function isDashboardWidgetId(value: unknown): value is DashboardWidgetId {
