@@ -1,122 +1,144 @@
 # Pablo Tablet — Especificación funcional consolidada
 
-> Estado: decisiones funcionales cerradas para el MVP
-> Actualizado: 18/09/2026
-> Prevalencia: este documento y el README contienen los acuerdos vigentes. Los archivos de `chats/` son históricos, salvo `chats/08-arquitectura-tecnica.md`, que consolida la arquitectura tablet-móvil.
+> Estado: documento actualizado con el estado real del proyecto en el repositorio
+> Actualizado: 27/09/2026
+> Prevalencia: este documento y el README son la referencia funcional actual. Los archivos de `chats/` siguen siendo históricos; la arquitectura de tablet-móvil quedó documentada en el hilo consolidado y el README refleja el estado del código actual.
 
-## 1. Alcance del MVP
+## 1. Alcance real del MVP
 
-El MVP incluye:
+El MVP funcional que ya puede verse en este repositorio incluye:
 
-- dashboard y widgets;
-- notas y recordatorios;
-- reloj, alarmas y temporizadores;
-- meteorología;
-- calendario local;
-- galería de imágenes y salvapantallas;
-- administración desde móviles autorizados dentro de la red local;
-- copias de seguridad y recuperación.
+- dashboard con widgets y páginas;
+- notas con recordatorios y archivado;
+- reloj, alarmas, temporizadores y cronómetro;
+- calendario local con eventos y tareas;
+- galería de fotos y salvapantallas;
+- ajustes del dispositivo en la propia app;
+- persistencia local para la experiencia actual.
 
-Google Calendar y los perfiles manuales o automáticos del dashboard se añadirán después del MVP.
+La parte de administración desde móvil, sincronización local, QR, tokens y servidor nativo sigue siendo trabajo futuro y no forma parte de la versión actual del código.
 
-## 2. Arquitectura funcional
+## 2. Estado de implementación actual
 
-- La Teclast T65 es el nodo central y la única fuente de verdad.
+### 2.1 Implementado en la app actual
+
+- La app funciona como dashboard local en React y Android/Capacitor.
+- Se soporta navegación principal, páginas de contenido y widgets con grid persistente.
+- El sistema de notas ya permite edición, colores, fijado, archivado y restauración.
+- Las alarmas y temporizadores tienen lógica local con activación y avisos.
+- El calendario local ya gestiona eventos, repeticiones, tareas y recordatorios.
+- La galería permite importación, papelera y visualización en salvapantallas.
+- La interfaz incluye ajustes relevantes del dispositivo y del comportamiento del panel.
+- Los datos se guardan en almacenamiento local del navegador para el prototipo.
+
+### 2.2 Pendiente respecto al objetivo final
+
+- servidor local Android con API REST y WebSocket;
+- emparejamiento y autorización de dispositivos por QR;
+- PWA de administración desde el móvil;
+- almacenamiento definitivo con Room + SQLite;
+- copia de seguridad y restauración automatizadas;
+- sincronización local segura con tokens y revocación;
+- integración real de meteorología y Google Calendar.
+
+## 3. Arquitectura funcional vigente
+
+- La Teclast T65 es el dispositivo central y la fuente de verdad local del panel.
 - La interfaz utiliza React dentro de Capacitor.
-- Un servicio nativo Android ejecutará el servidor local, gestionará su autoarranque y lo recuperará ante fallos.
-- La persistencia definitiva utilizará Room sobre SQLite.
-- El editor móvil será una PWA servida por la tablet; no habrá aplicación móvil nativa.
-- La API REST realizará consultas y modificaciones. WebSocket propagará los cambios en tiempo real.
-- Si dos dispositivos modifican el mismo dato, prevalecerá el último cambio recibido por la tablet (`Last Write Wins`).
-- El móvil no permitirá editar sin conexión. Al reconectarse volverá a cargar el estado vigente de la tablet.
+- La entidad final del sistema será híbrida: app web + servicio nativo Android.
+- La persistencia actual del prototipo es localStorage, no la solución final.
+- La capa definitiva será Room sobre SQLite en la tablet.
+- Los móviles autorizados se gestionarán en la red local, pero esta parte no está implementada aún.
+- La API local y la sincronización en tiempo real quedan como objetivo de la siguiente fase.
 
-## 3. Acceso, vinculación y seguridad
+## 4. Acceso, vinculación y seguridad
 
-- El acceso se realizará mediante `pablotablet.local`, con la dirección IP local como alternativa.
-- El móvil y la tablet deberán estar en la misma red local.
-- La V1 utilizará HTTP local con un token largo, aleatorio, individual y revocable para cada dispositivo autorizado.
-- El riesgo de que una persona con capacidad para interceptar el tráfico de la LAN capture una credencial se acepta para esta V1 doméstica.
-- Para vincular un dispositivo se mostrará un QR con credencial temporal y se exigirá confirmación física en la tablet.
-- El QR caducará cuando se use, se cierre su pantalla o transcurran 5 minutos, lo que ocurra primero.
-- Una autorización se renovará automáticamente y seguirá siendo válida hasta que se revoque o se pierda la credencial del navegador.
-- Todos los móviles autorizados tendrán los mismos permisos.
-- No habrá PIN.
-- Borrar datos, restaurar una copia, revocar dispositivos o restablecer la aplicación exigirá un mensaje de confirmación explícito. Si la acción se inicia desde un móvil autorizado, se confirmará en ese mismo móvil.
+Los principios funcionales del producto siguen siendo estos:
 
-## 4. Datos, archivos y papelera
+- El acceso local se realizará mediante `pablotablet.local` y la IP local.
+- Los móviles se vincularán desde la misma red local.
+- La V1 utilizará una credencial local, individual y revocable.
+- El emparejamiento requerirá QR temporal + confirmación física.
+- La validación de seguridad y permisos de sesión queda pendiente de implementación.
 
-- Room almacenará los datos estructurados, configuraciones y metadatos.
-- Las imágenes se copiarán al almacenamiento privado de Pablo Tablet y se conservarán con resolución y calidad originales.
-- Room almacenará sus metadatos, álbumes y referencias.
-- Una imagen podrá pertenecer a varios álbumes sin duplicar el archivo.
-- Quitar una imagen de un álbum no la borrará de la galería.
-- Al eliminar imágenes, notas o eventos pasarán a una papelera recuperable durante 30 días.
-- El borrado de una imagen desde la galería la retirará de todos sus álbumes.
+No existe todavía un backend ni una autenticación real en este repositorio; la parte de seguridad es una decisión de diseño aún no materializada.
 
-## 5. Copias de seguridad
+## 5. Datos, archivos y papelera
 
-- La copia automática incluirá todos los datos de usuario: imágenes, calendarios, notas, widgets, layouts, preferencias, configuración y demás contenido local.
-- No incluirá tokens, sesiones de dispositivos ni otras credenciales sensibles.
-- Las copias no estarán cifradas. Antes de exportarlas se advertirá que pueden contener información privada.
-- Se realizará una copia automática cada domingo a las 03:00.
-- Se conservarán las 3 últimas copias automáticas y se eliminarán las anteriores.
-- Si la tablet no puede ejecutar la copia el domingo, la realizará la siguiente vez que se encienda.
-- Restaurar una copia reemplazará completamente el estado actual, previa confirmación.
-- La implementación de las copias queda programada para una fase posterior del desarrollo del MVP.
+- El flujo local de galería ya contempla la papelera y la recuperación.
+- El almacenamiento actual usa archivos locales del navegador y metadatos persistidos en la app.
+- La solución definitiva será Room + almacenamiento privado de Android para fotos.
+- Las decisiones sobre álbumes, deduplicación y trasciego de imágenes siguen planteadas para la siguiente etapa.
 
 ## 6. Notas y recordatorios
 
-- Las notas admitirán negrita, cursiva, listas y enlaces.
-- Podrán tener colores, fijarse, archivarse y asociarse a recordatorios.
-- Una nota no se eliminará automáticamente al completar o vencer su recordatorio.
-- Podrá marcarse como completada y mostrarse tachada hasta que se archive o elimine manualmente.
+- Las notas admiten contenido editable, colores, fijado y estado archivado.
+- Se gestionan recordatorios asociados a la nota.
+- La experiencia actual ya deja una base funcional para la siguiente evolución del sistema.
+- La versión de producto final aún exigirá más refinamiento en formato, tachado, completado y flujo de avisos.
 
 ## 7. Alarmas y temporizadores
 
-- Las alarmas podrán repetirse por días de la semana.
-- Se podrán posponer 10 minutos por defecto, con una duración configurable para cada alarma.
-- En modo nocturno o «no molestar», las alarmas no emitirán sonido y conservarán únicamente el aviso visual.
-- Los temporizadores sí emitirán sonido en esos modos.
+- Las alarmas pueden configurarse por hora y días de la semana.
+- Los temporizadores cuentan con duración, reinicio y finalización.
+- El prototipo ya soporta avisos visuales y sonoros locales.
+- Las mejoras previstas incluyen posponer, modo nocturno/No molestar más estricto y validación nativa completa.
 
 ## 8. Meteorología
 
-- Las ciudades se seleccionarán manualmente desde el móvil; no se utilizará el GPS de la tablet.
-- Cada ciudad tendrá datos actuales y previsión de 7 días.
-- El dashboard permitirá mostrar una o dos ciudades simultáneamente, elegidas por el usuario.
-- La vista meteorológica completa permitirá consultar todas las ciudades guardadas.
-- Sin Internet se mostrarán los últimos datos disponibles con un aviso de desactualización.
+- La app incluye un widget y una vista de detalle con datos de demostración.
+- La integración real con una API externa queda pendiente.
+- La lógica de caché, ciudades, estados de error y desconexión no está implementada todavía.
 
 ## 9. Calendario
 
-- El MVP incluirá primero un calendario completamente local.
-- Admitirá eventos normales y de día completo, repeticiones, recordatorios y colores.
-- Tendrá vistas de día, semana, mes y agenda.
-- Google Calendar y sus decisiones de cuentas, OAuth y sincronización bidireccional se abordarán después del MVP.
+- El calendario local ya está funcional.
+- Admite eventos, repeticiones, tareas, recordatorios y ocultado de completados.
+- La integración con Google Calendar queda fuera del MVP actual.
 
 ## 10. Galería y salvapantallas
 
-- La galería admitirá únicamente imágenes, no vídeos.
-- Se podrán añadir imágenes desde un móvil autorizado y desde la tablet.
-- El salvapantallas se activará tras 3 minutos de inactividad por defecto; el tiempo podrá cambiarse desde el móvil.
-- El primer toque cerrará el salvapantallas sin ejecutar acciones sobre el panel situado debajo.
-- Las imágenes cambiarán cada 15 segundos.
-- Se mostrarán aleatoriamente y no se repetirá ninguna hasta haber recorrido todas las seleccionadas.
-- Si no hay imágenes disponibles, se mostrarán el reloj y la fecha sobre un fondo oscuro.
+- La galería permite añadir fotos desde el sistema local.
+- El salvapantallas activa una rotación aleatoria de imágenes tras inactividad.
+- Varios aspectos ya están implementados en la app actual.
+- El funcionamiento completo del almacenamiento privado, álbumes y sincronización aún queda para la fase siguiente.
 
 ## 11. Interfaz, temas y modo nocturno
 
-- Se ofrecerán varios temas visuales prediseñados.
-- La creación libre de temas personalizados queda fuera del MVP.
-- El modo nocturno utilizará un horario fijo configurable, de 23:00 a 07:00 por defecto.
-- Durante el modo nocturno se mostrará únicamente un reloj tenue sobre fondo negro; se ocultarán fotos, widgets e información privada.
-- Los perfiles manuales y automáticos del dashboard quedan pospuestos para una versión posterior.
+- La app cuenta con un dashboard visual moderno, layouts adaptativos y navegación oculta según interacción.
+- El modo nocturno/No molestar y la gestión de inactividad están previstos en la lógica de UI.
+- La experiencia actual ya incluye controles del sistema relevantes, aunque la capa del modo nocturno completo sigue siendo de diseño previo.
 
-## 12. Actualizaciones
+## 12. Copias de seguridad y recuperación
 
-- En la V1, Pablo Tablet se actualizará instalando manualmente una APK nueva.
-- La actualización deberá conservar los datos existentes mediante migraciones compatibles.
-- Las actualizaciones automáticas quedan para una versión posterior.
+- En la especificación funcional siguen siendo requeridas.
+- En la implementación actual no existe aún un mecanismo real de backup ni restauración.
+- Esta funcionalidad queda prevista como fase posterior del MVP.
 
-## 13. Decisiones que no requieren definición funcional
+## 13. Cambios y mejoras aplicados respecto a la primera documentación
 
-El puerto local, las librerías concretas, la estructura de procesos, el formato binario o textual de los mensajes, el esquema interno de tokens y otros detalles equivalentes se elegirán durante la implementación. No modifican el comportamiento funcional acordado en este documento.
+Respecto a la primera versión de la documentación, el repositorio actual ya incluye:
+
+- dashboard con widgets funcionales;
+- calendario local implementado;
+- galería con papelera y salvapantallas;
+- recordatorios y temporizadores completos;
+- ajustes del dispositivo y notificaciones locales;
+- persistencia local y normalización del estado.
+
+Esto implica que la documentación debe entenderse como un estado real del prototipo funcional, no como una hoja de ruta completamente vacía.
+
+## 14. Fuera del MVP actual
+
+- Google Calendar y sincronización cloud;
+- reconocimiento facial;
+- asistentes de IA;
+- control por voz avanzado;
+- perfiles personalizados del dashboard;
+- edición libre de temas;
+- sincronización multipanel entre varias tabletas;
+- administración remota completa desde Internet.
+
+## 15. Decisiones que no requieren definición funcional
+
+El puerto local, las librerías concretas, la estructura de procesos, el formato de mensajes, el esquema interno de tokens y otros detalles de implementación se elegirán en la fase técnica. No alteran el comportamiento funcional acordado del editor ni de la tablet.

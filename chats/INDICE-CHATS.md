@@ -1,8 +1,11 @@
 # Archivo de conversaciones de Pablo Tablet
 
-Este archivo es exclusivamente el **índice del histórico de conversaciones**. Sirve para localizar el contexto original y no debe usarse como estado del desarrollo ni como especificación vigente.
+> Estado de referencia: histórico y contexto de diseño
+> Actualizado: 27/09/2026
 
-El resumen actual del proyecto, las fases y el estado técnico están en el [README de la raíz](../README.md). Las decisiones funcionales consolidadas están en la [especificación funcional](../ESPECIFICACION-FUNCIONAL.md).
+Este archivo es el **índice del histórico de conversaciones** del proyecto. Sirve para localizar el contexto original y no debe tomarse como estado actual del código ni como especificación ejecutiva.
+
+El resumen vigente del desarrollo y el estado real del repositorio están en el [README de la raíz](../README.md). Las decisiones funcionales consolidadas y actualizadas están en la [especificación funcional](../ESPECIFICACION-FUNCIONAL.md).
 
 ## Proyecto de ChatGPT “Pablo Tablet”
 
@@ -18,4 +21,12 @@ El resumen actual del proyecto, las fases y el estado técnico están en el [REA
 7. [Configura MVP 0.1 de Pablo Tablet](07-chat-compartido-configura-mvp-0.1%20copy.md)
 8. [Arquitectura Tablet ↔ Móvil](08-arquitectura-tecnica.md)
 
-Los documentos anteriores conservan conversaciones y decisiones de su momento. Si hubiera diferencias, prevalecen la especificación funcional, el README principal y la arquitectura consolidada, por ese orden según el ámbito tratado.
+## Qué prevalece hoy
+
+La documentación viva del proyecto es:
+
+1. [README.md](../README.md)
+2. [ESPECIFICACION-FUNCIONAL.md](../ESPECIFICACION-FUNCIONAL.md)
+3. [chats/08-arquitectura-tecnica.md](08-arquitectura-tecnica.md)
+
+Los documentos anteriores conservan conversaciones y decisiones de su momento. Si hubiera diferencias entre historia y código, prevalecerán la especificación funcional, el README principal y la arquitectura consolidada, en ese orden según el ámbito tratado.

@@ -1,65 +1,131 @@
 # Pablo Tablet
 
-Pablo Tablet es un panel doméstico para una **Teclast T65**. La tablet es el dispositivo central y funciona de forma autónoma; los móviles se usarán para administrar el panel desde la misma red local. El objetivo del MVP es un panel útil sin depender de Internet: dashboard, notas, reloj, alarmas, calendario local, fotos y salvapantallas.
+Pablo Tablet es un panel doméstico local para una Teclast T65. La tablet actúa como nodo central del hogar y la interfaz de control principal. El proyecto combina una app web React con Capacitor + Android para ofrecer un dashboard minimalista, útil sin Internet, pensado para uso continuo en una sala, cocina o escritorio.
 
-Este README concentra el estado técnico y funcional del proyecto. Las decisiones detalladas vigentes están en la [especificación funcional](ESPECIFICACION-FUNCIONAL.md) y en la [arquitectura tablet-móvil](chats/08-arquitectura-tecnica.md). Las conversaciones originales se conservan como referencia en el [índice de chats](chats/INDICE-CHATS.md).
+Este documento recoge el estado real del repositorio a 27/09/2026. La base funcional y las decisiones de producto quedan en la [especificación funcional](ESPECIFICACION-FUNCIONAL.md). El histórico de conversaciones y decisiones previas sigue en el [índice de chats](chats/INDICE-CHATS.md).
 
-## Principios ya decididos
+## Resumen ejecutivo
 
-- La tablet es la fuente de verdad: sus datos y funciones locales siguen disponibles sin Wi-Fi ni Internet.
-- El editor del móvil será una web local instalable como PWA, no una app móvil nativa.
-- El acceso remoto desde Internet no forma parte de la V1.
-- Los móviles se vincularán con un QR temporal y una confirmación física en la tablet. El QR caduca al usarse, al cerrar su pantalla o a los 5 minutos, lo que ocurra primero. Una vez autorizados, conservarán una credencial revocable.
-- La dirección principal será `pablotablet.local`, con la IP local como alternativa.
-- El panel usa una cuadrícula adaptable de tres columnas. Los widgets normales viven en Inicio; los fullscreen se muestran como páginas adicionales y pueden rotar automáticamente.
-- La interfaz admite horizontal y vertical, con layouts independientes; paisaje es la orientación principal. Usa Material You, tarjetas grandes y legibilidad a distancia. La navegación se oculta hasta interactuar.
-- La arquitectura final será híbrida: React dentro de Capacitor y un servicio nativo Android para el servidor local, autoarranque y recuperación. La persistencia definitiva será Room sobre SQLite. La versión actual usa almacenamiento local del navegador como base del prototipo.
+La versión actual del repositorio ya no es solo un mockup ni una base técnica parcial. El proyecto incluye una app funcional con:
 
-## Estado actual
+- navegación por páginas y dashboard con widgets;
+- notas con colores, recordatorios, archivado y restauración;
+- alarmas, temporizadores, cronómetro y notificaciones locales;
+- calendario local con eventos, tareas, repeticiones y recordatorios;
+- galería con importación de imágenes, papelera y salvapantallas;
+- pantalla de ajustes con brillo, volumen, rotación, inactividad y modo salvapantallas;
+- persistencia en localStorage con recuperación de layouts y datos.
 
-| Área | Estado | Disponible hoy |
+La arquitectura final sigue planteada como híbrida y local, pero la parte ya implementada en este código es la capa funcional principal del prototipo realista del MVP.
+
+## Estado real del proyecto
+
+| Área | Estado | Evidencia real en el repositorio |
 | --- | --- | --- |
-| Base web | Implementado | React, TypeScript, Vite, Tailwind y compilación para `dist/`. |
-| Android | Implementado, por validar en dispositivo | Capacitor, orientación horizontal, modo inmersivo y permiso de alarmas exactas. |
-| Dashboard y navegación | Parcial | Panel, barra contextual, gesto horizontal, páginas Inicio/Reloj/Tiempo/Notas y rotación configurable. El Inicio usa un motor de widgets con grid persistente de tres columnas y layouts independientes en horizontal/vertical. |
-| Notas y recordatorios | Parcial | Crear, editar, colorear, fijar, archivar, restaurar y eliminar notas; recordatorios persistentes y avisos simulados. |
-| Alarmas y temporizadores | Parcial | Alarmas diarias y varios temporizadores persistentes, con iniciar, pausar y reiniciar. |
-| Notificaciones Android | Preparado | Integración con `@capacitor/local-notifications` para recordatorios y alarmas; falta probar permisos y entrega real en la tablet. |
-| Administración móvil, QR y servidor local | Pendiente | Aún no hay API, PWA de administración, mDNS ni emparejamiento. |
-| Tiempo | Prototipo visual | Vista a pantalla completa con estado actual y previsiones horaria y diaria de demostración; faltan API real, ciudades, caché y estados de error o desconexión. |
-| Calendario, fotos, salvapantallas y copias | Pendiente | Solo hay elementos visuales o de planificación; no existen módulos funcionales. |
+| Base web | Implementado | React + TypeScript + Vite + Capacitor Android + build y lint configurados |
+| Dashboard y navegación | Implementado | páginas, rotación, widgets, navegación por gestos, indicadores y layout persistente |
+| Notas y recordatorios | Implementado | crear, editar, colores, fijar, archivar, restaurar, eliminar y avisos simulados |
+| Alarmas y temporizadores | Implementado | alarmas diarias, temporizadores con cuenta atrás, cronómetro y activación de avisos |
+| Notificaciones del sistema | Implementado parcialmente | integración con Local Notifications para alarmas, temporizadores y eventos del calendario |
+| Calendario local | Implementado | eventos, tareas, fechas, repeticiones, recordatorios y ocultado de tareas completadas |
+| Galería y salvapantallas | Implementado | selección de fotos, papelera de 30 días, carrusel aleatorio y cierre táctil |
+| Ajustes del dispositivo | Implementado | brillo, volumen, bloqueo de pantalla, rotación, inactividad, sonido de interacción |
+| Gestión desde móvil | Pendiente | aún no hay servidor, QR, credenciales ni PWA de administración |
+| Persistencia definitiva | Pendiente | localStorage es funcional para prototipo, pero no es la base final definitiva |
+| Servidor local / Room / SQLite | Pendiente | la arquitectura está diseñada, pero no está implementada todavía |
+| Copias y restauración | Pendiente | no está desarrollada en esta rama |
+| Integración con Google Calendar / datos reales | Pendiente | queda fuera del MVP actual |
 
-La web guarda ahora notas, alarmas, temporizadores, preferencias y layouts de widgets en `localStorage`. No debe considerarse todavía el almacenamiento definitivo ni un sistema de copias de seguridad.
+## Qué ya está implementado en este repositorio
 
-## Fases del MVP
+### 1. Dashboard y widgets
 
-| Fase | Alcance | Situación |
+- Cuadrícula adaptable de 3 columnas.
+- Páginas de Inicio, Calendario, Reloj, Tiempo, Notas y Galería.
+- Rotación automática configurable para páginas elegibles.
+- Widgets de reloj, tiempo, notas y agenda con layout persistente.
+- Normalización y recolocación segura para evitar solapamientos en el grid.
+- Visualización diferenciada entre página principal y páginas fullscreen.
+
+### 2. Notas
+
+- Crear notas nuevas desde la UI.
+- Editar título, contenido, color y prioridad visual.
+- Fijar notas y archivarlas/restaurarlas.
+- Recordatorios asociados con fecha/hora.
+- Eliminación directa y estado persistido en almacenamiento local.
+
+### 3. Alarmas y temporizadores
+
+- Alarmas con hora y días de la semana.
+- Activación/desactivación por alarma.
+- Sonidos de alarma seleccionables por dispositivo.
+- Múltiples temporizadores con duración y reinicio.
+- Cronómetro con inicio/pausa/reset.
+- Reproducción local/aviso visual con vibración en web.
+
+### 4. Calendario local
+
+- Eventos, tareas y cumpleaños.
+- Fechas de inicio y fin, horario y evento de todo el día.
+- Repeticiones diarias, semanales, mensuales y anuales.
+- Recordatorios del calendario.
+- Vista de agenda, ocultado de tareas completadas y gestión básica de eventos.
+
+### 5. Galería y salvapantallas
+
+- Importación de imágenes desde el sistema.
+- Mantenimiento de metadatos y vías de eliminación a papelera.
+- Papelera recuperable con caducidad de 30 días.
+- Salvapantallas con carrusel aleatorio de fotos.
+- Detección de inactividad y cierre manual por toque.
+
+### 6. Ajustes del dispositivo y experiencia del panel
+
+- Brillo, volumen de alarma y multimedia.
+- Modo de pantalla siempre activa.
+- Timeout de pantalla configurable.
+- Rotación habilitada/deshabilitada.
+- Sonidos de interacción.
+- Modo inmersivo y comportamiento de pantalla de inicio preparados para Android/Capacitor.
+
+## Qué queda pendiente
+
+La parte funcional ya hecha es sólida como prototipo local, pero aún queda la capa de infraestructura y la funcionalidad de administración móvil:
+
+- servidor local nativo Android;
+- API REST + WebSocket para sincronización local;
+- emparejamiento por QR y confirmación física;
+- tokens y credenciales revocables por dispositivo;
+- PWA de administración desde móvil;
+- detección de red local y resolución de nombres `pablotablet.local`;
+- persistencia definitiva con Room + SQLite;
+- copias de seguridad y restauración automática;
+- integración real con meteorología y Google Calendar;
+- pruebas reales en la Teclast T65.
+
+## Arquitectura actual y decisiones vigentes
+
+- La app web es la capa funcional principal del MVP local.
+- Capacitor permite empaquetar la experiencia en Android con acceso nativo.
+- Los datos persisten en localStorage como base del prototipo funcional.
+- La lógica de widgets, notificaciones y estados ha sido normalizada para evitar corrupción o layouts inválidos.
+- El diseño sigue orientado a uso local sin Internet y sin dependencia de la nube.
+
+## Fases del MVP y estado real
+
+| Fase | Alcance | Estado actual |
 | --- | --- | --- |
-| 0. Base técnica | Proyecto web, Android, diseño base, navegación, datos simulados y configuración. | En marcha: base web y Android creados; faltan modelo definitivo, SQLite y pruebas en dispositivo. |
-| 1. Dashboard y widgets | Cuadrícula configurable, reloj, fecha, próximo elemento y meteorología inicial. | Parcial: shell, reloj/fecha, páginas, rotación y motor de layout funcionan; falta el editor móvil, widgets adicionales y datos reales. |
-| 2. Notas y recordatorios | Notas, colores, fijado, archivo, recordatorios y su widget. | Parcial: flujo local y persistencia implementados; faltan formato enriquecido, estado completado/tachado y cierre de avisos Android. No habrá autoeliminación. |
-| 3. Reloj, alarmas y temporizadores | Reloj, alarmas locales, múltiples temporizadores, persistencia y notificaciones. | Parcial: funciones locales listas en el prototipo; faltan sonidos, snooze, controles avanzados y validación nativa. |
-| 4. Meteorología | API real, ciudades, previsión, caché y widget. | Parcial: widget y vista detallada con datos de demostración; faltan integración de datos, ciudades, caché y estados de carga, error y desconexión. |
-| 5. Calendario | Calendario local primero; vistas, eventos, recordatorios y widget. Google Calendar después, con caché y sincronización. | Pendiente. |
-| 6. Fotos y salvapantallas | Galería local, álbumes, carrusel, inactividad y estados panel → salvapantallas → modo nocturno. | Pendiente. |
-| 7. Administración desde móvil | Servidor en la tablet, editor web/PWA, QR, dispositivos autorizados y cambios en tiempo real. | Pendiente. |
-| 8. Copias y recuperación | Exportación e importación, copias automáticas locales, rotación y restauración. | Pendiente. |
-| 9. Seguridad y cierre | Tokens, revocación, validación, recuperación ante reinicios, logs, errores, consumo y pruebas prolongadas. | Pendiente. |
-
-## Arquitectura acordada y trabajo técnico pendiente
-
-- Servidor nativo Android en la tablet, API REST y WebSocket para sincronización en tiempo real. Quedan por implementar el puerto y la publicación de `pablotablet.local` mediante mDNS.
-- Room sobre SQLite como persistencia definitiva. Quedan por implementar el esquema, las migraciones y los modelos.
-- Fotografías originales en el almacenamiento privado de la aplicación y metadatos en Room.
-- Copia completa semanal los domingos a las 03:00, conservando las tres últimas; no se copiarán credenciales ni sesiones.
-- API del editor móvil para aplicar movimientos, redimensionados y visibilidad sobre el layout persistente; la normalización y recolocación segura del grid ya están implementadas en la web.
-- HTTP local con tokens largos, aleatorios, individuales y revocables; queda por concretar su formato y custodia interna.
-- Autoarranque, recuperación del proceso/servidor, batería y comportamiento de modo kiosco en Android.
-- PWA del móvil, pruebas automatizadas, diagnóstico, actualizaciones y onboarding.
-
-## Fuera del MVP inicial
-
-Reconocimiento facial, control por voz avanzado, domótica completa, Spotify, asistentes de IA, sincronización cloud propia, Google Calendar, perfiles de dashboard, creación libre de temas y personalización ilimitada del layout.
+| 0. Base técnica | Web + Android + configuración inicial | Completada en gran parte |
+| 1. Dashboard y widgets | Grid, páginas y widgets | Completada funcionalmente |
+| 2. Notas y recordatorios | Notas, recordatorios, archivado | Completada funcionalmente |
+| 3. Reloj, alarmas y temporizadores | Alarmas, temporizadores, cronómetro | Completada funcionalmente |
+| 4. Meteorología | Datos reales y widget | En prototipo visual, pendiente integración real |
+| 5. Calendario | Calendario local | Implementado localmente |
+| 6. Galería y salvapantallas | Galería + carrusel | Implementado |
+| 7. Administración móvil | Servidor, QR, PWA móvil | Pendiente |
+| 8. Copias y recuperación | Backup / restore | Pendiente |
+| 9. Seguridad y cierre | Tokens, logs, recuperación | Pendiente |
 
 ## Desarrollo
 
@@ -77,8 +143,10 @@ npm run android:sync
 npm run android:open
 ```
 
-`android:sync` compila la web y actualiza el proyecto Capacitor. La validación pendiente relevante es instalar y probar la aplicación en la Teclast T65: modo inmersivo, gesto, persistencia y notificaciones.
+## Notas de validación
 
-## Historial y contexto
+- La aplicación puede ejecutarse como web y compilar para Android con Capacitor.
+- La parte más avanzada ya tiene flujo completo de alarmas, calendario, galería y pantalla principal.
+- La parte que aún requiere trabajo real es la capa de sincronización y la persistencia final.
 
-Los acuerdos de producto, diseño y arquitectura se mantienen en el [índice de chats](chats/INDICE-CHATS.md). Son material de referencia; este README es la fuente resumida para el estado y las fases actuales.
+Los acuerdos funcionales largos de producto y la historia de diseño se conservan en el [índice de chats](chats/INDICE-CHATS.md). Este README es la referencia actual del estado real del repositorio.
