@@ -1,10 +1,6 @@
 import { calendarEventTiming } from './calendarTiming.js'
 
 const STORAGE_TOKEN = 'pablo-tablet.mobile-token.v1'
-const SOCKET_RECONNECT_DELAY_MS = 1800
-const SOCKET_OFFLINE_GRACE_MS = 6000
-const SOCKET_HEARTBEAT_INTERVAL_MS = 8000
-const SOCKET_HEARTBEAT_TIMEOUT_MS = 5000
 const connectionLabel = document.querySelector('#connection-label')
 const refreshButton = document.querySelector('#refresh-button')
 const pairScreen = document.querySelector('#pair-screen')
@@ -20,9 +16,6 @@ let dashboard = null
 let activeTab = 'overview'
 let socket = null
 let reconnectTimer = null
-let offlineTimer = null
-let heartbeatTimer = null
-let heartbeatTimeout = null
 let reloadTimer = null
 let online = false
 let photoUrls = []
@@ -62,7 +55,7 @@ function setConnection(isOnline, label) {
 async function api(path, options = {}) {
   const headers = new Headers(options.headers ?? {})
   if (credential) headers.set('Authorization', `Bearer ${credential}`)
-  if (options.body && typeof options.body === 'string') headers.set('Content-Type', 'application/json; charset=utf-8')
+  if (options.body && typeof options.body === 'string') headers.set('Content-Type', 'application/json')
   const response = await fetch(path, { ...options, headers })
   if (response.status === 401) {
     localStorage.removeItem(STORAGE_TOKEN)
@@ -141,65 +134,30 @@ async function loadFeedback(silent = false) {
 
 function disconnectSocket() {
   window.clearTimeout(reconnectTimer)
-  window.clearTimeout(offlineTimer)
-  stopHeartbeat()
   if (socket) socket.close()
   socket = null
 }
 
-function stopHeartbeat() {
-  window.clearTimeout(heartbeatTimer)
-  window.clearTimeout(heartbeatTimeout)
-  heartbeatTimer = null
-  heartbeatTimeout = null
-}
-
-function scheduleHeartbeat(activeSocket) {
-  stopHeartbeat()
-  heartbeatTimer = window.setTimeout(() => {
-    if (socket !== activeSocket || activeSocket.readyState !== WebSocket.OPEN) return
-    activeSocket.send('ping')
-    heartbeatTimeout = window.setTimeout(() => {
-      if (socket === activeSocket && activeSocket.readyState === WebSocket.OPEN) activeSocket.close()
-    }, SOCKET_HEARTBEAT_TIMEOUT_MS)
-  }, SOCKET_HEARTBEAT_INTERVAL_MS)
-}
-
 function connectSocket() {
   if (!credential) return
-  window.clearTimeout(reconnectTimer)
-  stopHeartbeat()
+  disconnectSocket()
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const activeSocket = new WebSocket(`${protocol}//${location.host}/ws?token=${encodeURIComponent(credential)}`)
-  socket = activeSocket
-  activeSocket.addEventListener('open', () => {
-    window.clearTimeout(offlineTimer)
-    offlineTimer = null
-    setConnection(true, 'Sincronización activa')
-    scheduleHeartbeat(activeSocket)
-  })
-  activeSocket.addEventListener('message', (event) => {
-    if (socket !== activeSocket) return
+  socket = new WebSocket(`${protocol}//${location.host}/ws?token=${encodeURIComponent(credential)}`)
+  socket.addEventListener('open', () => setConnection(true, 'Sincronización activa'))
+  socket.addEventListener('message', (event) => {
     try {
       const message = JSON.parse(event.data)
-      scheduleHeartbeat(activeSocket)
       if (message.type === 'state-changed') {
         window.clearTimeout(reloadTimer)
         reloadTimer = window.setTimeout(() => void loadState(true), 180)
       }
     } catch { }
   })
-  activeSocket.addEventListener('close', () => {
-    if (socket !== activeSocket) return
-    stopHeartbeat()
-    if (offlineTimer === null) {
-      offlineTimer = window.setTimeout(() => {
-        if (!socket || socket.readyState !== WebSocket.OPEN) setConnection(false, 'Sin conexión')
-      }, SOCKET_OFFLINE_GRACE_MS)
-    }
-    reconnectTimer = window.setTimeout(connectSocket, SOCKET_RECONNECT_DELAY_MS)
+  socket.addEventListener('close', () => {
+    setConnection(false, 'Reconectando…')
+    reconnectTimer = window.setTimeout(connectSocket, 1800)
   })
-  activeSocket.addEventListener('error', () => activeSocket.close())
+  socket.addEventListener('error', () => socket?.close())
 }
 
 function title(title, subtitle, action = '') {
@@ -448,7 +406,7 @@ async function handleAction(event) {
     const result = await api(`/api/feedback/${encodeURIComponent(id)}/${operation}`, { method: 'POST' })
     feedbackReports = feedbackReports.map((item) => item.id === id ? result.report : item)
     render()
-    toast(`Se ha cambiado el estado de tu comentario a «${feedbackStatus(result.report)}».`)
+    toast(feedbackStatus(result.report))
     return
   } else if (action === 'edit-note') {
     const note = dashboard.notes.find((item) => item.id === id)
@@ -507,7 +465,7 @@ async function beginPairing() {
   button.disabled = true
   message.textContent = 'Enviando solicitud a la tablet…'
   try {
-    const result = await fetch('/api/pair/request', { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ pairingToken, deviceName: name, userAgent: navigator.userAgent }) })
+    const result = await fetch('/api/pair/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pairingToken, deviceName: name, userAgent: navigator.userAgent }) })
     const body = await result.json()
     if (!result.ok) throw new Error(body.error)
     message.textContent = 'Solicitud enviada. Acéptala físicamente en la tablet.'
@@ -569,7 +527,7 @@ refreshButton.addEventListener('click', () => {
 document.querySelector('#pair-button').addEventListener('click', () => void beginPairing())
 
 async function boot() {
-  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=10').catch(() => {})
+  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=6').catch(() => {})
   if (!credential && pairingToken) {
     const platform = /Android/i.test(navigator.userAgent) ? 'Android' : /iPhone|iPad/i.test(navigator.userAgent) ? 'iPhone/iPad' : 'Móvil'
     document.querySelector('#device-name').value = `${navigator.userAgent.includes('Chrome') ? 'Chrome' : navigator.userAgent.includes('Safari') ? 'Safari' : 'Navegador'} en ${platform}`
