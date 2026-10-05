@@ -1,107 +1,142 @@
 # Comentarios, mejoras y errores desde el móvil
 
-> Estado: especificación de la fase técnica 2; no implementada en `0.1.0`
+> Estado: fases 2A y código de 2B preparados; etiquetas creadas y despliegue del relay pendiente
+>
+> Versión de producto: `0.1.0`
 >
 > Actualizado: 05/10/2026
 
 ## Objetivo
 
-Añadir al editor móvil una pestaña **Comentarios y mejoras** para que una persona autorizada pueda comunicar un error, una sugerencia o una petición de implementación. El reporte llegará a GitHub sin incluir credenciales de escritura en la tablet o en el móvil.
+La pestaña **Comentarios** permite que una persona con un móvil vinculado comunique un error, una mejora o una nueva función. El reporte se conserva primero en la tablet y, cuando se configure el relay HTTPS, llegará a GitHub sin incluir credenciales de escritura en la tablet o en el móvil.
 
-## Experiencia prevista
+## Estado implementado
 
-El formulario tendrá:
+La fase 2A incluye:
+
+- formulario accesible solo para móviles vinculados;
+- validación en el navegador y de nuevo en el servidor Android;
+- cola persistente `feedback_reports` en SQLite;
+- versión, modelo de tablet, fecha y móvil autorizado añadidos por Android;
+- seguimiento visible limitado a `sent`, `seen`, `in_progress` e `implemented`;
+- historial separado por móvil;
+- cliente Android para un relay configurable exclusivamente mediante HTTPS;
+- relay Cloudflare Worker en `feedback-relay/`, con autenticación, validación, límite de frecuencia y deduplicación;
+- workflow `feedback-to-markdown.yml` para convertir Issues con la etiqueta `feedback-movil` en `feedback/issue-<numero>.md`.
+
+Las etiquetas `feedback-movil`, `visto`, `en-desarrollo` e `implementado` ya existen en el repositorio privado. Todavía no se ha desplegado ni configurado el relay porque requiere autenticar una cuenta de Cloudflare y crear una credencial de GitHub limitada a Issues. Hasta entonces los reportes se guardan como pendientes y no crean un Issue real.
+
+## Campos del formulario
 
 - tipo: **Error**, **Mejora** o **Nueva función**;
 - título breve;
-- apartado afectado: Inicio, Calendario, Reloj, Tiempo, Notas, Galería, Ajustes, Administración móvil u Otro;
+- apartado afectado;
 - descripción;
-- pasos para reproducir el problema, cuando sea un error;
-- resultado obtenido y resultado esperado;
 - importancia: baja, normal, alta o bloqueante;
-- captura de pantalla opcional;
-- consentimiento explícito antes de adjuntar una imagen;
-- versión de la aplicación, modelo de tablet y fecha añadidos automáticamente.
+- confirmación de privacidad.
 
-Después del envío se mostrará uno de estos estados:
-
-- **Enviado**, con el número del Issue;
-- **Pendiente de conexión**, si se decide implementar una cola local;
-- **No enviado**, con una causa y opción de reintento.
-
-## Flujo técnico previsto
+## Flujo técnico
 
 1. El usuario rellena el formulario desde el móvil vinculado.
-2. El navegador valida los campos y muestra exactamente qué información se enviará.
-3. El cliente realiza una petición HTTPS a un endpoint específico de feedback.
-4. El endpoint aplica validación, límite de frecuencia y tamaño máximo de adjuntos.
-5. Una GitHub App o token fine-grained guardado exclusivamente en el servidor crea un Issue en el repositorio acordado.
-6. El Issue recibe etiquetas como `bug`, `mejora`, `nueva-funcion`, `tablet-remota` y `pendiente-revisar`.
-7. Una GitHub Action puede convertir el Issue en `feedback/<numero>-<slug>.md` o actualizar un resumen Markdown.
-8. El desarrollador responde y gestiona el trabajo desde GitHub.
+2. El navegador valida los campos.
+3. El servidor local autenticado de la tablet vuelve a validar y guarda el reporte en SQLite.
+4. Android añade la versión `0.1.0`, el modelo de tablet, la fecha y el móvil autorizado.
+5. Si no hay relay configurado, el reporte queda en `pending`; la interfaz no expone acciones para copiar o descargar el Markdown interno.
+6. Si hay relay, Android realiza una petición HTTPS; el navegador nunca habla directamente con GitHub.
+7. El relay aplica validación y límite de frecuencia, y usa una credencial guardada exclusivamente en servidor para crear el Issue.
+8. El Issue recibe la etiqueta `feedback-movil` y las etiquetas funcionales correspondientes.
+9. GitHub Actions genera o actualiza `feedback/issue-<numero>.md`.
 
-GitHub Issues será la fuente de verdad del reporte. El Markdown del repositorio será una representación generada, no un archivo escrito directamente por el móvil.
+GitHub Issues será la fuente de verdad cuando el relay esté operativo. El Markdown del repositorio será una representación generada.
 
-## Formato Markdown previsto
+## Contrato del relay HTTPS
 
-```md
-# [Error] El widget del tiempo queda cortado
+La URL se inyecta al compilar, sin cambiar la versión:
 
-- Issue: #123
-- Estado: pendiente-revisar
-- Apartado: Tiempo
-- Importancia: alta
-- Versión: 0.1.0
-- Dispositivo: Teclast T65
-- Fecha: 2026-10-05T12:00:00+02:00
-
-## Descripción
-...
-
-## Pasos para reproducir
-...
-
-## Resultado obtenido
-...
-
-## Resultado esperado
-...
+```powershell
+./gradlew assembleRelease `
+  -PfeedbackRelayUrl=https://pablo-tablet-feedback.<cuenta>.workers.dev `
+  -PfeedbackRelayKey=<clave-de-entrada>
 ```
+
+Android envía `POST application/json` con `action: "create"` al registrar el comentario y `action: "status"` al actualizar su seguimiento:
+
+```json
+{
+  "action": "create",
+  "report": {
+    "id": "...",
+    "type": "error",
+    "title": "...",
+    "area": "Reloj",
+    "priority": "high",
+    "appVersion": "0.1.0",
+    "tabletModel": "Teclast T65",
+    "createdAt": 1791194400000,
+    "markdown": "# ..."
+  }
+}
+```
+
+Una respuesta correcta debe ser:
+
+```json
+{
+  "issueNumber": 123,
+  "issueUrl": "https://github.com/propietario/repositorio/issues/123",
+  "status": "seen"
+}
+```
+
+El relay debe crear el Issue con la etiqueta `feedback-movil`. GitHub Issues es la fuente de verdad y el seguimiento se traduce así:
+
+- Issue creado: `sent` (**Enviado**);
+- etiqueta `visto`: `seen` (**Visto**);
+- etiqueta `en-desarrollo`: `in_progress` (**En desarrollo**);
+- Issue cerrado con la etiqueta `implementado`: `implemented` (**Implementado**).
+
+`pending` y `failed` son condiciones internas de transporte anteriores a la creación del Issue, no estados del ticket mostrados en la línea de progreso. Una respuesta inválida o un error de red habilita **Reintentar envío**.
 
 ## Seguridad y privacidad
 
-- No se guardará un Personal Access Token dentro del APK, JavaScript o almacenamiento del navegador.
-- El token del servicio tendrá permisos mínimos y estará limitado al repositorio de feedback.
-- El endpoint no permitirá modificar código, crear Releases ni administrar el repositorio.
-- Los adjuntos serán opcionales y se limitarán por tipo y tamaño.
-- No se enviarán notas, fotografías de la galería, calendario ni otros datos personales automáticamente.
-- El identificador del dispositivo será seudónimo; no se utilizará el número de serie.
-- Se aplicará limitación de frecuencia para evitar spam o envíos accidentales repetidos.
+- No se guarda un Personal Access Token dentro del APK, JavaScript o almacenamiento del navegador.
+- La clave incluida en Android solo permite presentar comentarios al relay; no es una credencial de GitHub.
+- El endpoint solo se admite por HTTPS.
+- El token del relay tendrá permisos mínimos y estará limitado al repositorio de feedback.
+- El cliente no puede modificar código, crear Releases ni administrar el repositorio.
+- No se envían notas, fotografías, calendario u otros datos personales automáticamente.
+- El formulario exige confirmar que el texto se ha revisado antes de guardarlo.
+- El número de serie no se recopila.
+- El relay deberá aplicar limitación de frecuencia antes de producción.
 
-## Relación con la administración local
+## Formato Markdown
 
-La pestaña vivirá inicialmente en el editor móvil servido por la tablet, por lo que el móvil deberá estar conectado a la misma Wi‑Fi para abrirla. El envío del reporte sí requerirá Internet.
+```md
+# [Error] El reloj no reproduce la alarma
 
-Permitir abrir el formulario desde cualquier red sería una ampliación posterior y exigiría alojar una web pública autenticada. No se considera implementado ni aprobado en `0.1.0`.
+- Estado: pendiente-envio
+- Apartado: Reloj
+- Importancia: alta
+- Versión: 0.1.0
+- Tablet: Teclast T65
+- Móvil autorizado: Móvil de casa
+- Fecha: 2026-10-05T12:00:00Z
 
-## Decisiones pendientes antes de implementar
+## Descripción
+...
+```
 
-- proveedor del endpoint HTTPS;
-- repositorio exacto donde se crearán los Issues;
-- si los Issues serán privados o visibles públicamente;
-- almacenamiento de capturas;
-- si habrá cola offline;
-- si el autor podrá consultar el estado y las respuestas desde el móvil.
+## Red y alcance
 
-## Criterios de aceptación de la fase técnica 2
+El formulario lo sirve la tablet, por lo que el móvil debe estar en la misma Wi-Fi para abrirlo y registrar el reporte. El envío posterior al relay requiere Internet en la tablet. Abrir el formulario desde cualquier red sigue fuera del alcance de `0.1.0`.
 
-- La pestaña es usable desde un móvil vinculado.
-- Un reporte válido crea un único Issue con los campos y etiquetas esperados.
-- La versión `0.1.0` o la versión vigente se adjunta automáticamente.
-- Ningún secreto de GitHub aparece en el APK, recursos web, tráfico local o almacenamiento del navegador.
-- Los errores de red conservan el contenido del formulario y permiten reintentar.
-- Un adjunto no autorizado, demasiado grande o con tipo incorrecto se rechaza de forma clara.
-- La automatización genera el Markdown sin conceder escritura directa al cliente.
-- El flujo queda probado desde al menos un móvil real y la Teclast T65.
+## Pendiente para completar la fase 2
 
-La implementación de esta especificación no autoriza por sí sola un cambio de versión. Pablo indicará cuándo debe incrementarse.
+- autenticar Cloudflare y desplegar `feedback-relay/`;
+- crear y configurar en el Worker un token fine-grained con acceso únicamente a Issues de `Pablo-hg/Pablo-Tablet`;
+- guardar la URL y la clave de entrada como secretos del proceso de compilación Android;
+- probar la creación de un único Issue y su Markdown generado;
+- probar el flujo desde un móvil real y la Teclast T65;
+- decidir si una fase posterior admitirá capturas y respuestas desde el móvil.
+
+La implementación no autoriza un cambio de versión. Pablo indicará expresamente cuándo debe incrementarse.

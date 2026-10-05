@@ -29,6 +29,7 @@ final class MobileAdminServer extends NanoWSD {
     private final Context context;
     private final PabloTabletDatabase database;
     private final MobileAdminRepository repository;
+    private final FeedbackRelayClient feedbackRelay;
     private final Set<AdminSocket> sockets = new CopyOnWriteArraySet<>();
 
     MobileAdminServer(Context context, PabloTabletDatabase database, MobileAdminRepository repository) {
@@ -36,6 +37,7 @@ final class MobileAdminServer extends NanoWSD {
         this.context = context.getApplicationContext();
         this.database = database;
         this.repository = repository;
+        this.feedbackRelay = new FeedbackRelayClient(BuildConfig.FEEDBACK_RELAY_URL, BuildConfig.FEEDBACK_RELAY_KEY);
     }
 
     @Override
@@ -53,6 +55,10 @@ final class MobileAdminServer extends NanoWSD {
                 if (device == null) return error(Response.Status.UNAUTHORIZED, "La credencial de este móvil no es válida.");
                 if ("/api/state".equals(path) && session.getMethod() == Method.GET) return readState(device);
                 if ("/api/state".equals(path) && session.getMethod() == Method.PUT) return writeState(session, device);
+                if ("/api/feedback".equals(path) && session.getMethod() == Method.GET) return readFeedback(device);
+                if ("/api/feedback".equals(path) && session.getMethod() == Method.POST) return createFeedback(session, device);
+                if (path.matches("/api/feedback/[^/]+/refresh") && session.getMethod() == Method.POST) return refreshFeedback(path, device);
+                if (path.matches("/api/feedback/[^/]+/retry") && session.getMethod() == Method.POST) return retryFeedback(path, device);
                 if ("/api/photos".equals(path) && session.getMethod() == Method.POST) return uploadPhoto(session, device);
                 if (path.startsWith("/api/photos/") && session.getMethod() == Method.GET) return readPhoto(path.substring("/api/photos/".length()));
                 return error(Response.Status.NOT_FOUND, "La operación solicitada no existe.");
@@ -135,6 +141,60 @@ final class MobileAdminServer extends NanoWSD {
         return json(Response.Status.OK, new JSONObject().put("updatedAt", updatedAt).put("changedBy", device.id));
     }
 
+    private Response readFeedback(MobileAdminRepository.Device device) throws Exception {
+        return json(Response.Status.OK, new JSONObject().put("reports", repository.feedbackForDevice(device.id)));
+    }
+
+    private Response createFeedback(IHTTPSession session, MobileAdminRepository.Device device) throws Exception {
+        JSONObject report = repository.createFeedback(
+            device,
+            readJsonBody(session),
+            BuildConfig.VERSION_NAME,
+            android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL
+        );
+        report = deliverFeedback(report, device);
+        return json(Response.Status.CREATED, new JSONObject().put("report", report));
+    }
+
+    private Response retryFeedback(String path, MobileAdminRepository.Device device) throws Exception {
+        String prefix = "/api/feedback/";
+        String feedbackId = path.substring(prefix.length(), path.length() - "/retry".length());
+        JSONObject report = repository.feedbackJson(feedbackId, device.id);
+        if ("sent".equals(report.optString("status"))) return json(Response.Status.OK, new JSONObject().put("report", report));
+        if (!feedbackRelay.isConfigured()) throw new IllegalArgumentException("El servicio seguro de GitHub todavía no está configurado.");
+        return json(Response.Status.OK, new JSONObject().put("report", deliverFeedback(report, device)));
+    }
+
+    private Response refreshFeedback(String path, MobileAdminRepository.Device device) throws Exception {
+        String prefix = "/api/feedback/";
+        String feedbackId = path.substring(prefix.length(), path.length() - "/refresh".length());
+        JSONObject report = repository.feedbackJson(feedbackId, device.id);
+        if (!feedbackRelay.isConfigured()) throw new IllegalArgumentException("El seguimiento remoto todavía no está configurado.");
+        if (report.isNull("githubIssueNumber")) throw new IllegalArgumentException("El comentario todavía no se ha enviado.");
+        try {
+            FeedbackRelayClient.Result result = feedbackRelay.status(report);
+            applyRelayStatus(report.getString("id"), device, result);
+        } catch (Exception error) {
+            throw new IllegalArgumentException("No se pudo actualizar el estado: " + error.getMessage());
+        }
+        return json(Response.Status.OK, new JSONObject().put("report", repository.feedbackJson(feedbackId, device.id)));
+    }
+
+    private JSONObject deliverFeedback(JSONObject report, MobileAdminRepository.Device device) throws Exception {
+        if (!feedbackRelay.isConfigured()) return report;
+        try {
+            FeedbackRelayClient.Result result = feedbackRelay.send(report);
+            applyRelayStatus(report.getString("id"), device, result);
+        } catch (Exception error) {
+            repository.markFeedbackFailed(report.getString("id"), device.id, error.getMessage());
+        }
+        return repository.feedbackJson(report.getString("id"), device.id);
+    }
+
+    private void applyRelayStatus(String feedbackId, MobileAdminRepository.Device device, FeedbackRelayClient.Result result) {
+        repository.updateFeedbackStatus(feedbackId, device.id, result.issueNumber, result.issueUrl, result.status);
+    }
+
     private Response uploadPhoto(IHTTPSession session, MobileAdminRepository.Device device) throws Exception {
         int length = contentLength(session);
         if (length <= 0) throw new IllegalArgumentException("No se recibió ninguna imagen.");
@@ -192,7 +252,7 @@ final class MobileAdminServer extends NanoWSD {
         else return error(Response.Status.NOT_FOUND, "Página no encontrada.");
         try {
             InputStream stream = context.getAssets().open(assetName);
-            String mime = NanoHTTPD.getMimeTypeForFile(assetName);
+            String mime = withUtf8Charset(NanoHTTPD.getMimeTypeForFile(assetName));
             Response result = newChunkedResponse(Response.Status.OK, mime, stream);
             boolean editableAsset = assetName.endsWith(".html") || assetName.endsWith(".js") || assetName.endsWith(".css") || assetName.endsWith(".webmanifest");
             result.addHeader("Cache-Control", editableAsset ? "no-store" : "public, max-age=3600");
@@ -260,6 +320,15 @@ final class MobileAdminServer extends NanoWSD {
         String cleaned = name.replaceAll("[\\r\\n\\t]", " ").trim();
         if (cleaned.isEmpty()) cleaned = "Foto";
         return cleaned.substring(0, Math.min(cleaned.length(), 160));
+    }
+
+    private static String withUtf8Charset(String mime) {
+        if (mime == null) return "application/octet-stream";
+        String lower = mime.toLowerCase();
+        if (lower.startsWith("text/") || lower.contains("javascript") || lower.contains("json") || lower.contains("svg+xml")) {
+            return mime + "; charset=utf-8";
+        }
+        return mime;
     }
 
     private static String normalizedPath(String raw) {

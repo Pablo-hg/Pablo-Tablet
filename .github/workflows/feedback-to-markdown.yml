@@ -1,0 +1,54 @@
+name: Convertir feedback a Markdown
+
+on:
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled]
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  generate:
+    if: contains(github.event.issue.labels.*.name, 'feedback-movil')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generar archivo Markdown
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            const path = require('path')
+            const issue = context.payload.issue
+            const directory = path.join(process.env.GITHUB_WORKSPACE, 'feedback')
+            fs.mkdirSync(directory, { recursive: true })
+            const labels = issue.labels.map(label => typeof label === 'string' ? label : label.name).filter(Boolean)
+            const status = issue.state === 'closed' && labels.includes('implementado')
+              ? 'implementado'
+              : labels.includes('en-desarrollo')
+                ? 'en desarrollo'
+                : labels.includes('visto')
+                  ? 'visto'
+                  : 'enviado'
+            const content = [
+              `# ${issue.title}`,
+              '',
+              `- Issue: [#${issue.number}](${issue.html_url})`,
+              `- Estado: ${status}`,
+              `- Etiquetas: ${labels.join(', ') || 'ninguna'}`,
+              `- Creado: ${issue.created_at}`,
+              `- Actualizado: ${issue.updated_at}`,
+              '',
+              issue.body || '_Sin descripción._',
+              '',
+            ].join('\n')
+            fs.writeFileSync(path.join(directory, `issue-${issue.number}.md`), content, 'utf8')
+      - name: Guardar cambio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add feedback
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "docs(feedback): actualizar issue #${{ github.event.issue.number }}"
+          git push

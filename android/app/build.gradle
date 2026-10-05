@@ -3,6 +3,8 @@ apply plugin: 'com.android.application'
 def releaseKeystoreFile = System.getenv('ANDROID_KEYSTORE_FILE')
 def configuredVersionCode = (project.findProperty('appVersionCode') ?: '1').toString().toInteger()
 def configuredVersionName = (project.findProperty('appVersionName') ?: '0.1.0').toString()
+def configuredFeedbackRelayUrl = (project.findProperty('feedbackRelayUrl') ?: '').toString().replace('\\', '\\\\').replace('"', '\\"')
+def configuredFeedbackRelayKey = (project.findProperty('feedbackRelayKey') ?: '').toString().replace('\\', '\\\\').replace('"', '\\"')
 
 android {
     namespace = "com.pablohorcajada.tablet"
@@ -16,6 +18,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode configuredVersionCode
         versionName configuredVersionName
+        buildConfigField "String", "FEEDBACK_RELAY_URL", "\"${configuredFeedbackRelayUrl}\""
+        buildConfigField "String", "FEEDBACK_RELAY_KEY", "\"${configuredFeedbackRelayKey}\""
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

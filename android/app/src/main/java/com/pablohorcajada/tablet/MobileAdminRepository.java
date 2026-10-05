@@ -12,9 +12,15 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.UUID;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 final class MobileAdminRepository {
     private static final long PAIRING_LIFETIME_MS = 5 * 60 * 1000L;
+    private static final Set<String> FEEDBACK_TYPES = new HashSet<>(Arrays.asList("error", "improvement", "feature"));
+    private static final Set<String> FEEDBACK_PRIORITIES = new HashSet<>(Arrays.asList("low", "normal", "high", "blocking"));
+    private static final Set<String> FEEDBACK_STATUSES = new HashSet<>(Arrays.asList("sent", "seen", "in_progress", "implemented"));
     private final PabloTabletDatabase database;
     private final SecureRandom random = new SecureRandom();
 
@@ -232,6 +238,151 @@ final class MobileAdminRepository {
         ContentValues row = new ContentValues();
         row.put("revoked_at", System.currentTimeMillis());
         database.getWritableDatabase().update("mobile_devices", row, "device_id = ?", new String[] { deviceId });
+    }
+
+    JSONObject createFeedback(Device device, JSONObject input, String appVersion, String tabletModel) throws Exception {
+        String type = requiredChoice(input, "type", FEEDBACK_TYPES, "El tipo de reporte no es válido.");
+        String priority = requiredChoice(input, "priority", FEEDBACK_PRIORITIES, "La importancia no es válida.");
+        String title = requiredText(input, "title", 100, "Escribe un título.");
+        String area = requiredText(input, "area", 60, "Selecciona el apartado afectado.");
+        String description = requiredText(input, "description", 4000, "Describe el comentario o problema.");
+        String steps = optionalText(input, "steps", 3000);
+        String actualResult = optionalText(input, "actualResult", 2000);
+        String expectedResult = optionalText(input, "expectedResult", 2000);
+        if (!input.optBoolean("privacyAccepted", false)) {
+            throw new IllegalArgumentException("Confirma que el reporte no contiene datos personales que no quieras enviar.");
+        }
+
+        String id = UUID.randomUUID().toString();
+        long createdAt = System.currentTimeMillis();
+        String markdown = feedbackMarkdown(type, title, area, description, steps, actualResult, expectedResult, priority, appVersion, tabletModel, device.name, createdAt);
+        ContentValues row = new ContentValues();
+        row.put("feedback_id", id);
+        row.put("source_device_id", device.id);
+        row.put("source_device_name", device.name);
+        row.put("type", type);
+        row.put("title", title);
+        row.put("area", area);
+        row.put("description", description);
+        row.put("steps", steps);
+        row.put("actual_result", actualResult);
+        row.put("expected_result", expectedResult);
+        row.put("priority", priority);
+        row.put("app_version", appVersion);
+        row.put("tablet_model", tabletModel);
+        row.put("created_at", createdAt);
+        row.put("status", "pending");
+        row.put("status_updated_at", createdAt);
+        row.put("markdown", markdown);
+        database.getWritableDatabase().insertOrThrow("feedback_reports", null, row);
+        return feedbackJson(id, device.id);
+    }
+
+    JSONArray feedbackForDevice(String deviceId) throws Exception {
+        JSONArray result = new JSONArray();
+        try (Cursor cursor = database.getReadableDatabase().query(
+            "feedback_reports",
+            new String[] { "feedback_id" },
+            "source_device_id = ?",
+            new String[] { deviceId },
+            null,
+            null,
+            "created_at DESC",
+            "50"
+        )) {
+            while (cursor.moveToNext()) result.put(feedbackJson(cursor.getString(0), deviceId));
+        }
+        return result;
+    }
+
+    JSONObject feedbackJson(String feedbackId, String deviceId) throws Exception {
+        try (Cursor cursor = database.getReadableDatabase().query(
+            "feedback_reports",
+            new String[] { "feedback_id", "type", "title", "area", "description", "steps", "actual_result", "expected_result", "priority", "app_version", "tablet_model", "created_at", "status", "attempts", "last_error", "github_issue_number", "github_issue_url", "target_version", "status_updated_at", "markdown" },
+            "feedback_id = ? AND source_device_id = ?",
+            new String[] { feedbackId, deviceId },
+            null,
+            null,
+            null,
+            "1"
+        )) {
+            if (!cursor.moveToFirst()) throw new IllegalArgumentException("El reporte no existe.");
+            JSONObject item = new JSONObject();
+            item.put("id", cursor.getString(0));
+            item.put("type", cursor.getString(1));
+            item.put("title", cursor.getString(2));
+            item.put("area", cursor.getString(3));
+            item.put("description", cursor.getString(4));
+            item.put("steps", cursor.getString(5));
+            item.put("actualResult", cursor.getString(6));
+            item.put("expectedResult", cursor.getString(7));
+            item.put("priority", cursor.getString(8));
+            item.put("appVersion", cursor.getString(9));
+            item.put("tabletModel", cursor.getString(10));
+            item.put("createdAt", cursor.getLong(11));
+            item.put("status", cursor.getString(12));
+            item.put("attempts", cursor.getInt(13));
+            item.put("lastError", cursor.isNull(14) ? JSONObject.NULL : cursor.getString(14));
+            item.put("githubIssueNumber", cursor.isNull(15) ? JSONObject.NULL : cursor.getInt(15));
+            item.put("githubIssueUrl", cursor.isNull(16) ? JSONObject.NULL : cursor.getString(16));
+            item.put("statusUpdatedAt", cursor.getLong(18));
+            item.put("markdown", cursor.getString(19));
+            return item;
+        }
+    }
+
+    void updateFeedbackStatus(String feedbackId, String deviceId, int issueNumber, String issueUrl, String status) {
+        String cleanStatus = FEEDBACK_STATUSES.contains(status) ? status : "sent";
+        ContentValues row = new ContentValues();
+        row.put("status", cleanStatus);
+        row.put("github_issue_number", issueNumber);
+        row.put("github_issue_url", issueUrl);
+        row.put("status_updated_at", System.currentTimeMillis());
+        row.putNull("last_error");
+        database.getWritableDatabase().update("feedback_reports", row, "feedback_id = ? AND source_device_id = ?", new String[] { feedbackId, deviceId });
+    }
+
+    void markFeedbackFailed(String feedbackId, String deviceId, String message) {
+        ContentValues row = new ContentValues();
+        row.put("status", "failed");
+        row.put("last_error", message == null ? "No se pudo enviar el reporte." : message.substring(0, Math.min(message.length(), 300)));
+        database.getWritableDatabase().execSQL(
+            "UPDATE feedback_reports SET status = ?, last_error = ?, attempts = attempts + 1, status_updated_at = ? WHERE feedback_id = ? AND source_device_id = ?",
+            new Object[] { "failed", row.getAsString("last_error"), System.currentTimeMillis(), feedbackId, deviceId }
+        );
+    }
+
+    private static String requiredChoice(JSONObject input, String key, Set<String> allowed, String message) {
+        String value = input.optString(key, "").trim();
+        if (!allowed.contains(value)) throw new IllegalArgumentException(message);
+        return value;
+    }
+
+    private static String requiredText(JSONObject input, String key, int maximum, String message) {
+        String value = optionalText(input, key, maximum);
+        if (value.isEmpty()) throw new IllegalArgumentException(message);
+        return value;
+    }
+
+    private static String optionalText(JSONObject input, String key, int maximum) {
+        String value = input.optString(key, "").trim();
+        if (value.length() > maximum) throw new IllegalArgumentException("El campo " + key + " es demasiado largo.");
+        return value;
+    }
+
+    private static String feedbackMarkdown(String type, String title, String area, String description, String steps, String actualResult, String expectedResult, String priority, String appVersion, String tabletModel, String deviceName, long createdAt) {
+        String label = "error".equals(type) ? "Error" : "feature".equals(type) ? "Nueva función" : "Mejora";
+        StringBuilder result = new StringBuilder();
+        result.append("# [").append(label).append("] ").append(title).append("\n\n");
+        result.append("- Estado: pendiente-envio\n");
+        result.append("- Apartado: ").append(area).append("\n");
+        result.append("- Importancia: ").append(priority).append("\n");
+        result.append("- Versión: ").append(appVersion).append("\n");
+        result.append("- Tablet: ").append(tabletModel).append("\n");
+        result.append("- Móvil autorizado: ").append(deviceName).append("\n");
+        result.append("- Fecha: ").append(new java.util.Date(createdAt).toInstant()).append("\n\n");
+        result.append("## Descripción\n\n").append(description).append("\n");
+        return result.toString();
     }
 
     private String findActiveSessionId(String pairingToken, long now) throws Exception {

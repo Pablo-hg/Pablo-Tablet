@@ -13,7 +13,7 @@ Este documento explica cómo se mantiene y administra Pablo Tablet cuando la Tec
 | Uso normal de la tablet | Sin Internet, salvo servicios concretos como Tiempo | Implementado | [README](README.md) |
 | Administración desde un móvil vinculado | Misma Wi‑Fi que la tablet | Implementada en código; validación completa pendiente | [ADMINISTRACION-MOVIL](ADMINISTRACION-MOVIL.md) |
 | Buscar, descargar e instalar actualizaciones | Internet | Implementado y probado con APK debug; preparación de producción pendiente | [ACTUALIZACIONES](ACTUALIZACIONES.md) |
-| Enviar comentarios, mejoras y errores | Internet para enviarlos a GitHub | Planificado para la fase técnica 2; no implementado | [COMENTARIOS-Y-MEJORAS](COMENTARIOS-Y-MEJORAS.md) |
+| Enviar comentarios, mejoras y errores | Wi-Fi local para registrar; Internet para GitHub | Formulario y cola implementados; relay y prueba real pendientes | [COMENTARIOS-Y-MEJORAS](COMENTARIOS-Y-MEJORAS.md) |
 | Control total de la tablet desde fuera de la vivienda | Internet | Fuera del alcance actual | — |
 
 Las fases técnicas de esta tabla no cambian la versión del producto. La versión solo se incrementa cuando Pablo lo indica expresamente.
@@ -69,11 +69,11 @@ La instalación completamente silenciosa no forma parte de `0.1.0`. Exigiría ad
 
 Este flujo no permite administrar la tablet desde otra red. Su validación completa con móviles y routers reales continúa pendiente.
 
-## Flujo previsto de comentarios y mejoras
+## Flujo de comentarios y mejoras
 
-La fase técnica 2 añadirá una pestaña **Comentarios y mejoras** al cliente móvil. El formulario enviará el reporte mediante HTTPS a un servicio mínimo, que creará un GitHub Issue. Una Action podrá generar a partir de ese Issue el archivo Markdown solicitado.
+La fase técnica 2A ha añadido la pestaña **Comentarios** al cliente móvil. El formulario entrega el reporte al servidor autenticado de la tablet y Android lo conserva en SQLite. Cuando se configure el relay HTTPS, la tablet enviará el reporte para crear un GitHub Issue. La Action incluida generará a partir del Issue el archivo Markdown solicitado.
 
-El servicio intermedio es obligatorio para no exponer una clave de GitHub. La definición completa, campos, seguridad y criterios de aceptación están en [COMENTARIOS-Y-MEJORAS.md](COMENTARIOS-Y-MEJORAS.md).
+El servicio intermedio sigue siendo obligatorio para no exponer una clave de GitHub. Su código está preparado en `feedback-relay/` y las cuatro etiquetas ya existen en el repositorio privado, pero falta autenticar Cloudflare, guardar los secretos y desplegarlo. Mientras tanto se informa de que el Issue aún no se ha creado. Una vez creado, la pestaña solo muestra **Enviado**, **Visto**, **En desarrollo** e **Implementado**, sincronizados desde GitHub Issues. No se ofrece copia o descarga del Markdown interno. La definición completa está en [COMENTARIOS-Y-MEJORAS.md](COMENTARIOS-Y-MEJORAS.md).
 
 ## Preparación operativa pendiente
 

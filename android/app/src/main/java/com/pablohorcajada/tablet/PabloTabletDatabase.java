@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 final class PabloTabletDatabase extends SQLiteOpenHelper {
     static final String DASHBOARD_KEY = "dashboard-state";
     private static final String DATABASE_NAME = "pablo_tablet.db";
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 4;
     private static PabloTabletDatabase instance;
 
     static synchronized PabloTabletDatabase get(Context context) {
@@ -25,11 +25,14 @@ final class PabloTabletDatabase extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase database) {
         createStorageTable(database);
         createMobileAdminTables(database);
+        createFeedbackTables(database);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase database, int oldVersion, int newVersion) {
         if (oldVersion < 2) createMobileAdminTables(database);
+        if (oldVersion < 3) createFeedbackTables(database);
+        if (oldVersion >= 3 && oldVersion < 4) addFeedbackTrackingColumns(database);
     }
 
     StorageRecord readStorage(String key) {
@@ -109,6 +112,44 @@ final class PabloTabletDatabase extends SQLiteOpenHelper {
         );
         database.execSQL("CREATE INDEX IF NOT EXISTS idx_pairing_requests_status ON pairing_requests(status, expires_at)");
         database.execSQL("CREATE INDEX IF NOT EXISTS idx_mobile_devices_token ON mobile_devices(token_hash, revoked_at)");
+    }
+
+    private static void createFeedbackTables(SQLiteDatabase database) {
+        database.execSQL(
+            "CREATE TABLE IF NOT EXISTS feedback_reports (" +
+                "feedback_id TEXT PRIMARY KEY NOT NULL," +
+                "source_device_id TEXT NOT NULL," +
+                "source_device_name TEXT NOT NULL," +
+                "type TEXT NOT NULL," +
+                "title TEXT NOT NULL," +
+                "area TEXT NOT NULL," +
+                "description TEXT NOT NULL," +
+                "steps TEXT NOT NULL," +
+                "actual_result TEXT NOT NULL," +
+                "expected_result TEXT NOT NULL," +
+                "priority TEXT NOT NULL," +
+                "app_version TEXT NOT NULL," +
+                "tablet_model TEXT NOT NULL," +
+                "created_at INTEGER NOT NULL," +
+                "status TEXT NOT NULL," +
+                "attempts INTEGER NOT NULL DEFAULT 0," +
+                "last_error TEXT," +
+                "github_issue_number INTEGER," +
+                "github_issue_url TEXT," +
+                "target_version TEXT," +
+                "status_updated_at INTEGER NOT NULL," +
+                "markdown TEXT NOT NULL," +
+                "FOREIGN KEY(source_device_id) REFERENCES mobile_devices(device_id)" +
+            ")"
+        );
+        database.execSQL("CREATE INDEX IF NOT EXISTS idx_feedback_device_created ON feedback_reports(source_device_id, created_at DESC)");
+        database.execSQL("CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback_reports(status, created_at)");
+    }
+
+    private static void addFeedbackTrackingColumns(SQLiteDatabase database) {
+        database.execSQL("ALTER TABLE feedback_reports ADD COLUMN target_version TEXT");
+        database.execSQL("ALTER TABLE feedback_reports ADD COLUMN status_updated_at INTEGER NOT NULL DEFAULT 0");
+        database.execSQL("UPDATE feedback_reports SET status_updated_at = created_at WHERE status_updated_at = 0");
     }
 
     static final class StorageRecord {

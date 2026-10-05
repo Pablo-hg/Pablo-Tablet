@@ -38,7 +38,7 @@ La arquitectura final sigue planteada como híbrida y local, pero la parte ya im
 | Persistencia local de la aplicación            | Implementado              | SQLite privado en Android, migración del estado anterior y fallback web para desarrollo   |
 | Servidor local para el móvil                   | Implementado parcialmente | HTTP en LAN, API REST, WebSocket, tokens por dispositivo y archivos privados               |
 | Actualizaciones remotas                        | Implementado parcialmente | consulta, descarga, SHA-256 e instalador; falta canal público y firma definitiva            |
-| Comentarios y mejoras desde móvil              | Planificado               | especificación preparada; implementación prevista para la fase técnica 2                    |
+| Comentarios y mejoras desde móvil              | Parcialmente implementado | formulario, cola, etiquetas y relay listos en código; despliegue y prueba real pendientes    |
 | Copias y restauración                          | Pendiente                 | no está desarrollada en esta rama                                                         |
 | Integración con Google Calendar / datos reales | Pendiente                 | queda fuera del MVP actual                                                                |
 
@@ -136,7 +136,7 @@ El funcionamiento, la seguridad y la preparación operativa están en [ACTUALIZA
 
 ### 9. Comentarios y mejoras desde el móvil
 
-Esta función está especificada pero no implementada en `0.1.0`. La fase técnica 2 añadirá un formulario móvil que creará GitHub Issues mediante un endpoint seguro y podrá generar archivos Markdown automáticamente. No se incluirán tokens de GitHub en el cliente. Véase [COMENTARIOS-Y-MEJORAS.md](COMENTARIOS-Y-MEJORAS.md).
+La fase técnica 2A añade un formulario móvil autenticado, una cola SQLite persistente y cuatro estados visibles: **Enviado**, **Visto**, **En desarrollo** e **Implementado**. Cada ticket será un GitHub Issue; la generación Markdown queda interna y no se ofrecen acciones para copiarla o descargarla desde el móvil. Falta desplegar el relay HTTPS y probar la creación real del Issue; no se incluyen tokens de GitHub en el cliente. Véase [COMENTARIOS-Y-MEJORAS.md](COMENTARIOS-Y-MEJORAS.md).
 
 ## Qué queda pendiente
 
@@ -151,7 +151,7 @@ La administración móvil ya dispone de un recorrido funcional completo en códi
 - integración con Google Calendar;
 - pruebas reales en la Teclast T65.
 - preparación y prueba extremo a extremo del canal firmado de actualizaciones;
-- implementación y validación del formulario de comentarios y mejoras.
+- despliegue del relay y validación real del formulario de comentarios y mejoras.
 
 ## Arquitectura actual y decisiones vigentes
 

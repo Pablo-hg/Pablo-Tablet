@@ -1,0 +1,26 @@
+{
+  "$schema": "https://developers.cloudflare.com/workers/wrangler/config-schema.json",
+  "name": "pablo-tablet-feedback",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-05",
+  "vars": {
+    "GITHUB_OWNER": "Pablo-hg",
+    "GITHUB_REPO": "Pablo-Tablet"
+  },
+  "secrets": {
+    "required": ["GITHUB_TOKEN", "FEEDBACK_RELAY_KEY"]
+  },
+  "ratelimits": [
+    {
+      "name": "SUBMISSION_RATE_LIMITER",
+      "namespace_id": "1042",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

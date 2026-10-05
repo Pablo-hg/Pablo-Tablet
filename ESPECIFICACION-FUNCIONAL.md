@@ -129,7 +129,7 @@ Las actualizaciones y el futuro envío de comentarios utilizan Internet. Ninguna
 - El canal de producción requiere repositorio público de Releases, clave definitiva, secretos y una primera instalación firmada.
 - Android solicitará confirmación física para instalar mientras la tablet no sea un dispositivo administrado.
 - La administración móvil existente funciona únicamente dentro de la misma Wi‑Fi.
-- El formulario de comentarios y mejoras está especificado para la fase técnica 2, pero no está implementado.
+- El formulario y la cola local de comentarios están implementados en la fase técnica 2A; el relay HTTPS y la validación real con GitHub están pendientes.
 - El estado completo y los flujos se mantienen en [OPERACION-REMOTA.md](OPERACION-REMOTA.md), [ACTUALIZACIONES.md](ACTUALIZACIONES.md), [ADMINISTRACION-MOVIL.md](ADMINISTRACION-MOVIL.md) y [COMENTARIOS-Y-MEJORAS.md](COMENTARIOS-Y-MEJORAS.md).
 
 ## 13. Copias de seguridad y recuperación

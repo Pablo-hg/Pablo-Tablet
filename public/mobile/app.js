@@ -19,6 +19,7 @@ let reconnectTimer = null
 let reloadTimer = null
 let online = false
 let photoUrls = []
+let feedbackReports = []
 
 const params = new URLSearchParams(location.search)
 const pairingToken = params.get('pair')
@@ -118,6 +119,17 @@ async function saveState(message = 'Cambio guardado') {
   await api('/api/state', { method: 'PUT', body: JSON.stringify({ state: dashboard }) })
   toast(message)
   render()
+}
+
+async function loadFeedback(silent = false) {
+  try {
+    const result = await api('/api/feedback')
+    feedbackReports = Array.isArray(result.reports) ? result.reports : []
+    if (activeTab === 'feedback') render()
+  } catch (error) {
+    if (!silent) toast(error.message)
+    throw error
+  }
 }
 
 function disconnectSocket() {
@@ -238,6 +250,44 @@ function renderSettings() {
     </form>`
 }
 
+function feedbackLabel(type) {
+  return type === 'error' ? 'Error' : type === 'feature' ? 'Nueva función' : 'Mejora'
+}
+
+function feedbackStatus(report) {
+  if (report.status === 'sent') return 'Enviado al desarrollador'
+  if (report.status === 'seen') return 'Visto por el desarrollador'
+  if (report.status === 'in_progress') return 'En desarrollo'
+  if (report.status === 'implemented') return 'Implementado'
+  return ''
+}
+
+function feedbackProgress(report) {
+  const steps = [
+    ['sent', 'Enviado'],
+    ['seen', 'Visto'],
+    ['in_progress', 'En desarrollo'],
+    ['implemented', 'Implementado'],
+  ]
+  const current = steps.findIndex(([status]) => status === report.status)
+  return `<div class="feedback-progress" aria-label="Progreso del comentario">${steps.map(([status, label], index) => `<span class="${index < current ? 'done' : index === current ? 'current' : ''}" title="${status}">${label}</span>`).join('')}</div>`
+}
+
+function renderFeedback() {
+  return `${title('Comentarios y mejoras', 'Comunica errores, sugerencias o nuevas funciones')}
+    <div class="card feedback-notice"><strong>Seguimiento protegido</strong><p>El comentario se guarda primero en la tablet y se convierte en un GitHub Issue. Aquí podrás consultar si está enviado, visto, en desarrollo o implementado.</p></div>
+    <form id="feedback-form" class="card form-grid">
+      <label>Tipo<select name="type" required><option value="error">Error</option><option value="improvement">Mejora</option><option value="feature">Nueva función</option></select></label>
+      <label>Importancia<select name="priority" required><option value="normal">Normal</option><option value="low">Baja</option><option value="high">Alta</option><option value="blocking">Bloqueante</option></select></label>
+      <label class="full">Título<input name="title" maxlength="100" placeholder="Resumen breve" required /></label>
+      <label class="full">Apartado afectado<select name="area" required><option>Inicio</option><option>Calendario</option><option>Reloj</option><option>Tiempo</option><option>Notas</option><option>Galería</option><option>Ajustes</option><option>Administración móvil</option><option>Actualizaciones</option><option>Otro</option></select></label>
+      <label class="full">Descripción<textarea name="description" maxlength="4000" placeholder="Explica qué ocurre o qué te gustaría mejorar" required></textarea></label>
+      <label class="privacy-check full"><input name="privacyAccepted" type="checkbox" required /><span>He revisado el texto y no contiene datos personales que no quiera compartir con el desarrollador.</span></label>
+      <button class="primary-button full" type="submit">Guardar y preparar envío</button>
+    </form>
+    <div class="item-list">${feedbackReports.length ? feedbackReports.map((report) => { const statusLabel = feedbackStatus(report); return `<article class="item feedback-item"><div class="item-row"><div><strong>[${feedbackLabel(report.type)}] ${escapeHtml(report.title)}</strong><br><small>${escapeHtml(report.area)} · ${new Date(report.createdAt).toLocaleString('es-ES')}</small>${statusLabel ? `<span class="feedback-status status-${escapeHtml(report.status)}">${escapeHtml(statusLabel)}</span>` : ''}</div></div>${feedbackProgress(report)}${report.status === 'pending' ? '<p class="delivery-message">Todavía no se ha creado el Issue.</p>' : ''}${report.lastError ? `<p class="delivery-message error">${escapeHtml(report.lastError)}</p>` : ''}<div class="actions">${report.status === 'pending' || report.status === 'failed' ? `<button data-action="retry-feedback" data-id="${report.id}">${report.status === 'failed' ? 'Reintentar envío' : 'Enviar ahora'}</button>` : ''}${report.githubIssueNumber && report.status !== 'implemented' ? `<button data-action="refresh-feedback" data-id="${report.id}">Actualizar estado</button>` : ''}</div></article>` }).join('') : '<div class="empty card">Todavía no has enviado ningún comentario desde este móvil.</div>'}</div>`
+}
+
 async function loadPhoto(photo, container) {
   try {
     const response = await fetch(`/api/photos/${encodeURIComponent(photo.id)}`, { headers: { Authorization: `Bearer ${credential}` } })
@@ -262,7 +312,7 @@ function render() {
   if (!dashboard) return
   photoUrls.forEach((url) => URL.revokeObjectURL(url))
   photoUrls = []
-  const views = { overview: renderOverview, notes: renderNotes, calendar: renderCalendar, clock: renderClock, weather: renderWeather, photos: renderPhotos, layout: renderLayout, settings: renderSettings }
+  const views = { overview: renderOverview, notes: renderNotes, calendar: renderCalendar, clock: renderClock, weather: renderWeather, photos: renderPhotos, layout: renderLayout, settings: renderSettings, feedback: renderFeedback }
   editorContent.innerHTML = (views[activeTab] ?? views.overview)()
   setConnection(online, online ? 'Sincronización activa' : 'Sin conexión')
 }
@@ -329,6 +379,20 @@ async function handleSubmit(event) {
       nightMediaVolume: clampNumber(form.elements.nightMediaVolume.value, 0, 100, 12),
     })
     await saveState('Modo nocturno actualizado en la tablet')
+  } else if (form.id === 'feedback-form') {
+    const payload = {
+      type: data.get('type'),
+      priority: data.get('priority'),
+      title: data.get('title'),
+      area: data.get('area'),
+      description: data.get('description'),
+      privacyAccepted: data.get('privacyAccepted') === 'on',
+    }
+    const result = await api('/api/feedback', { method: 'POST', body: JSON.stringify(payload) })
+    feedbackReports.unshift(result.report)
+    form.reset()
+    render()
+    toast(result.report.status === 'sent' ? `Issue enviado · #${result.report.githubIssueNumber}` : result.report.status === 'failed' ? 'Guardado, pero el envío ha fallado' : 'Guardado localmente; falta crear el Issue')
   }
 }
 
@@ -337,7 +401,14 @@ async function handleAction(event) {
   if (!control || !online || !dashboard) return
   const action = control.dataset.action
   const id = control.dataset.id
-  if (action === 'edit-note') {
+  if (action === 'retry-feedback' || action === 'refresh-feedback') {
+    const operation = action === 'retry-feedback' ? 'retry' : 'refresh'
+    const result = await api(`/api/feedback/${encodeURIComponent(id)}/${operation}`, { method: 'POST' })
+    feedbackReports = feedbackReports.map((item) => item.id === id ? result.report : item)
+    render()
+    toast(feedbackStatus(result.report))
+    return
+  } else if (action === 'edit-note') {
     const note = dashboard.notes.find((item) => item.id === id)
     if (!note || note.type === 'drawing') return
     const title = prompt('Título de la nota', note.title)
@@ -433,10 +504,11 @@ tabs.forEach((tab) => tab.addEventListener('click', () => {
   activeTab = tab.dataset.tab
   tabs.forEach((candidate) => candidate.classList.toggle('active', candidate === tab))
   render()
+  if (activeTab === 'feedback') void loadFeedback(true).catch(() => {})
 }))
 editorContent.addEventListener('submit', (event) => void handleSubmit(event).catch((error) => toast(error instanceof Error ? error.message : 'No se pudo completar la operación.')))
-editorContent.addEventListener('click', (event) => void handleAction(event))
-editorContent.addEventListener('change', (event) => void handleAction(event))
+editorContent.addEventListener('click', (event) => void handleAction(event).catch((error) => toast(error instanceof Error ? error.message : 'No se pudo completar la operación.')))
+editorContent.addEventListener('change', (event) => void handleAction(event).catch((error) => toast(error instanceof Error ? error.message : 'No se pudo completar la operación.')))
 editorContent.addEventListener('input', (event) => {
   const outputId = event.target.dataset?.output
   if (!outputId) return
@@ -448,11 +520,14 @@ editorContent.addEventListener('change', (event) => {
   const fieldset = event.target.form?.querySelector('fieldset')
   if (fieldset) fieldset.disabled = !event.target.checked
 })
-refreshButton.addEventListener('click', () => credential ? void loadState() : location.reload())
+refreshButton.addEventListener('click', () => {
+  if (!credential) { location.reload(); return }
+  void loadState().then(() => activeTab === 'feedback' ? loadFeedback(true) : undefined).catch(() => {})
+})
 document.querySelector('#pair-button').addEventListener('click', () => void beginPairing())
 
 async function boot() {
-  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=5').catch(() => {})
+  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=6').catch(() => {})
   if (!credential && pairingToken) {
     const platform = /Android/i.test(navigator.userAgent) ? 'Android' : /iPhone|iPad/i.test(navigator.userAgent) ? 'iPhone/iPad' : 'Móvil'
     document.querySelector('#device-name').value = `${navigator.userAgent.includes('Chrome') ? 'Chrome' : navigator.userAgent.includes('Safari') ? 'Safari' : 'Navegador'} en ${platform}`
