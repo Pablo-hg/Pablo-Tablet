@@ -1,0 +1,803 @@
+/* Theme system: visual tokens stay separate from layout so every theme preserves the 3 x 4 dashboard contract. */
+.tablet-shell[data-theme] {
+  --theme-bg: #101a32;
+  --theme-wallpaper: linear-gradient(135deg, #0f1830 0%, #172c4a 48%, #0a2135 100%);
+  --theme-orb-one: radial-gradient(circle, rgba(86, 129, 255, .55), rgba(86, 129, 255, 0) 70%);
+  --theme-orb-two: radial-gradient(circle, rgba(32, 211, 184, .35), rgba(32, 211, 184, 0) 68%);
+  --theme-grid: rgba(255,255,255,.18);
+  --theme-grid-opacity: .18;
+  --theme-text: #f7f8ff;
+  --theme-muted: #aebbd4;
+  --theme-subtle: #8f9db7;
+  --theme-surface: linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.07));
+  --theme-surface-solid: #233754;
+  --theme-surface-soft: rgba(255,255,255,.075);
+  --theme-surface-hover: rgba(255,255,255,.13);
+  --theme-border: rgba(255,255,255,.16);
+  --theme-border-strong: rgba(154,184,255,.48);
+  --theme-accent: #7899ff;
+  --theme-accent-soft: rgba(120,153,255,.2);
+  --theme-accent-contrast: #07142d;
+  --theme-secondary: #55d8b0;
+  --theme-warm: #ffcd74;
+  --theme-danger: #ff9e82;
+  --theme-shadow: 0 24px 55px rgba(0,8,27,.18);
+  --theme-radius: 28px;
+  --theme-control-radius: 14px;
+  --theme-outline: 1px;
+  --theme-blur: 22px;
+  --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-inset: color-mix(in srgb, var(--theme-surface-solid) 78%, transparent);
+  --theme-inset-strong: color-mix(in srgb, var(--theme-surface-solid) 92%, transparent);
+  --theme-disabled: color-mix(in srgb, var(--theme-surface-solid) 62%, transparent);
+  --theme-drawing-paper: #14233e;
+  --theme-drawing-ink: #f4f7ff;
+  --theme-overlay: rgba(2, 8, 20, .66);
+  /* Stable semantic contract consumed by components. Theme definitions only
+     change the values above; component CSS should prefer these aliases. */
+  --ui-canvas: var(--theme-bg);
+  --ui-wallpaper: var(--theme-wallpaper);
+  --ui-text: var(--theme-text);
+  --ui-text-muted: var(--theme-muted);
+  --ui-text-subtle: var(--theme-subtle);
+  --ui-panel: var(--theme-surface);
+  --ui-panel-solid: var(--theme-surface-solid);
+  --ui-control: var(--theme-surface-soft);
+  --ui-control-hover: var(--theme-surface-hover);
+  --ui-border: var(--theme-border);
+  --ui-border-strong: var(--theme-border-strong);
+  --ui-action: var(--theme-accent);
+  --ui-action-soft: var(--theme-accent-soft);
+  --ui-action-text: var(--theme-accent-contrast);
+  --ui-positive: var(--theme-secondary);
+  --ui-highlight: var(--theme-warm);
+  --ui-danger: var(--theme-danger);
+  --ui-shadow: var(--theme-shadow);
+  --ui-radius-panel: var(--theme-radius);
+  --ui-radius-control: var(--theme-control-radius);
+  --ui-outline-width: var(--theme-outline);
+  --ui-backdrop-blur: var(--theme-blur);
+  --ui-font: var(--theme-font);
+  --color-base-100: var(--theme-surface-solid);
+  --color-base-200: var(--theme-surface-soft);
+  --color-base-300: var(--theme-surface-hover);
+  --color-base-content: var(--theme-text);
+  --color-primary: var(--theme-accent);
+  --color-primary-content: var(--theme-accent-contrast);
+  --color-secondary: var(--theme-secondary);
+  --color-secondary-content: var(--theme-text);
+  --color-accent: var(--theme-warm);
+  --color-accent-content: var(--theme-accent-contrast);
+  --color-neutral: var(--theme-surface-solid);
+  --color-neutral-content: var(--theme-text);
+  --color-error: var(--theme-danger);
+  --color-error-content: var(--theme-text);
+  --radius-box: var(--theme-radius);
+  --radius-field: var(--theme-control-radius);
+  --radius-selector: 999px;
+  --border: var(--theme-outline);
+  --depth: 0;
+  --noise: 0;
+  background: var(--theme-bg);
+  color: var(--theme-text);
+  font-family: var(--theme-font);
+  transition: background .28s ease, color .2s ease;
+}
+
+.tablet-shell[data-theme="warm"] {
+  --theme-bg: #f4efe6;
+  --theme-wallpaper: linear-gradient(145deg, #fbf8f2 0%, #efe7dc 58%, #e5eee6 100%);
+  --theme-orb-one: radial-gradient(circle, rgba(207,105,74,.16), transparent 70%);
+  --theme-orb-two: radial-gradient(circle, rgba(79,119,105,.15), transparent 68%);
+  --theme-grid: rgba(65,53,45,.08);
+  --theme-grid-opacity: .12;
+  --theme-text: #201e1c;
+  --theme-muted: #716a64;
+  --theme-subtle: #938a82;
+  --theme-surface: linear-gradient(145deg, rgba(255,253,249,.98), rgba(250,246,239,.94));
+  --theme-surface-solid: #fffaf3;
+  --theme-surface-soft: rgba(103,82,66,.055);
+  --theme-surface-hover: rgba(180,91,63,.1);
+  --theme-border: rgba(91,70,54,.14);
+  --theme-border-strong: rgba(190,91,61,.48);
+  --theme-accent: #c95f42;
+  --theme-accent-soft: rgba(201,95,66,.14);
+  --theme-accent-contrast: #fffaf4;
+  --theme-secondary: #55766b;
+  --theme-warm: #d49a29;
+  --theme-danger: #bd513e;
+  --theme-shadow: 0 15px 42px rgba(81,61,47,.1);
+  --theme-radius: 26px;
+  --theme-control-radius: 13px;
+  --theme-blur: 0px;
+}
+
+.tablet-shell[data-theme="amoled"] {
+  --theme-bg: #000;
+  --theme-wallpaper: #000;
+  --theme-orb-one: radial-gradient(circle, rgba(0,218,239,.08), transparent 65%);
+  --theme-orb-two: radial-gradient(circle, rgba(255,188,44,.045), transparent 65%);
+  --theme-grid: rgba(69,225,242,.08);
+  --theme-grid-opacity: .08;
+  --theme-text: #f5f7f8;
+  --theme-muted: #a5b0ba;
+  --theme-subtle: #75818b;
+  --theme-surface: linear-gradient(145deg, #0b1013, #050708);
+  --theme-surface-solid: #080c0e;
+  --theme-surface-soft: rgba(218,240,245,.045);
+  --theme-surface-hover: rgba(15,218,238,.1);
+  --theme-border: rgba(57,215,235,.24);
+  --theme-border-strong: rgba(31,226,244,.72);
+  --theme-accent: #18d9ed;
+  --theme-accent-soft: rgba(24,217,237,.16);
+  --theme-accent-contrast: #001012;
+  --theme-secondary: #5be2bb;
+  --theme-warm: #ffbd32;
+  --theme-danger: #ff715f;
+  --theme-shadow: none;
+  --theme-radius: 25px;
+  --theme-control-radius: 12px;
+  --theme-blur: 0px;
+}
+
+.tablet-shell[data-theme="retro"] {
+  --theme-bg: #ead9b5;
+  --theme-wallpaper: linear-gradient(150deg, #f3e6c8 0%, #ddc38f 100%);
+  --theme-orb-one: radial-gradient(circle, rgba(198,83,31,.16), transparent 68%);
+  --theme-orb-two: radial-gradient(circle, rgba(86,91,43,.18), transparent 68%);
+  --theme-grid: rgba(74,45,24,.12);
+  --theme-grid-opacity: .16;
+  --theme-text: #3a1e10;
+  --theme-muted: #755f48;
+  --theme-subtle: #927a5d;
+  --theme-surface: linear-gradient(145deg, #f8eccc, #ead7ad);
+  --theme-surface-solid: #f2dfb9;
+  --theme-surface-soft: rgba(91,65,32,.075);
+  --theme-surface-hover: rgba(201,91,30,.12);
+  --theme-border: rgba(73,43,20,.55);
+  --theme-border-strong: #bd5b24;
+  --theme-accent: #c95a23;
+  --theme-accent-soft: rgba(201,90,35,.17);
+  --theme-accent-contrast: #fff2d3;
+  --theme-secondary: #656638;
+  --theme-warm: #d7961e;
+  --theme-danger: #bc4f31;
+  --theme-shadow: 4px 5px 0 rgba(69,43,21,.16);
+  --theme-radius: 22px;
+  --theme-control-radius: 9px;
+  --theme-blur: 0px;
+  --theme-font: "Trebuchet MS", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.tablet-shell[data-theme="glass"] {
+  --theme-bg: #07142d;
+  --theme-wallpaper: radial-gradient(circle at 72% 16%, rgba(0,231,221,.28), transparent 31%), radial-gradient(circle at 18% 0%, rgba(83,84,255,.42), transparent 36%), linear-gradient(145deg, #07142d 0%, #092b3c 55%, #080c26 100%);
+  --theme-orb-one: radial-gradient(circle, rgba(91,112,255,.64), transparent 67%);
+  --theme-orb-two: radial-gradient(circle, rgba(28,236,219,.42), transparent 68%);
+  --theme-grid: rgba(161,225,255,.15);
+  --theme-grid-opacity: .13;
+  --theme-text: #f5fbff;
+  --theme-muted: #bdd1e8;
+  --theme-subtle: #8ca9c2;
+  --theme-surface: linear-gradient(145deg, rgba(151,194,255,.2), rgba(24,65,91,.21));
+  --theme-surface-solid: rgba(19,48,73,.86);
+  --theme-surface-soft: rgba(190,225,255,.1);
+  --theme-surface-hover: rgba(140,222,255,.2);
+  --theme-border: rgba(170,226,255,.52);
+  --theme-border-strong: rgba(115,239,255,.92);
+  --theme-accent: #78a3ff;
+  --theme-accent-soft: rgba(120,163,255,.24);
+  --theme-accent-contrast: #061129;
+  --theme-secondary: #54ead7;
+  --theme-warm: #ffd06f;
+  --theme-danger: #ff9e8f;
+  --theme-shadow: 0 18px 55px rgba(0,8,31,.32), inset 0 1px 0 rgba(255,255,255,.2);
+  --theme-radius: 30px;
+  --theme-control-radius: 15px;
+  --theme-blur: 26px;
+}
+
+.tablet-shell[data-theme="nordic"] {
+  --theme-bg: #e8e9e3;
+  --theme-wallpaper: linear-gradient(150deg, #f5f4ef, #e4e5de 58%, #d5ddd4);
+  --theme-orb-one: radial-gradient(circle, rgba(112,133,117,.15), transparent 68%);
+  --theme-orb-two: radial-gradient(circle, rgba(157,111,75,.12), transparent 68%);
+  --theme-grid: rgba(48,62,53,.07);
+  --theme-grid-opacity: .1;
+  --theme-text: #263229;
+  --theme-muted: #68726b;
+  --theme-subtle: #87918a;
+  --theme-surface: linear-gradient(145deg, rgba(255,255,252,.96), rgba(241,241,235,.96));
+  --theme-surface-solid: #f7f7f1;
+  --theme-surface-soft: rgba(57,76,63,.055);
+  --theme-surface-hover: rgba(72,102,81,.1);
+  --theme-border: rgba(48,67,54,.13);
+  --theme-border-strong: rgba(64,94,73,.48);
+  --theme-accent: #4f6e59;
+  --theme-accent-soft: rgba(79,110,89,.15);
+  --theme-accent-contrast: #f8fbf7;
+  --theme-secondary: #a07250;
+  --theme-warm: #d49a29;
+  --theme-danger: #bb604d;
+  --theme-shadow: 0 14px 38px rgba(50,61,52,.09);
+  --theme-radius: 24px;
+  --theme-control-radius: 12px;
+  --theme-blur: 0px;
+}
+
+.tablet-shell[data-theme="swiss"] {
+  --theme-bg: #f5f4ef;
+  --theme-wallpaper: #f5f4ef;
+  --theme-orb-one: none;
+  --theme-orb-two: none;
+  --theme-grid: rgba(0,0,0,.05);
+  --theme-grid-opacity: .12;
+  --theme-text: #080808;
+  --theme-muted: #5b6168;
+  --theme-subtle: #7d8287;
+  --theme-surface: #fff;
+  --theme-surface-solid: #fff;
+  --theme-surface-soft: #f1f1ed;
+  --theme-surface-hover: #e9efff;
+  --theme-border: #161616;
+  --theme-border-strong: #0058ff;
+  --theme-accent: #075bf7;
+  --theme-accent-soft: rgba(7,91,247,.12);
+  --theme-accent-contrast: #fff;
+  --theme-secondary: #17a76b;
+  --theme-warm: #f3b600;
+  --theme-danger: #f32f3c;
+  --theme-shadow: none;
+  --theme-radius: 8px;
+  --theme-control-radius: 6px;
+  --theme-blur: 0px;
+  --theme-font: Arial, Helvetica, ui-sans-serif, system-ui, sans-serif;
+}
+
+.tablet-shell[data-theme="mediterranean"] {
+  --theme-bg: #eadbc4;
+  --theme-wallpaper: radial-gradient(circle at 80% 5%, rgba(255,255,255,.72), transparent 31%), linear-gradient(145deg, #f8efdF, #e8d4b4 64%, #d4c39f);
+  --theme-orb-one: radial-gradient(circle, rgba(36,86,132,.13), transparent 68%);
+  --theme-orb-two: radial-gradient(circle, rgba(212,103,55,.18), transparent 68%);
+  --theme-grid: rgba(28,71,108,.08);
+  --theme-grid-opacity: .11;
+  --theme-text: #133f68;
+  --theme-muted: #6d6d68;
+  --theme-subtle: #918b7f;
+  --theme-surface: linear-gradient(145deg, rgba(255,251,242,.97), rgba(247,237,218,.96));
+  --theme-surface-solid: #fff7e8;
+  --theme-surface-soft: rgba(22,62,97,.055);
+  --theme-surface-hover: rgba(42,89,133,.1);
+  --theme-border: rgba(35,78,112,.15);
+  --theme-border-strong: rgba(29,78,120,.5);
+  --theme-accent: #215b91;
+  --theme-accent-soft: rgba(33,91,145,.14);
+  --theme-accent-contrast: #fffaf0;
+  --theme-secondary: #74825a;
+  --theme-warm: #e0a018;
+  --theme-danger: #dc7044;
+  --theme-shadow: 0 16px 44px rgba(91,66,36,.1);
+  --theme-radius: 27px;
+  --theme-control-radius: 13px;
+  --theme-blur: 0px;
+}
+
+.tablet-shell[data-theme="monochrome"] {
+  --theme-bg: #ededeb;
+  --theme-wallpaper: linear-gradient(145deg, #fafafa, #e9e9e7);
+  --theme-orb-one: none;
+  --theme-orb-two: none;
+  --theme-grid: rgba(0,0,0,.06);
+  --theme-grid-opacity: .1;
+  --theme-text: #090909;
+  --theme-muted: #555;
+  --theme-subtle: #777;
+  --theme-surface: #fafafa;
+  --theme-surface-solid: #fff;
+  --theme-surface-soft: #ececeb;
+  --theme-surface-hover: #e4e4e2;
+  --theme-border: #292929;
+  --theme-border-strong: #000;
+  --theme-accent: #111;
+  --theme-accent-soft: rgba(0,0,0,.1);
+  --theme-accent-contrast: #fff;
+  --theme-secondary: #555;
+  --theme-warm: #ff6a00;
+  --theme-danger: #c93024;
+  --theme-shadow: none;
+  --theme-radius: 18px;
+  --theme-control-radius: 10px;
+  --theme-blur: 0px;
+}
+
+.tablet-shell[data-theme="brutalist"] {
+  --theme-bg: #ffe52d;
+  --theme-wallpaper: #ffe52d;
+  --theme-orb-one: none;
+  --theme-orb-two: none;
+  --theme-grid: rgba(0,0,0,.08);
+  --theme-grid-opacity: .14;
+  --theme-text: #070707;
+  --theme-muted: #353535;
+  --theme-subtle: #555;
+  --theme-surface: #7fe9bd;
+  --theme-surface-solid: #fffaf0;
+  --theme-surface-soft: rgba(255,255,255,.64);
+  --theme-surface-hover: #fff4a8;
+  --theme-border: #070707;
+  --theme-border-strong: #070707;
+  --theme-accent: #0758f8;
+  --theme-accent-soft: #c7b2ff;
+  --theme-accent-contrast: #fff;
+  --theme-secondary: #73e7b7;
+  --theme-warm: #ffdc2f;
+  --theme-danger: #ff756b;
+  --theme-shadow: 8px 9px 0 #070707;
+  --theme-radius: 20px;
+  --theme-control-radius: 10px;
+  --theme-outline: 4px;
+  --theme-blur: 0px;
+  --theme-font: Arial, Helvetica, ui-sans-serif, system-ui, sans-serif;
+  --theme-inset: #fffaf0;
+  --theme-inset-strong: #fffdf6;
+  --theme-disabled: #f1e79c;
+  --theme-drawing-paper: #102242;
+  --theme-overlay: rgba(7, 7, 7, .64);
+}
+
+.tablet-shell:is([data-theme="warm"], [data-theme="retro"], [data-theme="nordic"], [data-theme="swiss"], [data-theme="mediterranean"], [data-theme="monochrome"]) {
+  --theme-drawing-paper: #fffaf4;
+  --theme-drawing-ink: #25211f;
+}
+
+.tablet-shell:is([data-theme="warm"], [data-theme="retro"], [data-theme="nordic"], [data-theme="swiss"], [data-theme="mediterranean"], [data-theme="monochrome"]) :is(.note-preview-drawing, .note-drawing-canvas) path[stroke="#f4f7ff"] {
+  stroke: var(--theme-drawing-ink);
+}
+
+.tablet-shell[data-theme] .wallpaper { background: var(--theme-wallpaper); }
+.tablet-shell[data-theme] .orb-one { background: var(--theme-orb-one); }
+.tablet-shell[data-theme] .orb-two { background: var(--theme-orb-two); }
+.tablet-shell[data-theme] .grid-glow { background-image: linear-gradient(var(--theme-grid) 1px, transparent 1px), linear-gradient(90deg, var(--theme-grid) 1px, transparent 1px); opacity: var(--theme-grid-opacity); }
+
+.tablet-shell[data-theme] :where(
+  .widget-card,
+  .dashboard-empty-state,
+  .weather-current-panel,
+  .weather-forecast-panel,
+  .weather-empty-state,
+  .clock-workspace .focus-clock,
+  .alarm-panel,
+  .timer-panel,
+  .calendar-month-panel,
+  .calendar-day-panel,
+  .calendar-upcoming-panel,
+  .notes-workspace,
+  .gallery-panel,
+  .settings-section
+) {
+  backdrop-filter: blur(var(--theme-blur));
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+  border-radius: var(--theme-radius);
+  box-shadow: var(--theme-shadow);
+}
+
+.tablet-shell[data-theme] :where(
+  .status-pill,
+  .back-button,
+  .settings-row,
+  .alarm-row,
+  .timer-row,
+  .calendar-day-event,
+  .calendar-upcoming-event,
+  .weather-location-chip,
+  .reminder-list button,
+  .text-action,
+  .note-create-menu button,
+  .note-filter,
+  .night-schedule label,
+  .calendar-toolbar button,
+  .calendar-type-option,
+  .calendar-all-day,
+  .calendar-boundary,
+  .calendar-reminders-summary,
+  .calendar-reminder-row
+) {
+  background: var(--theme-surface-soft);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+
+.tablet-shell[data-theme] :is(.interactive-card:hover, .settings-row:hover, .reminder-list button:hover, .note-list-item:hover, .calendar-month-grid > button:hover) {
+  background: var(--theme-surface-hover);
+  border-color: var(--theme-border-strong);
+}
+
+.tablet-shell[data-theme] :where(
+  .eyebrow,
+  .widget-label,
+  .widget-subtitle,
+  .weather-copy,
+  .location,
+  .settings-copy small,
+  .settings-note,
+  .settings-select-row,
+  .settings-range-content output,
+  .note-list-item small,
+  .notes-sidebar p,
+  .note-text-toolbar,
+  .note-editor-footer,
+  .calendar-reminders-help,
+  .calendar-reminder-count,
+  .weather-source-note
+) { color: var(--theme-muted); }
+
+.tablet-shell[data-theme] :where(
+  .widget-title,
+  .section-heading h2,
+  .device-settings-heading h2,
+  .settings-row,
+  .notes-title h1,
+  .notes-editor-placeholder h2,
+  .note-title-input,
+  .calendar-month-grid > button,
+  .alarm-row input,
+  .weather-current-main p
+) { color: var(--theme-text); }
+
+.tablet-shell[data-theme] :is(.section-heading, .settings-icon, .heading-icon.blue, .reminder-list time, .weather-stats > div) { color: var(--theme-accent); }
+.tablet-shell[data-theme] :is(.settings-icon, .heading-icon.blue) { background: var(--theme-accent-soft); }
+.tablet-shell[data-theme] :is(.primary-action, .alarm-done, .icon-button, .toggle.is-on, .alarm-toggle.is-on, .timer-presets button.is-selected, .weekday-picker button.is-selected) {
+  background: var(--theme-accent);
+  color: var(--theme-accent-contrast);
+}
+.tablet-shell[data-theme] :is(.interactive-card:focus-visible, .page-indicators button:focus-visible, .toggle-row:focus-visible, .theme-option:focus-visible) { outline-color: var(--theme-accent); }
+.tablet-shell[data-theme] :is(.weather-icon, .weather-current-icon, .hourly-forecast svg, .daily-icon) { color: var(--theme-warm); }
+.tablet-shell[data-theme] :is(.bottom-navigation, .navigation-reveal) { background: color-mix(in srgb, var(--theme-surface-solid) 91%, transparent); border-color: var(--theme-border); color: var(--theme-text); }
+.tablet-shell[data-theme] .bottom-navigation button { color: var(--theme-muted); }
+.tablet-shell[data-theme] .bottom-navigation button.is-active { background: var(--theme-accent-soft); color: var(--theme-text); }
+.tablet-shell[data-theme] .page-indicators button { background: color-mix(in srgb, var(--theme-muted) 45%, transparent); }
+.tablet-shell[data-theme] .page-indicators button.is-active { background: var(--theme-text); }
+.tablet-shell[data-theme] .page-indicators button.is-home { background: var(--theme-surface-solid); border-color: var(--theme-border); color: var(--theme-accent); }
+.tablet-shell[data-theme] .page-indicators button.is-home.is-active { background: var(--theme-accent); color: var(--theme-accent-contrast); }
+
+.tablet-shell[data-theme] :is(.calendar-widget-month-grid > span, .calendar-month-grid > button) { background: var(--theme-surface-soft); border-color: color-mix(in srgb, var(--theme-border) 62%, transparent); }
+.tablet-shell[data-theme] .calendar-widget-month-grid > span > strong { color: var(--theme-text); }
+.tablet-shell[data-theme] .calendar-widget-month-grid > span.is-muted > strong { color: var(--theme-muted); }
+.tablet-shell[data-theme] .responsive-calendar-widget .calendar-widget-month-grid > span.is-muted { opacity: .72; }
+.tablet-shell[data-theme] :is(.calendar-widget-month-grid > span.is-today, .calendar-month-grid > button.is-selected) { background: var(--theme-accent-soft); border-color: var(--theme-border-strong); }
+.tablet-shell[data-theme] :is(.calendar-widget-month-grid > span.is-today > strong, .calendar-month-grid > button.is-today strong) { background: var(--theme-accent); color: var(--theme-accent-contrast); }
+.tablet-shell[data-theme] .calendar-widget-month-grid small { background: var(--theme-accent-soft); border-left-color: var(--theme-accent); color: var(--theme-text); }
+
+.tablet-shell[data-theme] :is(.settings-select-row select, .timeout-select-row select, .night-schedule input, .note-editor-footer input, .note-stroke-width select) {
+  background: var(--theme-surface-solid);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+  color-scheme: light dark;
+}
+.tablet-shell[data-theme] :is(.settings-select-row select option, .timeout-select-row select option) { color: #111; }
+.tablet-shell[data-theme] :is(.notes-workspace textarea, .note-editor textarea) { background: var(--theme-surface-soft); border-color: var(--theme-border); color: var(--theme-text); }
+.tablet-shell[data-theme] .note-drawing-toolbar { background: color-mix(in srgb, var(--theme-surface-solid) 92%, transparent); border-color: var(--theme-border); }
+.tablet-shell[data-theme] .note-drawing-toolbar :is(button, .note-stroke-width) { background: var(--theme-surface-soft); border-color: var(--theme-border); color: var(--theme-muted); }
+.tablet-shell[data-theme] .note-drawing-toolbar button.is-active { background: var(--theme-accent-soft); border-color: var(--theme-border-strong); color: var(--theme-text); }
+
+.tablet-shell[data-theme] .alarm-editor { background: var(--theme-surface-solid); border-color: var(--theme-border-strong); color: var(--theme-text); }
+.tablet-shell[data-theme] .editor-close { background: var(--theme-surface-soft); border-color: var(--theme-border); color: var(--theme-text); }
+.tablet-shell[data-theme] .settings-header { color: var(--theme-text); }
+
+/* Semantic component layer. App.css owns layout; themes own every visual surface and text role. */
+.tablet-shell[data-theme] :where(
+  .date,
+  .morning-line,
+  .focus-clock-kicker,
+  .focus-clock p,
+  .weather-current-main span,
+  .weather-stats span,
+  .weather-widget-hours small,
+  .weather-tall-current > div:last-child > span,
+  .weather-tall-stats small,
+  .weather-tall-hours small,
+  .weather-current > div:last-child > span,
+  .weather-hours small,
+  .weather-forecast small,
+  .calendar-widget-header > span,
+  .calendar-widget-weekdays,
+  .calendar-event-line time,
+  .calendar-day-event small,
+  .calendar-upcoming-event small,
+  .calendar-day-empty,
+  .gallery-toolbar > div:first-child > span,
+  .note-preview small,
+  .note-list-meta,
+  .alarm-summary small,
+  .alarm-editor-grid label > span,
+  .weekday-picker legend,
+  .timer-name-field > span,
+  .timer-presets legend,
+  .custom-duration > span:first-child
+) { color: var(--theme-muted); }
+
+.tablet-shell[data-theme] :where(
+  .note-preview strong,
+  .calendar-day-empty strong,
+  .weather-stats strong,
+  .weather-widget-hours strong,
+  .weather-tall-stats strong,
+  .weather-tall-hours strong,
+  .weather-hours strong,
+  .weather-forecast strong,
+  .gallery-empty h2
+) { color: var(--theme-text); }
+
+.tablet-shell[data-theme] :where(
+  .calendar-widget-month,
+  .weather-stats > div,
+  .weather-widget-hours > span,
+  .weather-tall-stats > span,
+  .weather-tall-hours > span,
+  .weather-stats > span,
+  .weather-hours > span,
+  .weather-forecast > span,
+  .note-preview,
+  .note-filter,
+  .note-drawing-position,
+  .weather-location-search,
+  .weather-search-results,
+  .alarm-time-stepper > div,
+  .gallery-delete-confirm
+) {
+  background: var(--theme-inset);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+
+.tablet-shell[data-theme] .gallery-screensaver-agenda {
+  background: color-mix(in srgb, var(--theme-surface-solid) 86%, transparent);
+  border-color: var(--theme-border-strong);
+  box-shadow: var(--theme-shadow);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] .gallery-screensaver-agenda header { color: var(--theme-accent); }
+.tablet-shell[data-theme] .gallery-screensaver-agenda > div {
+  background: color-mix(in srgb, var(--theme-surface-soft) 92%, transparent);
+  border: 1px solid var(--theme-border);
+}
+.tablet-shell[data-theme] .gallery-screensaver-agenda strong { color: var(--theme-text); }
+.tablet-shell[data-theme] .gallery-screensaver-agenda :is(small, p) { color: var(--theme-muted); }
+
+.tablet-shell[data-theme] :is(
+  .weather-location-search input,
+  .alarm-time-field input,
+  .alarm-name-field input,
+  .alarm-sound-field select,
+  .timer-name-field input,
+  .custom-duration input,
+  .calendar-title-field input,
+  .calendar-location-field input,
+  .calendar-notes-field textarea,
+  .calendar-editor-date select,
+  .calendar-time-fields select,
+  .calendar-boundary-fields select
+) {
+  background: var(--theme-inset-strong);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+
+.tablet-shell[data-theme] :is(
+  .weather-location-search input::placeholder,
+  .notes-workspace textarea::placeholder,
+  .note-editor textarea::placeholder
+) { color: var(--theme-subtle); }
+
+.tablet-shell[data-theme] .night-mode-settings { border-color: var(--theme-border); }
+.tablet-shell[data-theme] .night-mode-settings.is-active {
+  background: var(--theme-surface-soft);
+  border-color: var(--theme-border-strong);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-border) 45%, transparent);
+}
+.tablet-shell[data-theme] .night-mode-settings.is-active > .settings-row .settings-icon {
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent);
+}
+
+.tablet-shell[data-theme] .note-preview-drawing,
+.tablet-shell[data-theme] .note-drawing-canvas {
+  background: var(--theme-drawing-paper);
+  border-color: var(--theme-border);
+}
+.tablet-shell[data-theme] :is(.note-preview-drawing-paper, .note-drawing-paper) { fill: var(--theme-drawing-paper); }
+.tablet-shell[data-theme] .note-list-item { color: var(--theme-text); }
+.tablet-shell[data-theme] .note-list-item.is-selected { background: var(--theme-accent-soft); border-color: var(--theme-border-strong); }
+.tablet-shell[data-theme] .note-filter button { color: var(--theme-muted); }
+.tablet-shell[data-theme] .note-filter button.is-active { background: var(--theme-accent-soft); color: var(--theme-text); }
+
+.tablet-shell[data-theme] :is(.gallery-actions button, .gallery-empty button, .gallery-viewer footer button) {
+  background: var(--theme-surface-soft);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] :is(.gallery-actions .gallery-add-button, .gallery-empty button) {
+  background: var(--theme-accent);
+  color: var(--theme-accent-contrast);
+}
+
+.tablet-shell[data-theme] :is(.btn.back-button, .btn.theme-option, .badge.status-pill) {
+  --btn-color: transparent;
+  color: var(--theme-text);
+}
+
+/* Each direction has one deliberately distinctive structural treatment without changing widget placement. */
+.tablet-shell[data-theme="glass"] :is(.widget-card, .weather-current-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace) { box-shadow: 0 18px 55px rgba(0,8,31,.32), inset 0 1px 0 rgba(255,255,255,.26), 0 0 0 1px rgba(97,225,255,.12); }
+.tablet-shell[data-theme="retro"] :is(.widget-card, .weather-current-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace) { border-width: 2px; }
+.tablet-shell[data-theme="swiss"] :is(.welcome, .temperature, .focus-clock time, .clock-card .time) { font-weight: 800; letter-spacing: -.075em; }
+.tablet-shell[data-theme="swiss"] :is(.widget-card, .weather-current-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace) { border-width: 1.5px; }
+.tablet-shell[data-theme="monochrome"] :is(.widget-card, .weather-current-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace) { border-width: 1.5px; }
+.tablet-shell[data-theme="monochrome"] :is(.calendar-event-line i, .calendar-upcoming-event > i, .note-preview > i) { background: var(--theme-warm); }
+.tablet-shell[data-theme="glass"] .gallery-screensaver-agenda { box-shadow: 0 18px 55px rgba(0,8,31,.38), inset 0 1px 0 rgba(255,255,255,.26), 0 0 0 1px rgba(97,225,255,.14); }
+.tablet-shell[data-theme="retro"] .gallery-screensaver-agenda,
+.tablet-shell[data-theme="swiss"] .gallery-screensaver-agenda,
+.tablet-shell[data-theme="monochrome"] .gallery-screensaver-agenda { border-width: 2px; }
+.tablet-shell[data-theme="brutalist"] :is(.widget-card, .weather-current-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace) { border-width: var(--theme-outline); }
+.tablet-shell[data-theme="brutalist"] .agenda-card { background: #0758f8; color: #fff; }
+.tablet-shell[data-theme="brutalist"] .weather-card { background: #ff756b; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .clock-card { background: #73e7b7; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .note-card { background: #c7b2ff; color: #070707; }
+.tablet-shell[data-theme="brutalist"] :is(.agenda-card, .weather-card, .clock-card, .note-card):hover { transform: translateY(-2px); }
+
+.tablet-shell[data-theme="brutalist"] .agenda-card :is(.widget-title, .widget-subtitle, .calendar-widget-header > span, .calendar-widget-agenda > p) { color: #fff; }
+.tablet-shell[data-theme="brutalist"] .dashboard-widget-shell > .agenda-card .calendar-widget-header > span { color: #fff; }
+.tablet-shell[data-theme="brutalist"] .agenda-card .heading-icon { background: #ff756b; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-widget-month { background: transparent; border: 0; }
+.tablet-shell[data-theme="brutalist"] .calendar-widget-weekdays { color: #070707; gap: 0; }
+.tablet-shell[data-theme="brutalist"] .calendar-widget-weekdays > span { background: #c7b2ff; border: 2px solid #070707; border-right: 0; padding: 5px 0; }
+.tablet-shell[data-theme="brutalist"] .calendar-widget-weekdays > span:first-child { border-radius: 9px 0 0 0; }
+.tablet-shell[data-theme="brutalist"] .calendar-widget-weekdays > span:last-child { border-right: 2px solid #070707; border-radius: 0 9px 0 0; }
+.tablet-shell[data-theme="brutalist"] .calendar-widget-month-grid { gap: 3px; }
+.tablet-shell[data-theme="brutalist"] .calendar-widget-month-grid > span { background: #fffaf0; border: 2px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-widget-month-grid > span.is-today { background: #0758f8; border-color: #070707; color: #fff; }
+.tablet-shell[data-theme="brutalist"] .calendar-widget-month-grid > span.is-today > strong { background: transparent; color: inherit; }
+.tablet-shell[data-theme="brutalist"] .calendar-widget-month-grid small { background: #c7b2ff; border-left: 4px solid #ff756b; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-event-line { background: #fffaf0; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-event-line time { color: #353535; }
+
+.tablet-shell[data-theme="brutalist"] .weather-card :is(.weather-copy, .location, .weather-stats small, .weather-widget-hours small) { color: #353535; }
+.tablet-shell[data-theme="brutalist"] .weather-card .weather-icon { background: #ffdc2f; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-card .weather-stats > div { background: #73e7b7; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-card .weather-stats > div:nth-child(even) { background: #c7b2ff; }
+.tablet-shell[data-theme="brutalist"] .weather-card .weather-tall-stats > span { background: #73e7b7; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-card .weather-tall-stats > span:nth-child(even) { background: #c7b2ff; }
+.tablet-shell[data-theme="brutalist"] .weather-card :is(.weather-current > div:last-child > span, .weather-stats span, .weather-stats strong, .weather-tall-stats small, .weather-tall-stats strong, .weather-widget-hours > p, .weather-tall-hours > p, .weather-hours > p, .weather-forecast > p) { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-card .weather-widget-hours > span { background: #fffaf0; border: 3px solid #070707; color: #070707; }
+
+.tablet-shell[data-theme="brutalist"] .clock-card :is(.widget-label, .date, .clock-details) { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .note-card :is(.widget-title, .widget-subtitle, .note-preview strong, .note-preview small) { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .note-card .heading-icon { background: #ff756b; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .note-preview { background: #fffaf0; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .note-preview-drawing { border: 2px solid #070707; }
+
+.tablet-shell[data-theme="brutalist"] .status-pill { background: #c7b2ff; }
+.tablet-shell[data-theme="brutalist"] .navigation-reveal { background: #0758f8; color: #fff; }
+.tablet-shell[data-theme="brutalist"] .bottom-navigation { background: #fffaf0; }
+.tablet-shell[data-theme="brutalist"] .page-indicators button.is-home { background: #0758f8; border-color: #070707; color: #fff; }
+
+.tablet-shell[data-theme="brutalist"] .calendar-month-panel { background: #0758f8; color: #fff; }
+.tablet-shell[data-theme="brutalist"] .calendar-day-panel { background: #ff756b; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-upcoming-panel { background: #c7b2ff; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-month-panel :is(.eyebrow, h2) { color: #fff; }
+.tablet-shell[data-theme="brutalist"] .calendar-weekdays { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-weekdays > span { background: #c7b2ff; border: 2px solid #070707; padding: 6px 0; }
+.tablet-shell[data-theme="brutalist"] .calendar-month-grid > button { background: #fffaf0; border: 2px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-month-grid > button.is-selected { background: #73e7b7; border-color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-month-grid > button.is-today strong { background: #0758f8; color: #fff; }
+.tablet-shell[data-theme="brutalist"] .calendar-day-empty :is(strong, span, svg) { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-day-empty button { background: #fffaf0; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-cell-events > span { background: #ffe5dc; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .calendar-upcoming-panel > header > svg { color: #070707; }
+
+.tablet-shell[data-theme="brutalist"] .clock-workspace .focus-clock { background: #73e7b7; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .clock-workspace .focus-clock :is(.focus-clock-kicker, p) { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .alarm-panel { background: #0758f8; color: #fff; }
+.tablet-shell[data-theme="brutalist"] .timer-panel { background: #c7b2ff; color: #070707; }
+.tablet-shell[data-theme="brutalist"] :is(.alarm-row, .timer-row) { background: #fffaf0; border: 2px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] :is(.alarm-row, .timer-row) :is(strong, b, small, input) { color: #070707; }
+.tablet-shell[data-theme="brutalist"] :is(.alarm-summary, .alarm-summary small, .alarm-summary > svg, .timer-summary, .timer-summary span, .timer-summary strong) { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .utility-tabs { background: #fffaf0; border: 2px solid #070707; }
+.tablet-shell[data-theme="brutalist"] .utility-tabs button { color: #353535; }
+.tablet-shell[data-theme="brutalist"] .utility-tabs button.is-active { background: #0758f8; color: #fff; }
+
+.tablet-shell[data-theme="brutalist"] .weather-current-panel { background: #ff756b; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-forecast-panel { background: #73e7b7; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-location-search { background: #fffaf0; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-location-search input { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-location-search input::placeholder { color: #555; }
+.tablet-shell[data-theme="brutalist"] .weather-location-chip { background: #fffaf0; border: 2px solid #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-location-chip.is-active { background: #fff4a8; border-color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-location-chip :is(button, small, .weather-chip-action) { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-refresh { background: #fffaf0; border: 2px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-current-panel .weather-stats > div { background: #73e7b7; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-current-panel .weather-stats > div:nth-child(even) { background: #c7b2ff; }
+.tablet-shell[data-theme="brutalist"] .weather-current-panel :is(.weather-current-main span, .weather-stats span, .weather-stats strong, .hourly-forecast > div, .hourly-forecast span, .hourly-forecast strong, .hourly-forecast small) { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .weather-forecast-panel :is(.forecast-heading small, .daily-copy small, .daily-copy strong, .daily-forecast-row > strong, .weather-source-note) { color: #070707; }
+
+.tablet-shell[data-theme="brutalist"] .notes-workspace { background: #c7b2ff; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .notes-sidebar { border-color: #070707; }
+.tablet-shell[data-theme="brutalist"] .note-list-item { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .note-list-item.is-selected { background: #fffaf0; border: 3px solid #070707; }
+.tablet-shell[data-theme="brutalist"] .note-list-item :is(strong, small) { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .notes-workspace textarea { background: #fffaf0; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .note-format-badge { background: #73e7b7; border: 3px solid #070707; color: #070707; }
+
+.tablet-shell[data-theme="brutalist"] .gallery-panel { background: #73e7b7; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .gallery-toolbar > div:first-child > span { color: #353535; }
+.tablet-shell[data-theme="brutalist"] .gallery-actions button { border-width: 3px; }
+.tablet-shell[data-theme="brutalist"] .gallery-actions .gallery-add-button { background: #0758f8; border-color: #070707; color: #fff; }
+.tablet-shell[data-theme="brutalist"] .gallery-screensaver-agenda { background: #ffdc2f; border: 4px solid #070707; border-radius: 18px; box-shadow: 9px 10px 0 #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .gallery-screensaver-agenda header { color: #070707; }
+.tablet-shell[data-theme="brutalist"] .gallery-screensaver-agenda > div { background: #fffaf0; border: 3px solid #070707; }
+.tablet-shell[data-theme="brutalist"] .gallery-screensaver-agenda :is(strong, small, p) { color: #070707; }
+
+.tablet-shell[data-theme="brutalist"] .settings-section { background: #73e7b7; }
+.tablet-shell[data-theme="brutalist"] .night-mode-settings.is-active { background: #fff4a8; border: 4px solid #070707; box-shadow: 8px 9px 0 #070707; }
+.tablet-shell[data-theme="brutalist"] .night-mode-settings.is-active > .settings-row { background: #fffaf0; }
+.tablet-shell[data-theme="brutalist"] .settings-list > .settings-row { background: #fffaf0; }
+.tablet-shell[data-theme="brutalist"] .settings-row { border-color: #070707; }
+.tablet-shell[data-theme="brutalist"] .theme-option { background: #fffaf0; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .theme-option.is-selected { background: #c7b2ff; border-color: #0758f8; }
+.tablet-shell[data-theme="brutalist"] :is(.welcome, .temperature, .focus-clock time, .clock-card .time) { font-weight: 900; letter-spacing: -.07em; }
+.tablet-shell[data-theme="brutalist"] :is(.status-pill, .back-button, .bottom-navigation, .navigation-reveal, .settings-row, .theme-option, .primary-action, .text-action) { border-width: 3px; box-shadow: 4px 5px 0 #070707; }
+
+/* Theme picker */
+.settings-subheading { align-items: center; border-top: 1px solid var(--theme-border, rgba(255,255,255,.12)); color: var(--theme-accent, #bcd0ff); display: flex; justify-content: space-between; margin-top: 18px; padding-top: 17px; }
+.settings-subheading h2 { color: var(--theme-text, #f7f8ff); font-size: 1.05rem; margin: 0; }
+.settings-subheading .eyebrow { margin-bottom: 3px; }
+.theme-picker { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.theme-option { align-items: center; background: var(--theme-surface-soft, rgba(255,255,255,.075)); border: 1px solid var(--theme-border, rgba(255,255,255,.14)); border-radius: 15px; color: var(--theme-text, #f7f8ff); cursor: pointer; display: grid; font: inherit; gap: 9px; grid-template-columns: 42px minmax(0, 1fr) 19px; min-width: 0; padding: 8px; text-align: left; }
+.theme-option:hover { background: var(--theme-surface-hover, rgba(255,255,255,.13)); border-color: var(--theme-border-strong, rgba(154,184,255,.48)); }
+.theme-option.is-selected { background: var(--theme-accent-soft, rgba(120,153,255,.2)); border-color: var(--theme-accent, #7899ff); }
+.theme-option-preview { background: var(--preview-bg); border: 1px solid var(--preview-line); border-radius: 10px; box-sizing: border-box; display: grid; gap: 3px; grid-template-columns: 1.4fr .8fr; grid-template-rows: 1fr .55fr; height: 42px; overflow: hidden; padding: 4px; place-self: center; width: 42px; }
+.theme-option-preview > span { background: var(--preview-card); border: 1px solid var(--preview-line); border-radius: 4px; }
+.theme-option-preview > span:first-child { grid-row: 1 / -1; }
+.theme-option-preview > span:last-child { background: var(--preview-accent); }
+.theme-option-copy { display: grid; gap: 2px; min-width: 0; }
+.theme-option-copy strong { font-size: .76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-option-copy small { color: var(--theme-muted, #aebbd4); font-size: .63rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-option-check { align-items: center; color: var(--theme-accent, #7899ff); display: flex; justify-content: center; }
+.theme-option.is-selected .theme-option-check { background: var(--theme-accent, #7899ff); border-radius: 50%; color: var(--theme-accent-contrast, #07142d); height: 19px; width: 19px; }
+
+[data-preview-theme="original"] { --preview-bg: #101a32; --preview-card: #334763; --preview-accent: #7899ff; --preview-line: rgba(255,255,255,.25); }
+[data-preview-theme="warm"] { --preview-bg: #f4efe6; --preview-card: #fffaf3; --preview-accent: #c95f42; --preview-line: #c9b9aa; }
+[data-preview-theme="amoled"] { --preview-bg: #000; --preview-card: #0b1013; --preview-accent: #18d9ed; --preview-line: #21707a; }
+[data-preview-theme="retro"] { --preview-bg: #ead9b5; --preview-card: #f8eccc; --preview-accent: #c95a23; --preview-line: #65442a; }
+[data-preview-theme="glass"] { --preview-bg: #07142d; --preview-card: #315777; --preview-accent: #54ead7; --preview-line: #8bd9ff; }
+[data-preview-theme="nordic"] { --preview-bg: #e8e9e3; --preview-card: #fafaf5; --preview-accent: #4f6e59; --preview-line: #aeb9af; }
+[data-preview-theme="swiss"] { --preview-bg: #f5f4ef; --preview-card: #fff; --preview-accent: #075bf7; --preview-line: #111; }
+[data-preview-theme="mediterranean"] { --preview-bg: #eadbc4; --preview-card: #fff7e8; --preview-accent: #dc7044; --preview-line: #215b91; }
+[data-preview-theme="monochrome"] { --preview-bg: #ededeb; --preview-card: #fafafa; --preview-accent: #111; --preview-line: #292929; }
+[data-preview-theme="brutalist"] { --preview-bg: #ffe52d; --preview-card: #73e7b7; --preview-accent: #0758f8; --preview-line: #070707; }
+
+@media (orientation: portrait) {
+  .theme-picker { gap: 10px; }
+  .theme-option { grid-template-columns: 44px minmax(0, 1fr) 22px; min-height: 58px; padding: 7px 9px; }
+  .theme-option-preview { height: 44px; width: 44px; }
+  .theme-option-copy { align-content: center; gap: 3px; }
+  .theme-option-check { min-height: 22px; min-width: 22px; }
+}
+
+@media (min-width: 721px) and (orientation: landscape) {
+  .theme-picker { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .theme-option { display: flex; flex-direction: column; gap: 5px; min-height: 84px; padding: 7px 5px; position: relative; text-align: center; }
+  .theme-option-preview { flex: 0 0 auto; }
+  .theme-option-copy strong { font-size: .68rem; }
+  .theme-option-copy small { display: none; }
+  .theme-option-check { position: absolute; right: 5px; top: 5px; }
+  .settings-subheading { margin-top: 12px; padding-top: 11px; }
+}
+
+@media (max-width: 720px) {
+  .tablet-shell[data-theme] .settings-header { background: color-mix(in srgb, var(--theme-surface-solid) 96%, transparent); border-color: var(--theme-border); box-shadow: var(--theme-shadow); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tablet-shell[data-theme] { transition: none; }
+}

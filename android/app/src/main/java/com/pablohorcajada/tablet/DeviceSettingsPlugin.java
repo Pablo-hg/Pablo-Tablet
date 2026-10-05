@@ -3,6 +3,10 @@ package com.pablohorcajada.tablet;
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
@@ -14,12 +18,17 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 @CapacitorPlugin(name = "DeviceSettings")
-public class DeviceSettingsPlugin extends Plugin {
+public class DeviceSettingsPlugin extends Plugin implements SensorEventListener {
     private ToneGenerator previewTone;
+    private SensorManager sensorManager;
+    private Sensor lightSensor;
+    private boolean automaticBrightnessEnabled = false;
+    private float appliedAutomaticBrightness = -1f;
 
     @PluginMethod
     public void apply(PluginCall call) {
-        int brightness = clamp(call.getInt("brightness", 75), 10, 100);
+        int brightness = clamp(call.getInt("brightness", 75), 1, 100);
+        boolean autoBrightness = call.getBoolean("autoBrightness", false);
         int alarmVolume = clamp(call.getInt("alarmVolume", 80), 0, 100);
         int mediaVolume = clamp(call.getInt("mediaVolume", 60), 0, 100);
         boolean keepScreenAwake = call.getBoolean("keepScreenAwake", true);
@@ -36,9 +45,12 @@ public class DeviceSettingsPlugin extends Plugin {
         }
 
         getActivity().runOnUiThread(() -> {
-            WindowManager.LayoutParams attributes = getActivity().getWindow().getAttributes();
-            attributes.screenBrightness = brightness / 100f;
-            getActivity().getWindow().setAttributes(attributes);
+            if (autoBrightness) {
+                enableAutomaticBrightness();
+            } else {
+                disableAutomaticBrightness();
+                setWindowBrightness(brightness / 100f);
+            }
 
             if (keepScreenAwake) {
                 getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -47,6 +59,57 @@ public class DeviceSettingsPlugin extends Plugin {
             }
             call.resolve();
         });
+    }
+
+    private void enableAutomaticBrightness() {
+        if (automaticBrightnessEnabled) return;
+        sensorManager = (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
+        lightSensor = sensorManager == null ? null : sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        automaticBrightnessEnabled = true;
+        appliedAutomaticBrightness = -1f;
+        if (lightSensor != null) {
+            sensorManager.registerListener(this, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        } else {
+            setWindowBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE);
+        }
+    }
+
+    private void disableAutomaticBrightness() {
+        automaticBrightnessEnabled = false;
+        appliedAutomaticBrightness = -1f;
+        if (sensorManager != null) sensorManager.unregisterListener(this);
+        lightSensor = null;
+    }
+
+    private void setWindowBrightness(float brightness) {
+        WindowManager.LayoutParams attributes = getActivity().getWindow().getAttributes();
+        attributes.screenBrightness = brightness;
+        getActivity().getWindow().setAttributes(attributes);
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (!automaticBrightnessEnabled || event.sensor.getType() != Sensor.TYPE_LIGHT) return;
+        float lux = Math.max(0f, event.values[0]);
+        float normalized = (float) (Math.log10(lux + 1f) / 4f);
+        float target = Math.max(0.10f, Math.min(1f, 0.10f + normalized * 0.90f));
+        if (appliedAutomaticBrightness >= 0f) target = appliedAutomaticBrightness * 0.72f + target * 0.28f;
+        if (Math.abs(target - appliedAutomaticBrightness) < 0.025f) return;
+        appliedAutomaticBrightness = target;
+        float nextBrightness = target;
+        getActivity().runOnUiThread(() -> setWindowBrightness(nextBrightness));
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // No calibration action is needed for brightness changes.
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        disableAutomaticBrightness();
+        releasePreviewTone();
+        super.handleOnDestroy();
     }
 
     @PluginMethod

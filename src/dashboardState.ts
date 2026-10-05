@@ -1,21 +1,29 @@
 import { DEFAULT_WIDGETS, readWidgets, type DashboardWidget } from './widgetLayout'
+import type { WeatherLocation } from './weather'
 
 export type DashboardPageId = 'dashboard' | 'calendar' | 'clock' | 'weather' | 'notes' | 'gallery'
 
 export type DashboardPageKind = 'grid' | 'fullscreen'
 
+export type DashboardThemeId = 'original' | 'warm' | 'amoled' | 'retro' | 'glass' | 'nordic' | 'swiss' | 'mediterranean' | 'monochrome' | 'brutalist'
+
+export interface DashboardThemeDefinition {
+  id: DashboardThemeId
+  label: string
+  detail: string
+}
+
 export interface DashboardPageDefinition {
   id: DashboardPageId
   kind: DashboardPageKind
   label: string
-  rotationEligible: boolean
 }
 
 export interface DashboardPreferences {
-  rotationEnabled: boolean
-  rotationSeconds: number
+  themeId: DashboardThemeId
   navigationSeconds: number
   enabledPageIds: DashboardPageId[]
+  autoBrightness: boolean
   brightness: number
   alarmVolume: number
   mediaVolume: number
@@ -25,17 +33,39 @@ export interface DashboardPreferences {
   hideCompletedCalendarTasks: boolean
   screensaverEnabled: boolean
   screensaverDelaySeconds: number
+  nightModeEnabled: boolean
+  nightModeStart: string
+  nightModeEnd: string
+  nightBrightness: number
+  nightAlarmVolume: number
+  nightMediaVolume: number
 }
 
 export type NoteColor = 'coral' | 'violet' | 'mint' | 'sun'
+export type NoteType = 'text' | 'drawing'
 export type AlarmWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7
+
+export interface NoteDrawingPoint {
+  x: number
+  y: number
+}
+
+export interface NoteDrawingStroke {
+  color: string
+  width: number
+  points: NoteDrawingPoint[]
+}
 
 export const EVERY_ALARM_WEEKDAY: AlarmWeekday[] = [1, 2, 3, 4, 5, 6, 7]
 
 export interface Note {
   id: string
+  type: NoteType
   title: string
   content: string
+  drawing: NoteDrawingStroke[]
+  drawingPosition: 'above' | 'below'
+  drawingVisible: boolean
   color: NoteColor
   pinned: boolean
   reminderAt: string | null
@@ -112,17 +142,33 @@ export interface DashboardState {
   stopwatch: StopwatchState
   calendarEvents: CalendarEvent[]
   galleryPhotos: GalleryPhoto[]
+  weatherLocations: WeatherLocation[]
+  homeWeatherLocationId: string | null
+  selectedWeatherLocationId: string | null
   widgets: DashboardWidget[]
   preferences: DashboardPreferences
 }
 
 export const DASHBOARD_PAGES: DashboardPageDefinition[] = [
-  { id: 'dashboard', kind: 'grid', label: 'Inicio', rotationEligible: true },
-  { id: 'calendar', kind: 'fullscreen', label: 'Calendario', rotationEligible: true },
-  { id: 'clock', kind: 'fullscreen', label: 'Reloj', rotationEligible: true },
-  { id: 'weather', kind: 'fullscreen', label: 'Tiempo', rotationEligible: true },
-  { id: 'notes', kind: 'fullscreen', label: 'Notas', rotationEligible: true },
-  { id: 'gallery', kind: 'fullscreen', label: 'Galería', rotationEligible: true },
+  { id: 'dashboard', kind: 'grid', label: 'Inicio' },
+  { id: 'calendar', kind: 'fullscreen', label: 'Calendario' },
+  { id: 'clock', kind: 'fullscreen', label: 'Reloj' },
+  { id: 'weather', kind: 'fullscreen', label: 'Tiempo' },
+  { id: 'notes', kind: 'fullscreen', label: 'Notas' },
+  { id: 'gallery', kind: 'fullscreen', label: 'Galería' },
+]
+
+export const DASHBOARD_THEMES: DashboardThemeDefinition[] = [
+  { id: 'warm', label: 'Cálido', detail: 'Claro y minimalista' },
+  { id: 'amoled', label: 'AMOLED', detail: 'Negro para la noche' },
+  { id: 'retro', label: 'Retro', detail: 'Crema y tonos setenta' },
+  { id: 'glass', label: 'Cristal', detail: 'Luminoso y futurista' },
+  { id: 'original', label: 'Original', detail: 'Azul profundo actual' },
+  { id: 'nordic', label: 'Nórdico', detail: 'Piedra, salvia y calma' },
+  { id: 'swiss', label: 'Suizo', detail: 'Geométrico y editorial' },
+  { id: 'mediterranean', label: 'Mediterráneo', detail: 'Sol, cal y terracota' },
+  { id: 'monochrome', label: 'Monocromo', detail: 'Máxima legibilidad' },
+  { id: 'brutalist', label: 'Brutalista', detail: 'Color y contornos' },
 ]
 
 export const DEFAULT_DASHBOARD_STATE: DashboardState = {
@@ -132,12 +178,15 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
   stopwatch: { elapsedMilliseconds: 0, startedAt: null },
   calendarEvents: [],
   galleryPhotos: [],
+  weatherLocations: [],
+  homeWeatherLocationId: null,
+  selectedWeatherLocationId: null,
   widgets: DEFAULT_WIDGETS,
   preferences: {
-    rotationEnabled: true,
-    rotationSeconds: 30,
+    themeId: 'original',
     navigationSeconds: 5,
     enabledPageIds: DASHBOARD_PAGES.map((page) => page.id),
+    autoBrightness: false,
     brightness: 75,
     alarmVolume: 80,
     mediaVolume: 60,
@@ -147,11 +196,20 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
     hideCompletedCalendarTasks: false,
     screensaverEnabled: true,
     screensaverDelaySeconds: 180,
+    nightModeEnabled: true,
+    nightModeStart: '22:30',
+    nightModeEnd: '07:00',
+    nightBrightness: 5,
+    nightAlarmVolume: 30,
+    nightMediaVolume: 12,
   },
 }
 
-const STORAGE_KEY = 'pablo-tablet.dashboard.v14'
+const STORAGE_KEY = 'pablo-tablet.dashboard.v17'
 const PREVIOUS_STORAGE_KEYS = [
+  'pablo-tablet.dashboard.v16',
+  'pablo-tablet.dashboard.v15',
+  'pablo-tablet.dashboard.v14',
   'pablo-tablet.dashboard.v13',
   'pablo-tablet.dashboard.v12',
   'pablo-tablet.dashboard.v11',
@@ -166,11 +224,21 @@ const PREVIOUS_STORAGE_KEYS = [
   'pablo-tablet.dashboard.v2',
   'pablo-tablet.dashboard.v1',
 ] as const
-const ROTATION_OPTIONS = new Set([15, 30, 60])
 const NAVIGATION_OPTIONS = new Set([3, 5, 8])
+
+function readTime(value: unknown, fallback: string) {
+  if (typeof value !== 'string') return fallback
+  const match = /^(\d{2}):(\d{2})$/.exec(value)
+  if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) return fallback
+  return value
+}
 
 function isPageId(value: unknown): value is DashboardPageId {
   return DASHBOARD_PAGES.some((page) => page.id === value)
+}
+
+function isThemeId(value: unknown): value is DashboardThemeId {
+  return DASHBOARD_THEMES.some((theme) => theme.id === value)
 }
 
 function readNoteColor(value: unknown): NoteColor {
@@ -189,17 +257,55 @@ function readNotes(value: unknown): Note[] {
     const note = item as Partial<Note>
     if (typeof note.id !== 'string') return []
     const now = new Date().toISOString()
-    return [{
+    const drawing = Array.isArray(note.drawing) ? note.drawing.slice(0, 300).flatMap((candidate): NoteDrawingStroke[] => {
+      if (!candidate || typeof candidate !== 'object') return []
+      const stroke = candidate as Partial<NoteDrawingStroke>
+      const points = Array.isArray(stroke.points) ? stroke.points.slice(0, 2000).flatMap((candidatePoint): NoteDrawingPoint[] => {
+        if (!candidatePoint || typeof candidatePoint !== 'object') return []
+        const point = candidatePoint as Partial<NoteDrawingPoint>
+        if (typeof point.x !== 'number' || !Number.isFinite(point.x) || typeof point.y !== 'number' || !Number.isFinite(point.y)) return []
+        return [{ x: Math.min(1000, Math.max(0, point.x)), y: Math.min(600, Math.max(0, point.y)) }]
+      }) : []
+      if (points.length === 0) return []
+      return [{
+        color: typeof stroke.color === 'string' && /^#[0-9a-f]{6}$/i.test(stroke.color) ? stroke.color : '#f4f7ff',
+        width: typeof stroke.width === 'number' && Number.isFinite(stroke.width) ? Math.min(24, Math.max(2, stroke.width)) : 6,
+        points,
+      }]
+    }) : []
+    const content = typeof note.content === 'string' ? note.content.slice(0, 2000) : ''
+    const type: NoteType = note.type === 'drawing' || drawing.length > 0 ? 'drawing' : 'text'
+    const title = typeof note.title === 'string' ? note.title.slice(0, 80) : ''
+    const splitLegacyNote = type === 'drawing' && content.trim().length > 0
+    const normalized: Note = {
       id: note.id,
-      title: typeof note.title === 'string' ? note.title.slice(0, 80) : '',
-      content: typeof note.content === 'string' ? note.content.slice(0, 2000) : '',
+      type,
+      title,
+      content: splitLegacyNote ? '' : content,
+      drawing,
+      drawingPosition: note.drawingPosition === 'above' ? 'above' : 'below',
+      drawingVisible: typeof note.drawingVisible === 'boolean' ? note.drawingVisible : true,
       color: readNoteColor(note.color),
       pinned: Boolean(note.pinned),
       reminderAt: typeof note.reminderAt === 'string' ? note.reminderAt : null,
       archived: Boolean(note.archived),
       createdAt: typeof note.createdAt === 'string' ? note.createdAt : now,
       updatedAt: typeof note.updatedAt === 'string' ? note.updatedAt : now,
-    }]
+    }
+    if (!splitLegacyNote) return [normalized]
+    return [
+      normalized,
+      {
+        ...normalized,
+        id: `${note.id}-text`,
+        type: 'text',
+        title: `${title || 'Nota'} · texto`.slice(0, 80),
+        content,
+        drawing: [],
+        drawingVisible: false,
+        pinned: false,
+      },
+    ]
   })
 }
 
@@ -311,11 +417,36 @@ function readGalleryPhotos(value: unknown): GalleryPhoto[] {
   })
 }
 
-export function loadDashboardState(): DashboardState {
+function readWeatherLocations(value: unknown): WeatherLocation[] {
+  if (!Array.isArray(value)) return []
+  const seenIds = new Set<string>()
+  return value.slice(0, 20).flatMap((item): WeatherLocation[] => {
+    if (!item || typeof item !== 'object') return []
+    const location = item as Partial<WeatherLocation>
+    if (typeof location.id !== 'string' || seenIds.has(location.id)) return []
+    if (typeof location.name !== 'string' || !location.name.trim()) return []
+    if (typeof location.latitude !== 'number' || !Number.isFinite(location.latitude) || location.latitude < -90 || location.latitude > 90) return []
+    if (typeof location.longitude !== 'number' || !Number.isFinite(location.longitude) || location.longitude < -180 || location.longitude > 180) return []
+    seenIds.add(location.id)
+    return [{
+      id: location.id,
+      name: location.name.slice(0, 100),
+      region: typeof location.region === 'string' ? location.region.slice(0, 100) : '',
+      country: typeof location.country === 'string' ? location.country.slice(0, 100) : '',
+      latitude: location.latitude,
+      longitude: location.longitude,
+      timezone: typeof location.timezone === 'string' && location.timezone ? location.timezone.slice(0, 100) : 'auto',
+    }]
+  })
+}
+
+export function loadDashboardState(serializedState?: string): DashboardState {
   try {
-    const storedState = [STORAGE_KEY, ...PREVIOUS_STORAGE_KEYS]
-      .map((key) => ({ key, value: window.localStorage.getItem(key) }))
-      .find((entry) => entry.value !== null)
+    const storedState = serializedState === undefined
+      ? [STORAGE_KEY, ...PREVIOUS_STORAGE_KEYS]
+        .map((key) => ({ key, value: window.localStorage.getItem(key) }))
+        .find((entry) => entry.value !== null)
+      : { key: STORAGE_KEY, value: serializedState }
     const rawState = storedState?.value
     if (!rawState) return DEFAULT_DASHBOARD_STATE
 
@@ -327,6 +458,15 @@ export function loadDashboardState(): DashboardState {
     const stopwatch = readStopwatch(parsed.stopwatch)
     const calendarEvents = readCalendarEvents(parsed.calendarEvents)
     const galleryPhotos = readGalleryPhotos(parsed.galleryPhotos)
+    const weatherLocations = readWeatherLocations(parsed.weatherLocations)
+    const storedHomeWeatherLocationId = typeof parsed.homeWeatherLocationId === 'string' ? parsed.homeWeatherLocationId : null
+    const storedSelectedWeatherLocationId = typeof parsed.selectedWeatherLocationId === 'string' ? parsed.selectedWeatherLocationId : null
+    const homeWeatherLocationId = weatherLocations.some((location) => location.id === storedHomeWeatherLocationId)
+      ? storedHomeWeatherLocationId
+      : weatherLocations[0]?.id ?? null
+    const selectedWeatherLocationId = weatherLocations.some((location) => location.id === storedSelectedWeatherLocationId)
+      ? storedSelectedWeatherLocationId
+      : homeWeatherLocationId
     const savedWidgets = readWidgets(parsed.widgets)
     const widgets = storedState?.key === STORAGE_KEY
       ? savedWidgets
@@ -352,8 +492,12 @@ export function loadDashboardState(): DashboardState {
         : typeof parsed.note === 'string' && parsed.note.trim()
           ? [{
               id: 'legacy-note',
+              type: 'text',
               title: 'Nota rápida',
               content: parsed.note.slice(0, 2000),
+              drawing: [],
+              drawingPosition: 'below',
+              drawingVisible: true,
               color: 'coral',
               pinned: false,
               reminderAt: null,
@@ -367,17 +511,20 @@ export function loadDashboardState(): DashboardState {
       stopwatch,
       calendarEvents,
       galleryPhotos,
+      weatherLocations,
+      homeWeatherLocationId,
+      selectedWeatherLocationId,
       widgets,
       preferences: {
-        rotationEnabled: typeof parsedPreferences.rotationEnabled === 'boolean'
-          ? parsedPreferences.rotationEnabled
-          : DEFAULT_DASHBOARD_STATE.preferences.rotationEnabled,
-        rotationSeconds: ROTATION_OPTIONS.has(parsedPreferences.rotationSeconds ?? 0)
-          ? parsedPreferences.rotationSeconds as number
-          : DEFAULT_DASHBOARD_STATE.preferences.rotationSeconds,
+        themeId: isThemeId(parsedPreferences.themeId)
+          ? parsedPreferences.themeId
+          : DEFAULT_DASHBOARD_STATE.preferences.themeId,
         navigationSeconds: NAVIGATION_OPTIONS.has(parsedPreferences.navigationSeconds ?? 0)
           ? parsedPreferences.navigationSeconds as number
           : DEFAULT_DASHBOARD_STATE.preferences.navigationSeconds,
+        autoBrightness: typeof parsedPreferences.autoBrightness === 'boolean'
+          ? parsedPreferences.autoBrightness
+          : DEFAULT_DASHBOARD_STATE.preferences.autoBrightness,
         brightness: typeof parsedPreferences.brightness === 'number' && Number.isFinite(parsedPreferences.brightness)
           ? Math.min(100, Math.max(10, Math.round(parsedPreferences.brightness)))
           : DEFAULT_DASHBOARD_STATE.preferences.brightness,
@@ -405,6 +552,20 @@ export function loadDashboardState(): DashboardState {
         screensaverDelaySeconds: [30, 60, 180, 300, 600].includes(parsedPreferences.screensaverDelaySeconds ?? 0)
           ? parsedPreferences.screensaverDelaySeconds as number
           : DEFAULT_DASHBOARD_STATE.preferences.screensaverDelaySeconds,
+        nightModeEnabled: typeof parsedPreferences.nightModeEnabled === 'boolean'
+          ? parsedPreferences.nightModeEnabled
+          : DEFAULT_DASHBOARD_STATE.preferences.nightModeEnabled,
+        nightModeStart: readTime(parsedPreferences.nightModeStart, DEFAULT_DASHBOARD_STATE.preferences.nightModeStart),
+        nightModeEnd: readTime(parsedPreferences.nightModeEnd, DEFAULT_DASHBOARD_STATE.preferences.nightModeEnd),
+        nightBrightness: typeof parsedPreferences.nightBrightness === 'number' && Number.isFinite(parsedPreferences.nightBrightness)
+          ? Math.min(30, Math.max(1, Math.round(parsedPreferences.nightBrightness)))
+          : DEFAULT_DASHBOARD_STATE.preferences.nightBrightness,
+        nightAlarmVolume: typeof parsedPreferences.nightAlarmVolume === 'number' && Number.isFinite(parsedPreferences.nightAlarmVolume)
+          ? Math.min(100, Math.max(0, Math.round(parsedPreferences.nightAlarmVolume)))
+          : DEFAULT_DASHBOARD_STATE.preferences.nightAlarmVolume,
+        nightMediaVolume: typeof parsedPreferences.nightMediaVolume === 'number' && Number.isFinite(parsedPreferences.nightMediaVolume)
+          ? Math.min(100, Math.max(0, Math.round(parsedPreferences.nightMediaVolume)))
+          : DEFAULT_DASHBOARD_STATE.preferences.nightMediaVolume,
         enabledPageIds: enabledPageIds.includes('dashboard')
           ? enabledPageIds
           : ['dashboard', ...enabledPageIds],

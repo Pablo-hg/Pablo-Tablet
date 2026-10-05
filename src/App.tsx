@@ -12,30 +12,36 @@ import {
   ChevronRight,
   Clock3,
   Cloud,
+  CloudLightning,
   CloudRain,
   CloudSun,
   Compass,
   Droplets,
   EyeOff,
+  Eraser,
   FileText,
   Images,
   Home,
   LockKeyhole,
   ListTodo,
-  LogOut,
   MapPin,
-  Menu,
   Minus,
   Pause,
+  Pencil,
   Play,
   Pin,
   Plus,
   RotateCcw,
   RotateCw,
-  Settings,
+  RefreshCw,
+  Search,
+  Snowflake,
+  Star,
   SunMedium,
   Sunrise,
+  Sunset,
   Trash2,
+  Undo2,
   Upload,
   Volume2,
   Wind,
@@ -44,7 +50,6 @@ import {
 import {
   DASHBOARD_PAGES,
   loadDashboardState,
-  saveDashboardState,
   type DashboardPageDefinition,
   type DashboardPageId,
   type Alarm,
@@ -56,6 +61,9 @@ import {
   type CalendarEventType,
   type Note,
   type NoteColor,
+  type NoteType,
+  type NoteDrawingPoint,
+  type NoteDrawingStroke,
   type Timer,
   type StopwatchState,
   type DashboardPreferences,
@@ -63,17 +71,29 @@ import {
   EVERY_ALARM_WEEKDAY,
 } from './dashboardState'
 import { DEFAULT_ALARM_SOUND, getDeviceAlarmSounds, previewAlarmSound, stopAlarmSoundPreview, type DeviceAlarmSound } from './alarmSounds'
-import { snoozeAlarmNotification, snoozeCalendarEventNotification, syncAlarmNotifications, syncCalendarEventNotifications, syncReminderNotifications, syncTimerNotifications } from './reminderNotifications'
-import { placeWidgets, type DashboardOrientation, type PlacedWidget } from './widgetLayout'
-import { exitTabletApp } from './kioskMode'
-import { applyDeviceSettings, playInteractionSound, previewDeviceVolume } from './deviceSettings'
+import { snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
+import { arrangeWidgets, DASHBOARD_COLUMNS, DASHBOARD_ROWS, placeWidgets, resizeWidgets, type DashboardOrientation, type DashboardWidgetId, type PlacedWidget, type WidgetPosition } from './widgetLayout'
+import { playInteractionSound } from './deviceSettings'
 import { deleteGalleryPhotoFile, galleryPhotoSource, pickGalleryPhotos } from './gallery'
+import { searchWeatherLocations, weatherDescription, type WeatherForecast, type WeatherLocation } from './weather'
+import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, nextCalendarOccurrence, offsetDateKey, toLocalDateKey } from './calendarRecurrence'
+import { formatCountdown, pauseTimer, resetTimer, startTimer, timerHasFinished, timerRemainingSeconds } from './timerLogic'
+import { isNightModeActive } from './nightMode'
+import { useDashboardPersistence } from './hooks/useDashboardPersistence'
+import { useDeviceEffects } from './hooks/useDeviceEffects'
+import { useWeatherForecasts } from './hooks/useWeatherForecasts'
+import { AppNavigation, type AppScreen } from './app/AppNavigation'
+import { AppShell } from './app/AppShell'
+import { SettingsPage } from './pages/SettingsPage'
+import { PageHeader } from './components/PageHeader'
 import './App.css'
+import './themes.css'
 
-type Screen = 'home' | 'settings'
 type SimulatedAlert = { title: string; body: string }
 type RingingAlert = { kind: 'alarm' | 'timer' | 'calendar'; sourceId: string; title: string; subtitle: string; soundUri: string | null }
 type CalendarEventPatch = Partial<Pick<CalendarEvent, 'type' | 'recurrence' | 'completed' | 'title' | 'date' | 'endDate' | 'startTime' | 'endTime' | 'allDay' | 'location' | 'notes' | 'color' | 'reminders'>>
+type NotePatch = Partial<Pick<Note, 'title' | 'content' | 'drawing' | 'color' | 'pinned' | 'reminderAt'>>
+type WidgetResizeDirection = 'left' | 'right' | 'top' | 'bottom'
 
 const weekdayFormatter = new Intl.DateTimeFormat('es-ES', {
   weekday: 'long',
@@ -87,85 +107,13 @@ const timeFormatter = new Intl.DateTimeFormat('es-ES', {
   hour12: false,
 })
 
-function toLocalDateKey(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-type CalendarOccurrence = { startDate: string; endDate: string }
-
-function dateKeyToDayNumber(date: string) {
-  const [year, month, day] = date.split('-').map(Number)
-  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000)
-}
-
-function addDaysToDateKey(date: string, days: number) {
-  const [year, month, day] = date.split('-').map(Number)
-  const value = new Date(Date.UTC(year, month - 1, day + days))
-  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}`
-}
-
-function calendarOccurrenceStart(event: CalendarEvent, index: number) {
-  if (event.recurrence === 'none' || index <= 0) return event.date
-  const [year, month, day] = event.date.split('-').map(Number)
-  if (event.recurrence === 'daily') return addDaysToDateKey(event.date, index)
-  if (event.recurrence === 'weekly') return addDaysToDateKey(event.date, index * 7)
-  const targetYear = event.recurrence === 'monthly' ? year + Math.floor((month - 1 + index) / 12) : year + index
-  const targetMonth = event.recurrence === 'monthly' ? ((month - 1 + index) % 12) + 1 : month
-  const safeDay = Math.min(day, new Date(targetYear, targetMonth, 0).getDate())
-  return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`
-}
-
-function calendarOccurrenceIndexNear(event: CalendarEvent, date: string) {
-  if (event.recurrence === 'none') return 0
-  const dayDifference = dateKeyToDayNumber(date) - dateKeyToDayNumber(event.date)
-  if (event.recurrence === 'daily') return Math.max(0, dayDifference)
-  if (event.recurrence === 'weekly') return Math.max(0, Math.floor(dayDifference / 7))
-  const [eventYear, eventMonth] = event.date.split('-').map(Number)
-  const [dateYear, dateMonth] = date.split('-').map(Number)
-  return Math.max(0, event.recurrence === 'monthly' ? (dateYear - eventYear) * 12 + dateMonth - eventMonth : dateYear - eventYear)
-}
-
-function calendarOccurrenceForDate(event: CalendarEvent, date: string): CalendarOccurrence | null {
-  if (date < event.date) return null
-  const durationDays = dateKeyToDayNumber(event.endDate) - dateKeyToDayNumber(event.date)
-  let index = calendarOccurrenceIndexNear(event, date)
-  let startDate = calendarOccurrenceStart(event, index)
-  if (startDate > date && index > 0) startDate = calendarOccurrenceStart(event, --index)
-  const endDate = addDaysToDateKey(startDate, durationDays)
-  return date <= endDate ? { startDate, endDate } : null
-}
-
-function nextCalendarOccurrence(event: CalendarEvent, date: string): CalendarOccurrence | null {
-  const activeOccurrence = calendarOccurrenceForDate(event, date)
-  if (activeOccurrence) return activeOccurrence
-  if (event.recurrence === 'none') return event.endDate >= date ? { startDate: event.date, endDate: event.endDate } : null
-  let index = calendarOccurrenceIndexNear(event, date)
-  let startDate = calendarOccurrenceStart(event, index)
-  while (startDate < date) startDate = calendarOccurrenceStart(event, ++index)
-  const durationDays = dateKeyToDayNumber(event.endDate) - dateKeyToDayNumber(event.date)
-  return { startDate, endDate: addDaysToDateKey(startDate, durationDays) }
-}
-
-function eventForOccurrence(event: CalendarEvent, occurrence: CalendarOccurrence) {
-  return { ...event, date: occurrence.startDate, endDate: occurrence.endDate }
-}
-
-function offsetDateKey(date: string, days: number) {
-  const value = new Date(`${date}T12:00:00`)
-  value.setDate(value.getDate() + days)
-  return toLocalDateKey(value)
-}
-
 function createLocalId() {
   if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID()
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 function App() {
-  const [screen, setScreen] = useState<Screen>('home')
+  const [screen, setScreen] = useState<AppScreen>('home')
   const [navigationVisible, setNavigationVisible] = useState(false)
   const [now, setNow] = useState(() => new Date())
   const [dashboardState, setDashboardState] = useState(loadDashboardState)
@@ -184,6 +132,7 @@ function App() {
   const suppressClick = useRef(false)
   const deliveredSimulationIds = useRef(new Set<string>())
   const dashboardStateRef = useRef(dashboardState)
+  useDashboardPersistence({ state: dashboardState, stateRef: dashboardStateRef, setState: setDashboardState })
 
   const enabledPages = useMemo(
     () => DASHBOARD_PAGES.filter((page) => dashboardState.preferences.enabledPageIds.includes(page.id)),
@@ -194,16 +143,20 @@ function App() {
   const time = timeFormatter.format(now)
   const date = weekdayFormatter.format(now)
   const screensaverPhoto = dashboardState.galleryPhotos.find((photo) => photo.id === screensaverPhotoId && photo.deletedAt === null)
+  const homeWeatherLocation = dashboardState.weatherLocations.find((location) => location.id === dashboardState.homeWeatherLocationId) ?? dashboardState.weatherLocations[0] ?? null
+  const selectedWeatherLocation = dashboardState.weatherLocations.find((location) => location.id === dashboardState.selectedWeatherLocationId) ?? homeWeatherLocation
+  const { forecasts: weatherForecasts, loading: weatherLoading, errors: weatherErrors, refresh: refreshWeather } = useWeatherForecasts(homeWeatherLocation, selectedWeatherLocation)
+  const nightModeActive = isNightModeActive(now, dashboardState.preferences)
+  useDeviceEffects(dashboardState, nightModeActive)
+  const activeThemeId = nightModeActive && dashboardState.preferences.themeId === 'original'
+    ? 'amoled'
+    : dashboardState.preferences.themeId
+  const activeMediaVolume = nightModeActive ? dashboardState.preferences.nightMediaVolume : dashboardState.preferences.mediaVolume
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 1_000)
     return () => window.clearInterval(interval)
   }, [])
-
-  useEffect(() => {
-    saveDashboardState(dashboardState)
-    dashboardStateRef.current = dashboardState
-  }, [dashboardState])
 
   useEffect(() => {
     const purgeExpiredGalleryPhotos = () => {
@@ -219,35 +172,6 @@ function App() {
     const interval = window.setInterval(purgeExpiredGalleryPhotos, 6 * 60 * 60 * 1_000)
     return () => window.clearInterval(interval)
   }, [])
-
-  useEffect(() => {
-    const { brightness, alarmVolume, mediaVolume, keepScreenAwake, screenTimeoutSeconds } = dashboardState.preferences
-    const timeout = window.setTimeout(() => {
-      void applyDeviceSettings(brightness, alarmVolume, mediaVolume, keepScreenAwake, screenTimeoutSeconds)
-        .catch((error) => console.warn('No se pudieron aplicar los ajustes del dispositivo.', error))
-    }, 80)
-    return () => window.clearTimeout(timeout)
-  }, [dashboardState.preferences])
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => void syncReminderNotifications(dashboardState.notes), 600)
-    return () => window.clearTimeout(timeout)
-  }, [dashboardState.notes])
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => void syncCalendarEventNotifications(dashboardState.calendarEvents), 600)
-    return () => window.clearTimeout(timeout)
-  }, [dashboardState.calendarEvents])
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => void syncAlarmNotifications(dashboardState.alarms), 600)
-    return () => window.clearTimeout(timeout)
-  }, [dashboardState.alarms])
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => void syncTimerNotifications(dashboardState.timers), 600)
-    return () => window.clearTimeout(timeout)
-  }, [dashboardState.timers])
 
   const registerInteraction = useCallback(() => {
     setInteractionVersion((version) => version + 1)
@@ -278,7 +202,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const finished = dashboardState.timers.filter((timer) => timer.endsAt && new Date(timer.endsAt).getTime() <= now.getTime())
+    const finished = dashboardState.timers.filter((timer) => timerHasFinished(timer, now))
     if (finished.length === 0) return
     const timeout = window.setTimeout(() => {
       setDashboardState((current) => ({ ...current, timers: current.timers.map((timer) => finished.some((item) => item.id === timer.id) ? { ...timer, remainingSeconds: 0, endsAt: null } : timer) }))
@@ -433,43 +357,15 @@ function App() {
     return () => window.clearInterval(interval)
   }, [dashboardState.galleryPhotos, screensaverVisible])
 
-  const moveToPage = useCallback((nextIndex: number, isManual = true) => {
+  const moveToPage = useCallback((nextIndex: number) => {
     if (enabledPages.length === 0) return
     const wrappedIndex = (nextIndex + enabledPages.length) % enabledPages.length
     setInteractionLocked(false)
     setActivePageId(enabledPages[wrappedIndex].id)
-    if (isManual) registerInteraction()
+    registerInteraction()
   }, [enabledPages, registerInteraction])
 
-  useEffect(() => {
-    const preferences = dashboardState.preferences
-    if (
-      screen !== 'home'
-      || !preferences.rotationEnabled
-      || enabledPages.length < 2
-      || !activePage?.rotationEligible
-      || interactionLocked
-      || screensaverVisible
-    ) return
-
-    const timeout = window.setTimeout(
-      () => moveToPage(activePageIndex + 1, false),
-      preferences.rotationSeconds * 1000,
-    )
-    return () => window.clearTimeout(timeout)
-  }, [
-    activePage?.rotationEligible,
-    activePageIndex,
-    dashboardState.preferences,
-    enabledPages.length,
-    interactionVersion,
-    interactionLocked,
-    moveToPage,
-    screen,
-    screensaverVisible,
-  ])
-
-  const goTo = (nextScreen: Screen) => {
+  const goTo = (nextScreen: AppScreen) => {
     setScreensaverVisible(false)
     setScreen(nextScreen)
     setNavigationVisible(false)
@@ -501,12 +397,16 @@ function App() {
     })
   }
 
-  const createNote = () => {
+  const createNote = (type: NoteType = 'text') => {
     const now = new Date().toISOString()
     const note: Note = {
       id: createLocalId(),
-      title: 'Nueva nota',
+      type,
+      title: type === 'drawing' ? 'Nuevo dibujo' : 'Nueva nota',
       content: '',
+      drawing: [],
+      drawingPosition: 'below',
+      drawingVisible: true,
       color: 'coral',
       pinned: false,
       reminderAt: null,
@@ -518,7 +418,7 @@ function App() {
     return note.id
   }
 
-  const updateNote = (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned' | 'reminderAt'>>) => {
+  const updateNote = (noteId: string, patch: NotePatch) => {
     setDashboardState((current) => ({
       ...current,
       notes: current.notes.map((note) => note.id === noteId ? { ...note, ...patch, updatedAt: new Date().toISOString() } : note),
@@ -550,6 +450,63 @@ function App() {
     const alarm: Alarm = { id: createLocalId(), label: 'Alarma', time, enabled: true, weekdays: [...EVERY_ALARM_WEEKDAY], soundName: DEFAULT_ALARM_SOUND.name, soundUri: null, createdAt: new Date().toISOString() }
     setDashboardState((current) => ({ ...current, alarms: [...current.alarms, alarm] }))
     return alarm.id
+  }
+
+  const updateWidgetLayout = (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => {
+    setDashboardState((current) => {
+      const widget = current.widgets.find((item) => item.id === widgetId)
+      if (!widget) return current
+      const preferred = { ...widget.layouts[orientation], ...patch }
+      const isResize = patch.width !== undefined || patch.height !== undefined
+      const arranged = isResize
+        ? resizeWidgets(current.widgets, orientation, widgetId, preferred)
+        : arrangeWidgets(current.widgets, orientation, widgetId, preferred)
+      return arranged ? { ...current, widgets: arranged } : current
+    })
+  }
+
+  const addWeatherLocation = (location: WeatherLocation) => {
+    setDashboardState((current) => {
+      const existing = current.weatherLocations.find((item) => item.id === location.id)
+      if (existing) return { ...current, selectedWeatherLocationId: existing.id }
+      const isFirstLocation = current.weatherLocations.length === 0
+      return {
+        ...current,
+        weatherLocations: [...current.weatherLocations, location],
+        homeWeatherLocationId: isFirstLocation ? location.id : current.homeWeatherLocationId,
+        selectedWeatherLocationId: location.id,
+      }
+    })
+  }
+
+  const removeWeatherLocation = (locationId: string) => {
+    setDashboardState((current) => {
+      const remaining = current.weatherLocations.filter((location) => location.id !== locationId)
+      const nextHomeId = current.homeWeatherLocationId === locationId
+        ? remaining[0]?.id ?? null
+        : current.homeWeatherLocationId
+      const nextSelectedId = current.selectedWeatherLocationId === locationId
+        ? nextHomeId ?? remaining[0]?.id ?? null
+        : current.selectedWeatherLocationId
+      return {
+        ...current,
+        weatherLocations: remaining,
+        homeWeatherLocationId: nextHomeId,
+        selectedWeatherLocationId: nextSelectedId,
+      }
+    })
+  }
+
+  const setHomeWeatherLocation = (locationId: string) => {
+    setDashboardState((current) => current.weatherLocations.some((location) => location.id === locationId)
+      ? { ...current, homeWeatherLocationId: locationId }
+      : current)
+  }
+
+  const selectWeatherLocation = (locationId: string) => {
+    setDashboardState((current) => current.weatherLocations.some((location) => location.id === locationId)
+      ? { ...current, selectedWeatherLocationId: locationId }
+      : current)
   }
 
   const createCalendarEvent = (date: string) => {
@@ -601,6 +558,15 @@ function App() {
     setDashboardState((current) => ({
       ...current,
       galleryPhotos: current.galleryPhotos.map((photo) => photo.id === photoId ? { ...photo, deletedAt: new Date().toISOString() } : photo),
+    }))
+  }
+
+  const moveGalleryPhotosToTrash = (photoIds: string[]) => {
+    const selectedIds = new Set(photoIds)
+    const deletedAt = new Date().toISOString()
+    setDashboardState((current) => ({
+      ...current,
+      galleryPhotos: current.galleryPhotos.map((photo) => selectedIds.has(photo.id) ? { ...photo, deletedAt } : photo),
     }))
   }
 
@@ -736,7 +702,7 @@ function App() {
     }
     const target = event.target as HTMLElement
     if (dashboardState.preferences.interactionSoundsEnabled && target.closest('button, select') && !target.closest('.settings-range-row')) {
-      void playInteractionSound(dashboardState.preferences.mediaVolume)
+      void playInteractionSound(activeMediaVolume)
     }
   }
 
@@ -785,8 +751,10 @@ function App() {
   }
 
   return (
-    <main
-      className={`tablet-shell ${navigationVisible ? 'has-navigation' : ''}`}
+    <AppShell
+      themeId={activeThemeId}
+      navigationVisible={navigationVisible}
+      nightModeActive={nightModeActive}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
@@ -796,12 +764,6 @@ function App() {
       onClickCapture={handleClickCapture}
       onClick={handleClick}
     >
-      <div className="wallpaper" aria-hidden="true">
-        <span className="orb orb-one" />
-        <span className="orb orb-two" />
-        <span className="grid-glow" />
-      </div>
-
       <section className="tablet-content" aria-label="Pablo Tablet">
         {screen === 'home' && activePage ? (
           <DashboardPage
@@ -814,6 +776,12 @@ function App() {
             notes={dashboardState.notes}
             calendarEvents={dashboardState.calendarEvents}
             galleryPhotos={dashboardState.galleryPhotos}
+            weatherLocations={dashboardState.weatherLocations}
+            homeWeatherLocationId={dashboardState.homeWeatherLocationId}
+            selectedWeatherLocationId={dashboardState.selectedWeatherLocationId}
+            weatherForecasts={weatherForecasts}
+            weatherLoading={weatherLoading}
+            weatherErrors={weatherErrors}
             hideCompletedCalendarTasks={dashboardState.preferences.hideCompletedCalendarTasks}
             alarms={dashboardState.alarms}
             timers={dashboardState.timers}
@@ -828,8 +796,14 @@ function App() {
             onDeleteCalendarEvent={deleteCalendarEvent}
             onAddGalleryPhotos={() => void addGalleryPhotos()}
             onMoveGalleryPhotoToTrash={moveGalleryPhotoToTrash}
+            onMoveGalleryPhotosToTrash={moveGalleryPhotosToTrash}
             onRestoreGalleryPhoto={restoreGalleryPhoto}
             onPermanentlyDeleteGalleryPhoto={(photoId) => void permanentlyDeleteGalleryPhoto(photoId)}
+            onAddWeatherLocation={addWeatherLocation}
+            onRemoveWeatherLocation={removeWeatherLocation}
+            onSetHomeWeatherLocation={setHomeWeatherLocation}
+            onSelectWeatherLocation={selectWeatherLocation}
+            onRefreshWeather={(location) => void refreshWeather(location)}
             onHideCompletedCalendarTasksChange={(hideCompletedCalendarTasks) => updatePreferences({ hideCompletedCalendarTasks })}
             onCreateAlarm={createAlarm}
             onUpdateAlarm={updateAlarm}
@@ -843,16 +817,16 @@ function App() {
             onOpenNotes={openNotes}
             onOpenWeather={openWeather}
             onOpenCalendar={openCalendar}
-            onEditingChange={(isEditing) => {
-              setInteractionLocked(isEditing)
-            }}
+            onChangeWidgetLayout={updateWidgetLayout}
+            onEditingChange={setInteractionLocked}
           />
         ) : (
-          <SettingsScreen
+          <SettingsPage
             preferences={dashboardState.preferences}
             onBack={() => goTo('home')}
             onPreferencesChange={updatePreferences}
             onTogglePage={togglePage}
+            nightModeActive={nightModeActive}
           />
         )}
       </section>
@@ -861,56 +835,20 @@ function App() {
       {ringingAlert ? <RingingAlertOverlay alert={ringingAlert} snoozeMinutes={snoozeMinutes} onSnoozeMinutesChange={setSnoozeMinutes} onSnooze={snoozeRingingAlert} onStop={stopRinging} /> : null}
       {screensaverVisible ? <GalleryScreensaver photo={screensaverPhoto} now={now} time={time} date={date} calendarEvents={dashboardState.calendarEvents} onDismiss={() => { setScreensaverVisible(false); registerInteraction() }} /> : null}
 
-      {screen === 'home' && enabledPages.length > 1 ? (
-        <nav className="page-indicators" aria-label="Páginas del dashboard">
-          {enabledPages.map((page, index) => (
-            <button
-              key={page.id}
-              type="button"
-              className={index === activePageIndex ? 'is-active' : ''}
-              aria-label={`Ir a ${page.label}`}
-              aria-current={index === activePageIndex ? 'page' : undefined}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => moveToPage(index)}
-            />
-          ))}
-        </nav>
-      ) : null}
-
-      <button
-        className="navigation-reveal"
-        type="button"
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={() => {
+      <AppNavigation
+        screen={screen}
+        enabledPages={enabledPages}
+        activePageIndex={activePageIndex}
+        navigationVisible={navigationVisible}
+        onMoveToPage={moveToPage}
+        onToggleNavigation={() => {
           setNavigationVisible((visible) => !visible)
           setInteractionVersion((version) => version + 1)
         }}
-        aria-label={navigationVisible ? 'Ocultar navegación' : 'Mostrar navegación'}
-      >
-        {navigationVisible ? <X size={20} /> : <Menu size={20} />}
-      </button>
-
-      <nav className={`bottom-navigation ${navigationVisible ? 'is-visible' : ''}`} aria-label="Navegación principal">
-        <button
-          type="button"
-          className={screen === 'home' ? 'is-active' : ''}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => goTo('home')}
-        >
-          <Home size={21} strokeWidth={2.25} />
-          <span>Inicio</span>
-        </button>
-        <button
-          type="button"
-          className={screen === 'settings' ? 'is-active' : ''}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => goTo('settings')}
-        >
-          <Settings size={21} strokeWidth={2.25} />
-          <span>Ajustes</span>
-        </button>
-      </nav>
-    </main>
+        onGoHome={() => goTo('home')}
+        onGoSettings={() => goTo('settings')}
+      />
+    </AppShell>
   )
 }
 
@@ -923,6 +861,12 @@ function DashboardPage({
   notes,
   calendarEvents,
   galleryPhotos,
+  weatherLocations,
+  homeWeatherLocationId,
+  selectedWeatherLocationId,
+  weatherForecasts,
+  weatherLoading,
+  weatherErrors,
   hideCompletedCalendarTasks,
   alarms,
   timers,
@@ -937,8 +881,14 @@ function DashboardPage({
   onDeleteCalendarEvent,
   onAddGalleryPhotos,
   onMoveGalleryPhotoToTrash,
+  onMoveGalleryPhotosToTrash,
   onRestoreGalleryPhoto,
   onPermanentlyDeleteGalleryPhoto,
+  onAddWeatherLocation,
+  onRemoveWeatherLocation,
+  onSetHomeWeatherLocation,
+  onSelectWeatherLocation,
+  onRefreshWeather,
   onHideCompletedCalendarTasksChange,
   onCreateAlarm,
   onUpdateAlarm,
@@ -952,6 +902,7 @@ function DashboardPage({
   onOpenNotes,
   onOpenWeather,
   onOpenCalendar,
+  onChangeWidgetLayout,
   onEditingChange,
 }: {
   page: DashboardPageDefinition
@@ -962,12 +913,18 @@ function DashboardPage({
   notes: Note[]
   calendarEvents: CalendarEvent[]
   galleryPhotos: GalleryPhoto[]
+  weatherLocations: WeatherLocation[]
+  homeWeatherLocationId: string | null
+  selectedWeatherLocationId: string | null
+  weatherForecasts: Record<string, WeatherForecast>
+  weatherLoading: Record<string, boolean>
+  weatherErrors: Record<string, string>
   hideCompletedCalendarTasks: boolean
   alarms: Alarm[]
   timers: Timer[]
   stopwatch: StopwatchState
-  onCreateNote: () => string
-  onUpdateNote: (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned' | 'reminderAt'>>) => void
+  onCreateNote: (type: NoteType) => string
+  onUpdateNote: (noteId: string, patch: NotePatch) => void
   onArchiveNote: (noteId: string) => void
   onRestoreNote: (noteId: string) => void
   onDeleteNote: (noteId: string) => void
@@ -976,8 +933,14 @@ function DashboardPage({
   onDeleteCalendarEvent: (eventId: string) => void
   onAddGalleryPhotos: () => void
   onMoveGalleryPhotoToTrash: (photoId: string) => void
+  onMoveGalleryPhotosToTrash: (photoIds: string[]) => void
   onRestoreGalleryPhoto: (photoId: string) => void
   onPermanentlyDeleteGalleryPhoto: (photoId: string) => void
+  onAddWeatherLocation: (location: WeatherLocation) => void
+  onRemoveWeatherLocation: (locationId: string) => void
+  onSetHomeWeatherLocation: (locationId: string) => void
+  onSelectWeatherLocation: (locationId: string) => void
+  onRefreshWeather: (location: WeatherLocation) => void
   onHideCompletedCalendarTasksChange: (hidden: boolean) => void
   onCreateAlarm: () => string
   onUpdateAlarm: (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled' | 'weekdays' | 'soundName' | 'soundUri'>>) => void
@@ -991,29 +954,15 @@ function DashboardPage({
   onOpenNotes: (noteId?: string) => void
   onOpenWeather: () => void
   onOpenCalendar: () => void
+  onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void
   onEditingChange: (isEditing: boolean) => void
 }) {
   if (page.id === 'clock') return <ClockPage time={time} date={date} now={now} alarms={alarms} timers={timers} stopwatch={stopwatch} onCreateAlarm={onCreateAlarm} onUpdateAlarm={onUpdateAlarm} onDeleteAlarm={onDeleteAlarm} onCreateTimer={onCreateTimer} onUpdateTimer={onUpdateTimer} onDeleteTimer={onDeleteTimer} onToggleStopwatch={onToggleStopwatch} onResetStopwatch={onResetStopwatch} onPreviewNotification={onPreviewNotification} />
   if (page.id === 'calendar') return <CalendarPage now={now} events={calendarEvents} hideCompletedTasks={hideCompletedCalendarTasks} onHideCompletedTasksChange={onHideCompletedCalendarTasksChange} onCreate={onCreateCalendarEvent} onUpdate={onUpdateCalendarEvent} onDelete={onDeleteCalendarEvent} onEditingChange={onEditingChange} />
-  if (page.id === 'gallery') return <GalleryPage photos={galleryPhotos} onAddPhotos={onAddGalleryPhotos} onMoveToTrash={onMoveGalleryPhotoToTrash} onRestore={onRestoreGalleryPhoto} onPermanentlyDelete={onPermanentlyDeleteGalleryPhoto} onEditingChange={onEditingChange} />
-  if (page.id === 'weather') return <WeatherPage />
+  if (page.id === 'gallery') return <GalleryPage photos={galleryPhotos} onAddPhotos={onAddGalleryPhotos} onMoveToTrash={onMoveGalleryPhotoToTrash} onMoveSelectionToTrash={onMoveGalleryPhotosToTrash} onRestore={onRestoreGalleryPhoto} onPermanentlyDelete={onPermanentlyDeleteGalleryPhoto} onEditingChange={onEditingChange} />
+  if (page.id === 'weather') return <WeatherPage locations={weatherLocations} homeLocationId={homeWeatherLocationId} selectedLocationId={selectedWeatherLocationId} forecasts={weatherForecasts} loading={weatherLoading} errors={weatherErrors} onAddLocation={onAddWeatherLocation} onRemoveLocation={onRemoveWeatherLocation} onSetHomeLocation={onSetHomeWeatherLocation} onSelectLocation={onSelectWeatherLocation} onRefresh={onRefreshWeather} onEditingChange={onEditingChange} />
   if (page.id === 'notes') return <NotesPage notes={notes} onCreateNote={onCreateNote} onUpdateNote={onUpdateNote} onArchiveNote={onArchiveNote} onRestoreNote={onRestoreNote} onDeleteNote={onDeleteNote} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} />
-  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} calendarEvents={calendarEvents} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} />
-}
-
-function PageHeader({ pageLabel }: { pageLabel: string }) {
-  return (
-    <header className="dashboard-header compact-header">
-      <div>
-        <p className="eyebrow">Pablo Tablet</p>
-        <p className="welcome">{pageLabel}</p>
-      </div>
-      <div className="status-pill" aria-label="Estado de la tablet">
-        <LockKeyhole size={14} />
-        <span>Modo hogar</span>
-      </div>
-    </header>
-  )
+  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} calendarEvents={calendarEvents} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
 }
 
 function GalleryScreensaver({ photo, now, time, date, calendarEvents, onDismiss }: { photo: GalleryPhoto | undefined; now: Date; time: string; date: string; calendarEvents: CalendarEvent[]; onDismiss: () => void }) {
@@ -1026,7 +975,7 @@ function GalleryScreensaver({ photo, now, time, date, calendarEvents, onDismiss 
   return <div className={`gallery-screensaver ${photo ? 'has-photo' : 'is-empty'}`} role="button" tabIndex={0} aria-label="Cerrar salvapantallas" onPointerDown={dismiss} onClick={(event) => { event.preventDefault(); event.stopPropagation() }}>
     {photo ? <img key={photo.id} src={galleryPhotoSource(photo.uri)} alt="" /> : null}
     <div className="gallery-screensaver-shade" />
-    <div className="gallery-screensaver-clock"><time>{time}</time><span>{date}</span>{photo ? <small>{photo.name}</small> : <small>Añade fotos desde la Galería</small>}</div>
+    <div className="gallery-screensaver-clock"><time>{time}</time><span>{date}</span>{photo ? null : <small>Añade fotos desde la Galería</small>}</div>
     <aside className="gallery-screensaver-agenda" aria-label="Próximos eventos">
       <header><CalendarDays size={20} /><span>Próximos eventos</span></header>
       {upcomingEvents.length > 0
@@ -1036,40 +985,133 @@ function GalleryScreensaver({ photo, now, time, date, calendarEvents, onDismiss 
   </div>
 }
 
-function GalleryPage({ photos, onAddPhotos, onMoveToTrash, onRestore, onPermanentlyDelete, onEditingChange }: { photos: GalleryPhoto[]; onAddPhotos: () => void; onMoveToTrash: (photoId: string) => void; onRestore: (photoId: string) => void; onPermanentlyDelete: (photoId: string) => void; onEditingChange: (isEditing: boolean) => void }) {
+function GalleryPage({ photos, onAddPhotos, onMoveToTrash, onMoveSelectionToTrash, onRestore, onPermanentlyDelete, onEditingChange }: { photos: GalleryPhoto[]; onAddPhotos: () => void; onMoveToTrash: (photoId: string) => void; onMoveSelectionToTrash: (photoIds: string[]) => void; onRestore: (photoId: string) => void; onPermanentlyDelete: (photoId: string) => void; onEditingChange: (isEditing: boolean) => void }) {
   const [showTrash, setShowTrash] = useState(false)
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(() => new Set())
   const [confirmPermanentDelete, setConfirmPermanentDelete] = useState(false)
+  const [confirmSelectionDelete, setConfirmSelectionDelete] = useState(false)
+  const photoHoldTimer = useRef<number | null>(null)
+  const photoHoldGesture = useRef<{ photoId: string; pointerId: number; x: number; y: number } | null>(null)
+  const suppressPhotoClick = useRef(false)
   const activePhotos = photos.filter((photo) => photo.deletedAt === null)
   const deletedPhotos = photos.filter((photo) => photo.deletedAt !== null)
   const visiblePhotos = showTrash ? deletedPhotos : activePhotos
   const selectedPhoto = photos.find((photo) => photo.id === selectedPhotoId)
 
   useEffect(() => {
-    onEditingChange(selectedPhotoId !== null)
-    return () => onEditingChange(false)
-  }, [onEditingChange, selectedPhotoId])
+    onEditingChange(selectedPhotoId !== null || selectionMode)
+    return () => {
+      if (photoHoldTimer.current !== null) window.clearTimeout(photoHoldTimer.current)
+      onEditingChange(false)
+    }
+  }, [onEditingChange, selectedPhotoId, selectionMode])
 
   const closeViewer = () => {
     setSelectedPhotoId(null)
     setConfirmPermanentDelete(false)
   }
 
+  const clearPhotoHold = () => {
+    if (photoHoldTimer.current !== null) window.clearTimeout(photoHoldTimer.current)
+    photoHoldTimer.current = null
+    photoHoldGesture.current = null
+  }
+
+  const togglePhotoSelection = (photoId: string) => {
+    setSelectedPhotoIds((current) => {
+      const next = new Set(current)
+      if (next.has(photoId)) next.delete(photoId)
+      else next.add(photoId)
+      return next
+    })
+  }
+
+  const handlePhotoPointerDown = (event: ReactPointerEvent<HTMLButtonElement>, photoId: string) => {
+    if (event.button !== 0) return
+    clearPhotoHold()
+    photoHoldGesture.current = { photoId, pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+    photoHoldTimer.current = window.setTimeout(() => {
+      if (photoHoldGesture.current?.photoId !== photoId) return
+      suppressPhotoClick.current = true
+      setSelectionMode(true)
+      setSelectedPhotoIds((current) => new Set(current).add(photoId))
+      clearPhotoHold()
+    }, 550)
+  }
+
+  const handlePhotoPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const gesture = photoHoldGesture.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 12) clearPhotoHold()
+  }
+
+  const handlePhotoClick = (event: ReactMouseEvent<HTMLButtonElement>, photoId: string) => {
+    if (suppressPhotoClick.current) {
+      suppressPhotoClick.current = false
+      event.preventDefault()
+      return
+    }
+    if (selectionMode) {
+      togglePhotoSelection(photoId)
+      return
+    }
+    setSelectedPhotoId(photoId)
+  }
+
+  const deleteSelectedPhotos = () => {
+    if (showTrash || selectedPhotoIds.size === 0) return
+    onMoveSelectionToTrash([...selectedPhotoIds])
+    setSelectedPhotoIds(new Set())
+    setSelectionMode(false)
+  }
+
+  const restoreSelectedPhotos = () => {
+    if (!showTrash || selectedPhotoIds.size === 0) return
+    selectedPhotoIds.forEach(onRestore)
+    setSelectedPhotoIds(new Set())
+    setSelectionMode(false)
+  }
+
+  const permanentlyDeleteSelectedPhotos = () => {
+    if (!showTrash || selectedPhotoIds.size === 0) return
+    selectedPhotoIds.forEach(onPermanentlyDelete)
+    setConfirmSelectionDelete(false)
+    setSelectedPhotoIds(new Set())
+    setSelectionMode(false)
+  }
+
+  const allVisiblePhotosSelected = visiblePhotos.length > 0 && selectedPhotoIds.size === visiblePhotos.length
+
   return <div className="fullscreen-page gallery-page page-enter">
     <PageHeader pageLabel="Galería" />
     <section className="gallery-panel">
       <header className="gallery-toolbar">
-        <div><p className="eyebrow">Fotos locales</p><h1>{showTrash ? 'Papelera' : 'Mis fotos'}</h1><span>{showTrash ? `${deletedPhotos.length} eliminadas` : `${activePhotos.length} en esta tablet`}</span></div>
+        <div><p className="eyebrow">Fotos locales</p><h1>{selectionMode ? 'Seleccionar fotos' : showTrash ? 'Papelera' : 'Mis fotos'}</h1><span>{selectionMode ? `${selectedPhotoIds.size} seleccionada${selectedPhotoIds.size === 1 ? '' : 's'}` : showTrash ? `${deletedPhotos.length} eliminadas` : `${activePhotos.length} en esta tablet`}</span></div>
         <div className="gallery-actions">
-          <button type="button" className={showTrash ? 'is-active' : ''} onClick={() => { setShowTrash((value) => !value); closeViewer() }}><Trash2 size={18} />{showTrash ? 'Volver a fotos' : `Papelera${deletedPhotos.length ? ` · ${deletedPhotos.length}` : ''}`}</button>
-          {!showTrash ? <button type="button" className="gallery-add-button" onClick={onAddPhotos}><Upload size={19} />Añadir fotos</button> : null}
+          {selectionMode ? <>
+            <button type="button" onClick={() => { setSelectedPhotoIds(allVisiblePhotosSelected ? new Set() : new Set(visiblePhotos.map((photo) => photo.id))); setConfirmSelectionDelete(false) }}><Check size={18} />{allVisiblePhotosSelected ? 'Deseleccionar todas' : 'Seleccionar todas'}</button>
+            <button type="button" onClick={() => { setSelectedPhotoIds(new Set()); setSelectionMode(false); setConfirmSelectionDelete(false) }}><X size={18} />Cancelar</button>
+            {showTrash ? <>
+              <button type="button" disabled={selectedPhotoIds.size === 0} onClick={restoreSelectedPhotos}><RotateCcw size={18} />{allVisiblePhotosSelected ? 'Restaurar todas' : `Restaurar ${selectedPhotoIds.size}`}</button>
+              {confirmSelectionDelete
+                ? <span className="gallery-delete-confirm"><small>No se puede deshacer</small><button type="button" onClick={() => setConfirmSelectionDelete(false)}>Cancelar borrado</button><button type="button" className="is-danger" onClick={permanentlyDeleteSelectedPhotos}>Eliminar {selectedPhotoIds.size}</button></span>
+                : <button type="button" className="gallery-delete-selection" disabled={selectedPhotoIds.size === 0} onClick={() => setConfirmSelectionDelete(true)}><Trash2 size={18} />{allVisiblePhotosSelected ? 'Eliminar todas definitivamente' : `Eliminar ${selectedPhotoIds.size} definitivamente`}</button>}
+            </> : <button type="button" className="gallery-delete-selection" disabled={selectedPhotoIds.size === 0} onClick={deleteSelectedPhotos}><Trash2 size={18} />{allVisiblePhotosSelected ? 'Mover todas a papelera' : `Mover ${selectedPhotoIds.size} a papelera`}</button>}
+          </> : <>
+            <button type="button" className={showTrash ? 'is-active' : ''} onClick={() => { setShowTrash((value) => !value); setSelectedPhotoIds(new Set()); setSelectionMode(false); setConfirmSelectionDelete(false); closeViewer() }}><Trash2 size={18} />{showTrash ? 'Volver a fotos' : `Papelera${deletedPhotos.length ? ` · ${deletedPhotos.length}` : ''}`}</button>
+            {visiblePhotos.length > 0 ? <button type="button" onClick={() => setSelectionMode(true)}><Check size={18} />Seleccionar</button> : null}
+            {!showTrash ? <button type="button" className="gallery-add-button" onClick={onAddPhotos}><Upload size={19} />Añadir fotos</button> : null}
+          </>}
         </div>
       </header>
 
       {visiblePhotos.length > 0 ? <div className="gallery-grid">
-        {visiblePhotos.map((photo) => <button key={photo.id} type="button" className="gallery-thumbnail" onClick={() => setSelectedPhotoId(photo.id)} aria-label={`Abrir ${photo.name}`}>
-          <img src={galleryPhotoSource(photo.uri)} alt={photo.name} loading="lazy" />
+        {visiblePhotos.map((photo) => <button key={photo.id} type="button" className={`gallery-thumbnail ${selectedPhotoIds.has(photo.id) ? 'is-selected' : ''}`} onPointerDown={(event) => handlePhotoPointerDown(event, photo.id)} onPointerMove={handlePhotoPointerMove} onPointerUp={clearPhotoHold} onPointerCancel={clearPhotoHold} onContextMenu={(event) => event.preventDefault()} onClick={(event) => handlePhotoClick(event, photo.id)} aria-label={selectionMode ? `${selectedPhotoIds.has(photo.id) ? 'Deseleccionar' : 'Seleccionar'} ${photo.name}` : `Abrir ${photo.name}`} aria-pressed={selectionMode ? selectedPhotoIds.has(photo.id) : undefined}>
+          <img src={galleryPhotoSource(photo.uri)} alt={photo.name} loading="lazy" draggable={false} />
           <span>{photo.name}</span>
+          {selectionMode ? <i className="gallery-selection-mark" aria-hidden="true">{selectedPhotoIds.has(photo.id) ? <Check size={18} strokeWidth={3} /> : null}</i> : null}
         </button>)}
       </div> : <div className="gallery-empty">
         <span><Images size={46} strokeWidth={1.35} /></span>
@@ -1108,28 +1150,258 @@ function useDashboardOrientation(): DashboardOrientation {
   return orientation
 }
 
-function GridDashboard({ now, time, date, widgets, notes, calendarEvents, onOpenNotes, onOpenWeather, onOpenCalendar }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: () => void }) {
+function resizeWidgetFromEdge(initial: WidgetPosition, direction: WidgetResizeDirection, cellDelta: number, columns: number, rows: number): WidgetPosition {
+  if (direction === 'left') {
+    const delta = Math.max(Math.max(-initial.x, initial.width - columns), Math.min(initial.width - 1, cellDelta))
+    return { ...initial, x: initial.x + delta, width: initial.width - delta }
+  }
+  if (direction === 'right') {
+    const delta = Math.max(-(initial.width - 1), Math.min(Math.min(columns - initial.width, columns - initial.x - initial.width), cellDelta))
+    return { ...initial, width: initial.width + delta }
+  }
+  if (direction === 'top') {
+    const delta = Math.max(Math.max(-initial.y, initial.height - rows), Math.min(initial.height - 1, cellDelta))
+    return { ...initial, y: initial.y + delta, height: initial.height - delta }
+  }
+  const delta = Math.max(-(initial.height - 1), Math.min(rows - initial.y - initial.height, cellDelta))
+  return { ...initial, height: initial.height + delta }
+}
+
+function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
   const orientation = useDashboardOrientation()
+  const [isEditing, setIsEditing] = useState(false)
+  const [selectedWidgetId, setSelectedWidgetId] = useState<DashboardWidgetId | null>(null)
+  const [holdingWidgetId, setHoldingWidgetId] = useState<DashboardWidgetId | null>(null)
+  const [dragPreview, setDragPreview] = useState<{ widgetId: DashboardWidgetId; x: number; y: number } | null>(null)
+  const [resizePreview, setResizePreview] = useState<{ widgetId: DashboardWidgetId; position: WidgetPosition } | null>(null)
+  const gridRef = useRef<HTMLDivElement | null>(null)
+  const holdTimer = useRef<number | null>(null)
+  const holdGesture = useRef<{ widgetId: DashboardWidgetId; pointerId: number; x: number; y: number } | null>(null)
+  const dragGesture = useRef<{ widgetId: DashboardWidgetId; pointerId: number; startX: number; startY: number; initialLeft: number; initialTop: number; gridLeft: number; gridTop: number; columnStep: number; rowStep: number } | null>(null)
+  const resizeGesture = useRef<{ widgetId: DashboardWidgetId; pointerId: number; direction: WidgetResizeDirection; startX: number; startY: number; initial: WidgetPosition; columnStep: number; rowStep: number; preview: WidgetPosition } | null>(null)
+  const suppressWidgetActivation = useRef(false)
+  const onEditingChangeRef = useRef(onEditingChange)
   const placedWidgets = useMemo(() => placeWidgets(widgets, orientation), [orientation, widgets])
-  const featuredNote = notes
+  const displayedWidgets = useMemo(() => placedWidgets.map((widget) => resizePreview?.widgetId === widget.id ? { ...widget, layout: resizePreview.position } : widget), [placedWidgets, resizePreview])
+  const visibleDashboardNotes = notes
     .filter((note) => !note.archived)
-    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt))[0]
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt))
   const upcomingEvents = getUpcomingCalendarEvents(calendarEvents, now, time)
+
+  const cancelWidgetHold = useCallback(() => {
+    if (holdTimer.current !== null) window.clearTimeout(holdTimer.current)
+    holdTimer.current = null
+    holdGesture.current = null
+    setHoldingWidgetId(null)
+  }, [])
+
+  useEffect(() => {
+    onEditingChangeRef.current = onEditingChange
+  }, [onEditingChange])
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const gesture = holdGesture.current
+      if (!gesture || gesture.pointerId !== event.pointerId) return
+      if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 14) cancelWidgetHold()
+    }
+    const handlePointerEnd = (event: PointerEvent) => {
+      if (holdGesture.current?.pointerId === event.pointerId) cancelWidgetHold()
+    }
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerEnd)
+    window.addEventListener('pointercancel', handlePointerEnd)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerEnd)
+      window.removeEventListener('pointercancel', handlePointerEnd)
+      cancelWidgetHold()
+      onEditingChangeRef.current(false)
+    }
+  }, [cancelWidgetHold])
+
+  const startWidgetHold = (widgetId: DashboardWidgetId, event: ReactPointerEvent<HTMLDivElement>) => {
+    if (isEditing || event.button !== 0) return
+    cancelWidgetHold()
+    holdGesture.current = { widgetId, pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+    setHoldingWidgetId(widgetId)
+    holdTimer.current = window.setTimeout(() => {
+      if (holdGesture.current?.widgetId !== widgetId) return
+      holdTimer.current = null
+      holdGesture.current = null
+      setHoldingWidgetId(null)
+      suppressWidgetActivation.current = true
+      setSelectedWidgetId(widgetId)
+      setIsEditing(true)
+      onEditingChangeRef.current(true)
+      if ('vibrate' in navigator) navigator.vibrate(35)
+    }, 1_000)
+  }
+
+  const finishEditing = () => {
+    cancelWidgetHold()
+    dragGesture.current = null
+    resizeGesture.current = null
+    setDragPreview(null)
+    setResizePreview(null)
+    setSelectedWidgetId(null)
+    setIsEditing(false)
+    onEditingChangeRef.current(false)
+  }
+
+  const activateWidget = (action?: () => void) => {
+    if (isEditing || suppressWidgetActivation.current) {
+      suppressWidgetActivation.current = false
+      return
+    }
+    action?.()
+  }
+
+  const canExpandWidget = (widget: PlacedWidget, direction: WidgetResizeDirection) => {
+    const delta = direction === 'left' || direction === 'top' ? -1 : 1
+    const candidate = resizeWidgetFromEdge(widget.layout, direction, delta, DASHBOARD_COLUMNS[orientation], DASHBOARD_ROWS[orientation])
+    const changed = candidate.x !== widget.layout.x || candidate.y !== widget.layout.y || candidate.width !== widget.layout.width || candidate.height !== widget.layout.height
+    return changed && resizeWidgets(widgets, orientation, widget.id, candidate) !== null
+  }
+
+  const canShrinkWidget = (widget: PlacedWidget, direction: WidgetResizeDirection) => direction === 'left' || direction === 'right'
+    ? widget.layout.width > 1
+    : widget.layout.height > 1
+
+  const startWidgetResize = (widget: PlacedWidget, direction: WidgetResizeDirection, event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!isEditing || event.button !== 0) return
+    const grid = gridRef.current
+    if (!grid) return
+    event.preventDefault()
+    event.stopPropagation()
+    const gridRect = grid.getBoundingClientRect()
+    const styles = window.getComputedStyle(grid)
+    const columnGap = Number.parseFloat(styles.columnGap) || 0
+    const rowGap = Number.parseFloat(styles.rowGap) || columnGap
+    const paddingLeft = Number.parseFloat(styles.paddingLeft) || 0
+    const paddingRight = Number.parseFloat(styles.paddingRight) || 0
+    const rows = DASHBOARD_ROWS[orientation]
+    const columns = DASHBOARD_COLUMNS[orientation]
+    resizeGesture.current = {
+      widgetId: widget.id,
+      pointerId: event.pointerId,
+      direction,
+      startX: event.clientX,
+      startY: event.clientY,
+      initial: { ...widget.layout },
+      columnStep: (gridRect.width - paddingLeft - paddingRight - columnGap * (columns - 1)) / columns + columnGap,
+      rowStep: (gridRect.height - rowGap * (rows - 1)) / rows + rowGap,
+      preview: { ...widget.layout },
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setResizePreview({ widgetId: widget.id, position: { ...widget.layout } })
+  }
+
+  const moveWidgetResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const gesture = resizeGesture.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+    const pixelDelta = gesture.direction === 'left' || gesture.direction === 'right'
+      ? event.clientX - gesture.startX
+      : event.clientY - gesture.startY
+    const step = gesture.direction === 'left' || gesture.direction === 'right' ? gesture.columnStep : gesture.rowStep
+    let cellDelta = Math.round(pixelDelta / step)
+    let candidate = resizeWidgetFromEdge(gesture.initial, gesture.direction, cellDelta, DASHBOARD_COLUMNS[orientation], DASHBOARD_ROWS[orientation])
+    while (cellDelta !== 0 && resizeWidgets(widgets, orientation, gesture.widgetId, candidate) === null) {
+      cellDelta += cellDelta > 0 ? -1 : 1
+      candidate = resizeWidgetFromEdge(gesture.initial, gesture.direction, cellDelta, DASHBOARD_COLUMNS[orientation], DASHBOARD_ROWS[orientation])
+    }
+    if (resizeWidgets(widgets, orientation, gesture.widgetId, candidate) === null) candidate = gesture.initial
+    gesture.preview = candidate
+    setResizePreview({ widgetId: gesture.widgetId, position: candidate })
+  }
+
+  const finishWidgetResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const gesture = resizeGesture.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+    const finalPosition = gesture.preview
+    resizeGesture.current = null
+    setResizePreview(null)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (finalPosition.x !== gesture.initial.x || finalPosition.y !== gesture.initial.y || finalPosition.width !== gesture.initial.width || finalPosition.height !== gesture.initial.height) {
+      onChangeWidgetLayout(gesture.widgetId, orientation, finalPosition)
+      if ('vibrate' in navigator) navigator.vibrate(18)
+    }
+  }
+
+  const startWidgetDrag = (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isEditing || event.button !== 0 || (event.target as HTMLElement).closest('.widget-resize-handle, .widget-size-indicator')) return
+    const grid = gridRef.current
+    if (!grid) return
+    event.preventDefault()
+    event.stopPropagation()
+    setSelectedWidgetId(widget.id)
+    const shell = event.currentTarget
+    const shellRect = shell.getBoundingClientRect()
+    const gridRect = grid.getBoundingClientRect()
+    const styles = window.getComputedStyle(grid)
+    const columnGap = Number.parseFloat(styles.columnGap) || 0
+    const rowGap = Number.parseFloat(styles.rowGap) || columnGap
+    const paddingLeft = Number.parseFloat(styles.paddingLeft) || 0
+    const paddingRight = Number.parseFloat(styles.paddingRight) || 0
+    const paddingTop = Number.parseFloat(styles.paddingTop) || 0
+    const rows = DASHBOARD_ROWS[orientation]
+    const columns = DASHBOARD_COLUMNS[orientation]
+    dragGesture.current = {
+      widgetId: widget.id,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      initialLeft: shellRect.left,
+      initialTop: shellRect.top + grid.scrollTop,
+      gridLeft: gridRect.left + paddingLeft,
+      gridTop: gridRect.top + paddingTop,
+      columnStep: (gridRect.width - paddingLeft - paddingRight - columnGap * (columns - 1)) / columns + columnGap,
+      rowStep: (gridRect.height - rowGap * (rows - 1)) / rows + rowGap,
+    }
+    shell.setPointerCapture(event.pointerId)
+    setDragPreview({ widgetId: widget.id, x: 0, y: 0 })
+  }
+
+  const moveWidgetDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = dragGesture.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    event.preventDefault()
+    setDragPreview({ widgetId: gesture.widgetId, x: event.clientX - gesture.startX, y: event.clientY - gesture.startY })
+  }
+
+  const finishWidgetDrag = (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = dragGesture.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    const deltaX = event.clientX - gesture.startX
+    const deltaY = event.clientY - gesture.startY
+    const x = Math.max(0, Math.min(DASHBOARD_COLUMNS[orientation] - widget.layout.width, Math.round((gesture.initialLeft + deltaX - gesture.gridLeft) / gesture.columnStep)))
+    const y = Math.max(0, Math.min(DASHBOARD_ROWS[orientation] - widget.layout.height, Math.round((gesture.initialTop + deltaY - gesture.gridTop) / gesture.rowStep)))
+    dragGesture.current = null
+    setDragPreview(null)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    onChangeWidgetLayout(widget.id, orientation, { x, y })
+  }
+
   return (
-    <div className="dashboard-page page-enter">
+    <div className={`dashboard-page page-enter ${isEditing ? 'is-editing-widgets' : ''}`}>
       <header className="dashboard-header">
         <div>
           <p className="eyebrow">Pablo Tablet</p>
           <p className="welcome">Buenos días, Pablo</p>
         </div>
-        <div className="status-pill" aria-label="Estado de la tablet">
+        <div className="badge status-pill" aria-label="Estado de la tablet">
           <LockKeyhole size={14} />
           <span>Modo hogar</span>
         </div>
       </header>
-      <div className={`dashboard-grid is-${orientation}`}>
-        {placedWidgets.length > 0
-          ? placedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} featuredNote={featuredNote} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} />)
+      {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>Arrastra para mover · arrastra los bordes para ajustar</span><button type="button" onClick={finishEditing}><Check size={17} />Listo</button></div> : null}
+      <div ref={gridRef} className={`dashboard-grid is-${orientation}`}>
+        {displayedWidgets.length > 0
+          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} />)
           : <DashboardEmptyState time={time} date={date} />}
       </div>
     </div>
@@ -1145,82 +1417,162 @@ function DashboardEmptyState({ time, date }: { time: string; date: string }) {
   </section>
 }
 
-function DashboardWidgetCard({ widget, now, time, date, featuredNote, calendarEvents, upcomingEvents, onOpenNotes, onOpenWeather, onOpenCalendar }: { widget: PlacedWidget; now: Date; time: string; date: string; featuredNote: Note | undefined; calendarEvents: CalendarEvent[]; upcomingEvents: CalendarEvent[]; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: () => void }) {
+function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, children }: { widget: PlacedWidget; style: CSSProperties; isEditing: boolean; showResizeHandles: boolean; isHolding: boolean; dragOffset: { x: number; y: number } | null; onHoldStart: (widgetId: DashboardWidgetId, event: ReactPointerEvent<HTMLDivElement>) => void; onDragStart: (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => void; onDragMove: (event: ReactPointerEvent<HTMLDivElement>) => void; onDragEnd: (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => void; onResizeStart: (widget: PlacedWidget, direction: WidgetResizeDirection, event: ReactPointerEvent<HTMLButtonElement>) => void; onResizeMove: (event: ReactPointerEvent<HTMLButtonElement>) => void; onResizeEnd: (event: ReactPointerEvent<HTMLButtonElement>) => void; canExpand: (direction: WidgetResizeDirection) => boolean; canShrink: (direction: WidgetResizeDirection) => boolean; children: ReactNode }) {
+  const widgetNames: Record<DashboardWidgetId, string> = { clock: 'Reloj', weather: 'Tiempo', notes: 'Notas', agenda: 'Calendario' }
+  const resizeDirections: WidgetResizeDirection[] = ['left', 'right', 'top', 'bottom']
+  const arrows: Record<WidgetResizeDirection, string> = { left: '←', right: '→', top: '↑', bottom: '↓' }
+  const directionNames: Record<WidgetResizeDirection, string> = { left: 'izquierdo', right: 'derecho', top: 'superior', bottom: 'inferior' }
+
+  return <div
+    className={`dashboard-widget-shell widget-size-${widget.layout.width}x${widget.layout.height} ${isEditing ? 'is-editing' : ''} ${isHolding ? 'is-holding' : ''} ${dragOffset ? 'is-dragging' : ''}`}
+    style={{ ...style, transform: dragOffset ? `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)` : undefined, zIndex: dragOffset ? 10 : undefined }}
+    onPointerDown={(event) => isEditing ? onDragStart(widget, event) : onHoldStart(widget.id, event)}
+    onPointerMove={onDragMove}
+    onPointerUp={(event) => onDragEnd(widget, event)}
+    onPointerCancel={(event) => onDragEnd(widget, event)}
+    onContextMenu={(event) => event.preventDefault()}
+  >
+    {children}
+    {isHolding ? <span className="widget-hold-hint">Mantén pulsado…</span> : null}
+    {isEditing ? <>
+      <span className="widget-size-indicator" data-swipe-block><strong>{widgetNames[widget.id]}</strong><small>{widget.layout.width} × {widget.layout.height}</small></span>
+      {showResizeHandles ? resizeDirections.map((direction) => {
+        const expands = canExpand(direction)
+        if (!expands && !canShrink(direction)) return null
+        return <button
+          key={direction}
+          type="button"
+          className={`widget-resize-handle is-${direction} ${expands ? 'can-expand' : 'shrink-only'}`}
+          data-swipe-block
+          aria-label={`Ajustar borde ${directionNames[direction]} de ${widgetNames[widget.id]}`}
+          onPointerDown={(event) => onResizeStart(widget, direction, event)}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeEnd}
+          onPointerCancel={onResizeEnd}
+          onClick={(event) => event.preventDefault()}
+        ><span aria-hidden="true">{expands ? arrows[direction] : '•'}</span></button>
+      }) : null}
+    </> : null}
+  </div>
+}
+
+function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, upcomingEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar }: {
+  widget: PlacedWidget
+  now: Date
+  time: string
+  date: string
+  notes: Note[]
+  calendarEvents: CalendarEvent[]
+  upcomingEvents: CalendarEvent[]
+  homeWeatherLocation: WeatherLocation | null
+  homeWeatherForecast: WeatherForecast | null
+  weatherLoading: boolean
+  isEditing: boolean
+  showResizeHandles: boolean
+  isHolding: boolean
+  dragOffset: { x: number; y: number } | null
+  onHoldStart: (widgetId: DashboardWidgetId, event: ReactPointerEvent<HTMLDivElement>) => void
+  onDragStart: (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => void
+  onDragMove: (event: ReactPointerEvent<HTMLDivElement>) => void
+  onDragEnd: (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => void
+  onResizeStart: (widget: PlacedWidget, direction: WidgetResizeDirection, event: ReactPointerEvent<HTMLButtonElement>) => void
+  onResizeMove: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  onResizeEnd: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  canExpand: (direction: WidgetResizeDirection) => boolean
+  canShrink: (direction: WidgetResizeDirection) => boolean
+  onActivate: (action?: () => void) => void
+  onOpenNotes: (noteId?: string) => void
+  onOpenWeather: () => void
+  onOpenCalendar: () => void
+}) {
   const style = {
     gridColumn: `${widget.layout.x + 1} / span ${widget.layout.width}`,
     gridRow: `${widget.layout.y + 1} / span ${widget.layout.height}`,
   } satisfies CSSProperties
+  const sizeKey = `${widget.layout.width}x${widget.layout.height}`
+  const area = widget.layout.width * widget.layout.height
+  const frameProps = { widget, style, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink }
 
-  if (widget.id === 'clock') return <article className={`clock-card widget-card ${widget.layout.width === 1 ? 'is-compact-widget' : ''}`} style={style}>
+  if (widget.id === 'clock') return <DashboardWidgetFrame {...frameProps}><article className="clock-card responsive-clock-widget widget-card">
     <div className="widget-label"><span>Ahora</span><span className="live-dot">En directo</span></div>
-    <time className="time">{time}</time>
+    <time className="time">{time}{area > 1 ? <small>:{String(now.getSeconds()).padStart(2, '0')}</small> : null}</time>
     <p className="date">{date}</p>
-    <div className="morning-line"><SunMedium size={18} /><span>Que tengas un día estupendo</span></div>
-  </article>
+    {area >= 4 ? <div className="clock-details"><span><SunMedium size={20} />Que tengas un día estupendo</span><strong>{new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(now)}</strong></div> : null}
+    {area >= 6 ? <div className="clock-day-progress"><span style={{ width: `${Math.round(((now.getHours() * 60 + now.getMinutes()) / 1440) * 100)}%` }} /></div> : null}
+  </article></DashboardWidgetFrame>
 
   if (widget.id === 'weather') {
-    if (widget.layout.width > 1) return <button type="button" className="weather-card weather-wide-widget widget-card interactive-card" style={style} onClick={onOpenWeather}>
-      <div className="weather-wide-current"><div className="weather-icon"><CloudSun size={38} strokeWidth={1.5} /></div><div><p className="temperature">22°</p><p className="weather-copy">Parcialmente nublado</p><span><MapPin size={13} />Madrid</span></div></div>
-      <div className="weather-widget-hours">
-        <span><small>Ahora</small><CloudSun size={21} /><strong>22°</strong></span>
-        <span><small>19:00</small><CloudSun size={21} /><strong>21°</strong></span>
-        <span><small>20:00</small><Cloud size={21} /><strong>20°</strong></span>
-        <span><small>21:00</small><CloudRain size={21} /><strong>19°</strong></span>
-      </div>
-    </button>
-    if (widget.layout.height > 1) return <button type="button" className="weather-card weather-tall-widget widget-card interactive-card" style={style} onClick={onOpenWeather}>
-      <div className="weather-tall-current"><div className="weather-icon"><CloudSun size={42} strokeWidth={1.45} /></div><div><p className="temperature">22°</p><p className="weather-copy">Parcialmente nublado</p><span><MapPin size={13} />Madrid</span></div></div>
-      <div className="weather-tall-stats"><span><Droplets size={17} /><small>Humedad</small><strong>58%</strong></span><span><Wind size={17} /><small>Viento</small><strong>11 km/h</strong></span></div>
-      <div className="weather-tall-hours"><p>Próximas horas</p><span><small>19:00</small><CloudSun size={20} /><strong>21°</strong></span><span><small>20:00</small><Cloud size={20} /><strong>20°</strong></span><span><small>21:00</small><CloudRain size={20} /><strong>19°</strong></span></div>
-    </button>
-    return <button type="button" className={`weather-card widget-card interactive-card ${widget.layout.height === 1 ? 'is-compact-widget' : ''}`} style={style} onClick={onOpenWeather}>
-      <div className="weather-icon"><CloudSun size={38} strokeWidth={1.5} /></div>
-      <div><p className="temperature">22°</p><p className="weather-copy">Parcialmente nublado</p></div>
-      <span className="location">Casa</span>
-    </button>
+    const hourCount: Record<string, number> = { '1x1': 0, '1x2': 3, '1x3': 3, '1x4': 6, '2x1': 0, '2x2': 4, '2x3': 6, '2x4': 6, '3x1': 0, '3x2': 6, '3x3': 6, '3x4': 6 }
+    const forecastCount: Record<string, number> = { '1x1': 0, '1x2': 0, '1x3': 3, '1x4': 5, '2x1': 0, '2x2': 3, '2x3': 4, '2x4': 5, '3x1': 0, '3x2': 4, '3x3': 5, '3x4': 5 }
+    if (!homeWeatherLocation) return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget weather-widget-empty widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}><div className="weather-icon"><MapPin size={36} /></div><div><strong>Configura el tiempo</strong><span>Añade una ubicación y márcala como Casa.</span></div></button></DashboardWidgetFrame>
+    if (!homeWeatherForecast) return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget weather-widget-empty widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}><div className="weather-icon"><RefreshCw className={weatherLoading ? 'is-spinning' : ''} size={34} /></div><div><strong>{homeWeatherLocation.name}</strong><span>{weatherLoading ? 'Actualizando la previsión…' : 'Toca para volver a intentarlo.'}</span></div></button></DashboardWidgetFrame>
+    const weatherHours = homeWeatherForecast.hourly
+    const forecast = homeWeatherForecast.daily
+    return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}>
+      <div className="weather-current"><div className="weather-icon"><WeatherIcon code={homeWeatherForecast.current.weatherCode} size={area >= 4 ? 46 : 36} /></div><div><p className="temperature">{Math.round(homeWeatherForecast.current.temperature)}°</p><p className="weather-copy">{weatherDescription(homeWeatherForecast.current.weatherCode)}</p><span><Home size={13} />{homeWeatherLocation.name}</span></div></div>
+      <div className="weather-stats"><span><Droplets size={17} /><small>Humedad</small><strong>{Math.round(homeWeatherForecast.current.humidity)}%</strong></span><span><Wind size={17} /><small>Viento</small><strong>{Math.round(homeWeatherForecast.current.windSpeed)} km/h</strong></span><span><Sunrise size={17} /><small>Amanecer</small><strong>{formatWeatherHour(homeWeatherForecast.daily[0]?.sunrise ?? '')}</strong></span><span><Sunset size={17} /><small>Anochecer</small><strong>{formatWeatherHour(homeWeatherForecast.daily[0]?.sunset ?? '')}</strong></span></div>
+      {(hourCount[sizeKey] ?? 0) > 0 ? <div className="weather-hours"><p>Próximas horas</p>{weatherHours.slice(0, hourCount[sizeKey]).map((hour, index) => <span key={hour.time}><small>{index === 0 ? 'Ahora' : formatWeatherHour(hour.time)}</small><WeatherIcon code={hour.weatherCode} size={20} /><strong>{Math.round(hour.temperature)}°</strong></span>)}</div> : null}
+      {(forecastCount[sizeKey] ?? 0) > 0 ? <div className="weather-forecast"><p>Próximos días</p>{forecast.slice(0, forecastCount[sizeKey]).map((day, index) => <span key={day.date}><b>{index === 0 ? 'Hoy' : formatWeatherDay(day.date, true)}</b><WeatherIcon code={day.weatherCode} size={18} /><strong>{Math.round(day.temperatureMax)}°</strong><small>{Math.round(day.temperatureMin)}°</small></span>)}</div> : null}
+    </button></DashboardWidgetFrame>
   }
 
-  if (widget.id === 'notes') return <button type="button" className={`note-card widget-card interactive-card ${featuredNote ? `note-${featuredNote.color}` : ''}`} style={style} onClick={() => onOpenNotes(featuredNote?.id)}>
+  if (widget.id === 'notes') {
+    const noteCount: Record<string, number> = { '1x1': 1, '1x2': 3, '1x3': 4, '1x4': 5, '2x1': 3, '2x2': 4, '2x3': 6, '2x4': 8, '3x1': 4, '3x2': 6, '3x3': 8, '3x4': 10 }
+    const pinnedNotes = notes.filter((note) => note.pinned)
+    const visibleNotes = [...(pinnedNotes.length > 0 ? pinnedNotes : notes)]
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, noteCount[sizeKey] ?? 1)
+    const featuredNote = visibleNotes[0]
+    return <DashboardWidgetFrame {...frameProps}><button type="button" className={`note-card responsive-note-widget widget-card interactive-card ${featuredNote ? `note-${featuredNote.color}` : ''}`} onClick={() => onActivate(() => onOpenNotes(featuredNote?.id))}>
     <div className="widget-heading">
       <div className="heading-icon coral"><Check size={18} /></div>
-      <div><p className="widget-title">Nota rápida</p><p className="widget-subtitle">Guardada en esta tablet</p></div>
+      <div><p className="widget-title">Notas</p><p className="widget-subtitle">{notes.length ? `${notes.length} guardadas en esta tablet` : 'Sin notas todavía'}</p></div>
     </div>
-    <p className={`note-content ${featuredNote?.content ? '' : 'is-placeholder'}`}>{featuredNote?.content || 'Toca aquí para escribir una nota o recordatorio.'}</p>
+    {visibleNotes.length > 0 ? <div className="note-preview-list">{visibleNotes.map((note, index) => <span key={note.id} className={`note-preview note-${note.color} ${note.type === 'drawing' && note.pinned ? 'has-drawing-preview' : ''}`}><i /><span><strong>{note.title || 'Sin título'}</strong>{note.type === 'drawing' && note.pinned ? <NoteDrawingPreview drawing={note.drawing} /> : <small>{note.type === 'drawing' ? 'Dibujo' : (note.content || 'Texto / lista')}</small>}</span>{index === 0 && note.pinned && note.type === 'drawing' ? <Pin className="note-preview-pin" size={14} /> : null}</span>)}</div> : <p className="note-content is-placeholder">Toca aquí para crear una nota de texto o un dibujo.</p>}
     <div className="note-footer"><span>{featuredNote ? (featuredNote.pinned ? 'Fijada' : 'Editada') : 'Sin contenido'}</span><ChevronRight size={17} /></div>
-  </button>
+    </button></DashboardWidgetFrame>
+  }
 
   const firstWeekday = (new Date(now.getFullYear(), now.getMonth(), 1).getDay() + 6) % 7
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-  const monthCells = Array.from({ length: Math.ceil((firstWeekday + daysInMonth) / 7) * 7 }, (_, index) => {
-    const day = index - firstWeekday + 1
-    if (day < 1 || day > daysInMonth) return null
-    const value = new Date(now.getFullYear(), now.getMonth(), day)
+  const dayCount: Record<string, number> = { '1x1': 7, '1x2': 14, '1x3': 21, '1x4': 42, '2x1': 7, '2x2': 28, '2x3': 42, '2x4': 42, '3x1': 21, '3x2': 35, '3x3': 42, '3x4': 42 }
+  const visibleDayCount = dayCount[sizeKey] ?? 7
+  const showWholeMonth = visibleDayCount === 42
+  const calendarStart = showWholeMonth
+    ? new Date(now.getFullYear(), now.getMonth(), 1 - firstWeekday)
+    : new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7))
+  const monthCells = Array.from({ length: visibleDayCount }, (_, index) => {
+    const value = new Date(calendarStart)
+    value.setDate(calendarStart.getDate() + index)
     const key = toLocalDateKey(value)
     const events = calendarEvents.flatMap((event) => {
       const occurrence = calendarOccurrenceForDate(event, key)
       return occurrence ? [eventForOccurrence(event, occurrence)] : []
     })
-    return { key, day, events }
+    return { key, day: value.getDate(), muted: value.getMonth() !== now.getMonth(), events }
   })
+  const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 0, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 0, '3x2': 3, '3x3': 5, '3x4': 6 }
+  const calendarSubtitle = visibleDayCount === 7
+    ? 'Esta semana'
+    : showWholeMonth
+    ? new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(now)
+    : `${visibleDayCount} días desde hoy`
 
-  return <button type="button" className="agenda-card calendar-widget widget-card interactive-card" style={style} onClick={onOpenCalendar}>
+  return <DashboardWidgetFrame {...frameProps}><button type="button" className="agenda-card calendar-widget responsive-calendar-widget widget-card interactive-card" onClick={() => onActivate(onOpenCalendar)}>
     <div className="calendar-widget-header">
-      <div className="widget-heading"><div className="heading-icon blue"><CalendarDays size={18} /></div><div><p className="widget-title">Calendario</p><p className="widget-subtitle">{new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(now)}</p></div></div>
+      <div className="widget-heading"><div className="heading-icon blue"><CalendarDays size={18} /></div><div><p className="widget-title">Calendario</p><p className="widget-subtitle">{calendarSubtitle}</p></div></div>
       <span>Ver calendario <ChevronRight size={17} /></span>
     </div>
     <div className="calendar-widget-body">
       <section className="calendar-widget-month">
         <div className="calendar-widget-weekdays">{['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => <span key={day}>{day}</span>)}</div>
-        <div className="calendar-widget-month-grid">{monthCells.map((cell, index) => cell
-          ? <span key={cell.key} className={cell.key === toLocalDateKey(now) ? 'is-today' : ''}><strong>{cell.day}</strong>{cell.events.slice(0, 1).map((event) => <small key={event.id} className={`event-${event.color} ${event.completed ? 'is-completed' : ''} ${isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || 'Evento'}</small>)}</span>
-          : <i key={`empty-${index}`} />)}</div>
+        <div className="calendar-widget-month-grid">{monthCells.map((cell) => <span key={cell.key} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`}><strong>{cell.day}</strong>{cell.events.slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${event.completed ? 'is-completed' : ''} ${isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || 'Evento'}</small>)}</span>)}</div>
       </section>
-      <aside className="calendar-widget-agenda">
+      {(agendaCount[sizeKey] ?? 0) > 0 ? <aside className="calendar-widget-agenda">
         <p>Próximos eventos</p>
-        {upcomingEvents.length > 0 ? upcomingEvents.map((event) => <span key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type}`}><i /><b><CalendarEventTypeMark type={event.type} />{event.title}</b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span>) : <span className="calendar-widget-empty"><Compass size={19} />Sin eventos próximos</span>}
-      </aside>
+        {upcomingEvents.length > 0 ? upcomingEvents.slice(0, agendaCount[sizeKey]).map((event) => <span key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type}`}><i /><b><CalendarEventTypeMark type={event.type} />{event.title}</b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span>) : <span className="calendar-widget-empty"><Compass size={19} />Sin eventos próximos</span>}
+      </aside> : null}
     </div>
-  </button>
+  </button></DashboardWidgetFrame>
 }
 
 function getUpcomingCalendarEvents(calendarEvents: CalendarEvent[], now: Date, time: string, limit = 3) {
@@ -1349,7 +1701,7 @@ function CalendarPage({ now, events, hideCompletedTasks, onHideCompletedTasksCha
       </section>
       <div className="calendar-side-column">
         <aside className="calendar-day-panel">
-          <header><div><p className="eyebrow">Agenda del día</p><h2>{calendarDayFormatter.format(new Date(`${selectedDate}T12:00:00`))}</h2></div><button type="button" className="primary-action" onClick={createEvent}><Plus size={18} />Nuevo</button></header>
+          <header><div><p className="eyebrow">Agenda del día</p><h2>{calendarDayFormatter.format(new Date(`${selectedDate}T12:00:00`))}</h2></div><button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />Nuevo</button></header>
           <div className="calendar-day-events">{selectedEvents.length > 0 ? selectedEvents.map((event) => {
             const isPast = isCalendarEventPast(event, now)
             return <button key={event.id} type="button" className={`calendar-day-event event-${event.color} kind-${event.type} ${event.completed ? 'is-completed' : ''} ${isPast ? 'is-past' : ''}`} onClick={() => openEditor(event.id)}><span className="calendar-event-time">{formatCalendarEventTimeForDay(event, selectedDate)}</span><span><strong><CalendarEventTypeMark type={event.type} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.completed ? 'Tarea completada' : isPast ? `Finalizado · ${formatCalendarEventTime(event)}` : event.location || event.notes || (event.date !== event.endDate ? `${formatCalendarEventTime(event)}` : 'Sin detalles')}</small></span><ChevronRight size={18} /></button>
@@ -1480,63 +1832,130 @@ function CalendarRemindersEditor({ event, onUpdate, onClose }: { event: Calendar
   </div>
 }
 
-function WeatherPage() {
-  const hourlyForecast = [
-    { time: 'Ahora', temperature: '22°', icon: <CloudSun size={25} /> },
-    { time: '19:00', temperature: '21°', icon: <CloudSun size={25} /> },
-    { time: '20:00', temperature: '20°', icon: <Cloud size={25} /> },
-    { time: '21:00', temperature: '19°', icon: <Cloud size={25} /> },
-    { time: '22:00', temperature: '18°', icon: <CloudRain size={25} /> },
-  ]
-  const dailyForecast = [
-    { day: 'Hoy', range: '24° / 16°', detail: 'Parcialmente nublado', icon: <CloudSun size={25} /> },
-    { day: 'Jueves', range: '23° / 15°', detail: 'Soleado', icon: <SunMedium size={25} /> },
-    { day: 'Viernes', range: '20° / 14°', detail: 'Lluvia débil', icon: <CloudRain size={25} /> },
-    { day: 'Sábado', range: '22° / 14°', detail: 'Nubes y claros', icon: <CloudSun size={25} /> },
-  ]
+function formatWeatherHour(value: string) {
+  return value.includes('T') ? value.slice(value.indexOf('T') + 1, value.indexOf('T') + 6) : value
+}
+
+function formatWeatherDay(value: string, short = false) {
+  return new Intl.DateTimeFormat('es-ES', { weekday: short ? 'short' : 'long' }).format(new Date(`${value}T12:00:00`)).replace('.', '')
+}
+
+function WeatherIcon({ code, size }: { code: number; size: number }) {
+  if (code === 0) return <SunMedium size={size} strokeWidth={1.55} />
+  if (code === 1 || code === 2) return <CloudSun size={size} strokeWidth={1.55} />
+  if (code === 3 || code === 45 || code === 48) return <Cloud size={size} strokeWidth={1.55} />
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return <Snowflake size={size} strokeWidth={1.55} />
+  if (code >= 95) return <CloudLightning size={size} strokeWidth={1.55} />
+  return <CloudRain size={size} strokeWidth={1.55} />
+}
+
+function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts, loading, errors, onAddLocation, onRemoveLocation, onSetHomeLocation, onSelectLocation, onRefresh, onEditingChange }: {
+  locations: WeatherLocation[]
+  homeLocationId: string | null
+  selectedLocationId: string | null
+  forecasts: Record<string, WeatherForecast>
+  loading: Record<string, boolean>
+  errors: Record<string, string>
+  onAddLocation: (location: WeatherLocation) => void
+  onRemoveLocation: (locationId: string) => void
+  onSetHomeLocation: (locationId: string) => void
+  onSelectLocation: (locationId: string) => void
+  onRefresh: (location: WeatherLocation) => void
+  onEditingChange: (isEditing: boolean) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<WeatherLocation[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const selectedLocation = locations.find((location) => location.id === selectedLocationId) ?? locations.find((location) => location.id === homeLocationId) ?? locations[0] ?? null
+  const forecast = selectedLocation ? forecasts[selectedLocation.id] : null
+  const isLoading = selectedLocation ? Boolean(loading[selectedLocation.id]) : false
+  const forecastError = selectedLocation ? errors[selectedLocation.id] : ''
+
+  useEffect(() => {
+    const normalizedQuery = query.trim()
+    if (normalizedQuery.length < 2) return
+    const controller = new AbortController()
+    const timeout = window.setTimeout(async () => {
+      setIsSearching(true)
+      setSearchError('')
+      try {
+        setResults(await searchWeatherLocations(normalizedQuery, controller.signal))
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setSearchError(error instanceof Error ? error.message : 'No se pudo buscar la ubicación.')
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsSearching(false)
+      }
+    }, 350)
+    return () => {
+      controller.abort()
+      window.clearTimeout(timeout)
+    }
+  }, [query])
+
+  const addLocation = (location: WeatherLocation) => {
+    onAddLocation(location)
+    setQuery('')
+    setResults([])
+    onEditingChange(false)
+  }
 
   return (
     <div className="fullscreen-page weather-page page-enter">
       <PageHeader pageLabel="Tiempo" />
-      <div className="weather-layout">
+      <section className="weather-location-manager" data-swipe-block>
+        <div className="weather-saved-locations">
+          {locations.map((location) => <div key={location.id} className={`weather-location-chip ${selectedLocation?.id === location.id ? 'is-active' : ''}`}>
+            <button type="button" onClick={() => onSelectLocation(location.id)}><MapPin size={14} /><span>{location.name}</span>{location.id === homeLocationId ? <small><Home size={11} />Casa</small> : null}</button>
+            {location.id !== homeLocationId ? <button type="button" className="weather-chip-action" onClick={() => onSetHomeLocation(location.id)} aria-label={`Establecer ${location.name} como Casa`} title="Establecer como Casa"><Star size={14} /></button> : null}
+            <button type="button" className="weather-chip-action is-danger" onClick={() => onRemoveLocation(location.id)} aria-label={`Eliminar ${location.name}`} title="Eliminar ubicación"><X size={14} /></button>
+          </div>)}
+        </div>
+        <div className="weather-location-search">
+          <Search size={17} />
+          <input value={query} maxLength={100} placeholder="Añadir ciudad o código postal" aria-label="Buscar una ubicación" onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} onChange={(event) => { const value = event.target.value; setQuery(value); if (value.trim().length < 2) { setResults([]); setSearchError(''); setIsSearching(false) } }} />
+          {isSearching ? <RefreshCw className="is-spinning" size={16} /> : null}
+        </div>
+        {query.trim().length >= 2 ? <div className="weather-search-results">
+          {searchError ? <p className="weather-inline-error">{searchError}</p> : null}
+          {!isSearching && !searchError && results.length === 0 ? <p>No hay coincidencias.</p> : null}
+          {results.map((location) => <button key={location.id} type="button" onClick={() => addLocation(location)}><MapPin size={16} /><span><strong>{location.name}</strong><small>{[location.region, location.country].filter(Boolean).join(', ')}</small></span><Plus size={17} /></button>)}
+        </div> : null}
+      </section>
+
+      {!selectedLocation ? <section className="weather-empty-state"><div className="weather-icon"><MapPin size={42} /></div><h2>Añade tu primera ubicación</h2><p>Busca una ciudad arriba. La primera se guardará automáticamente como Casa.</p></section> : null}
+      {selectedLocation && !forecast ? <section className="weather-empty-state"><div className="weather-icon"><RefreshCw className={isLoading ? 'is-spinning' : ''} size={42} /></div><h2>{isLoading ? `Consultando el tiempo en ${selectedLocation.name}` : 'No se pudo cargar la previsión'}</h2><p>{forecastError || 'Comprueba la conexión y vuelve a intentarlo.'}</p>{!isLoading ? <button type="button" onClick={() => onRefresh(selectedLocation)}><RefreshCw size={17} />Reintentar</button> : null}</section> : null}
+      {selectedLocation && forecast ? <div className="weather-layout">
         <section className="weather-current-panel">
           <div className="weather-page-heading">
-            <span><MapPin size={16} />Madrid</span>
-            <small>Datos de demostración</small>
+            <span>{selectedLocation.id === homeLocationId ? <Home size={16} /> : <MapPin size={16} />}{selectedLocation.name}</span>
+            <button type="button" className="weather-refresh" disabled={isLoading} onClick={() => onRefresh(selectedLocation)}><RefreshCw className={isLoading ? 'is-spinning' : ''} size={15} />{isLoading ? 'Actualizando' : 'Actualizar'}</button>
           </div>
+          {forecastError ? <p className="weather-inline-error">{forecastError} Mostrando la última previsión guardada.</p> : null}
           <div className="weather-current-main">
-            <div className="weather-current-icon"><CloudSun size={72} strokeWidth={1.35} /></div>
-            <div><strong>22°</strong><p>Parcialmente nublado</p><span>Sensación térmica de 22°</span></div>
+            <div className="weather-current-icon"><WeatherIcon code={forecast.current.weatherCode} size={72} /></div>
+            <div><strong>{Math.round(forecast.current.temperature)}°</strong><p>{weatherDescription(forecast.current.weatherCode)}</p><span>Sensación térmica de {Math.round(forecast.current.apparentTemperature)}°</span></div>
           </div>
           <div className="weather-stats">
-            <div><Droplets size={19} /><span>Humedad<strong>58%</strong></span></div>
-            <div><Wind size={19} /><span>Viento<strong>11 km/h</strong></span></div>
-            <div><Sunrise size={19} /><span>Amanecer<strong>07:54</strong></span></div>
+            <div><Droplets size={19} /><span>Humedad<strong>{Math.round(forecast.current.humidity)}%</strong></span></div>
+            <div><Wind size={19} /><span>Viento<strong>{Math.round(forecast.current.windSpeed)} km/h</strong></span></div>
+            <div><Sunrise size={19} /><span>Amanecer<strong>{formatWeatherHour(forecast.daily[0]?.sunrise ?? '')}</strong></span></div>
+            <div><Sunset size={19} /><span>Anochecer<strong>{formatWeatherHour(forecast.daily[0]?.sunset ?? '')}</strong></span></div>
           </div>
           <div className="hourly-forecast" aria-label="Previsión por horas">
-            {hourlyForecast.map((forecast) => (
-              <div key={forecast.time}>
-                <span>{forecast.time}</span>
-                {forecast.icon}
-                <strong>{forecast.temperature}</strong>
-              </div>
-            ))}
+            {forecast.hourly.slice(0, 6).map((hour, index) => <div key={hour.time}><span>{index === 0 ? 'Ahora' : formatWeatherHour(hour.time)}</span><WeatherIcon code={hour.weatherCode} size={25} /><strong>{Math.round(hour.temperature)}°</strong><small>{Math.round(hour.precipitationProbability)}% lluvia</small></div>)}
           </div>
         </section>
         <section className="weather-forecast-panel">
           <div className="forecast-heading"><span>Próximos días</span><small>Máx. / mín.</small></div>
           <div className="daily-forecast">
-            {dailyForecast.map((forecast) => (
-              <div key={forecast.day} className="daily-forecast-row">
-                <span className="daily-icon">{forecast.icon}</span>
-                <span className="daily-copy"><strong>{forecast.day}</strong><small>{forecast.detail}</small></span>
-                <strong>{forecast.range}</strong>
-              </div>
-            ))}
+            {forecast.daily.map((day, index) => <div key={day.date} className="daily-forecast-row"><span className="daily-icon"><WeatherIcon code={day.weatherCode} size={25} /></span><span className="daily-copy"><strong>{index === 0 ? 'Hoy' : formatWeatherDay(day.date)}</strong><small>{weatherDescription(day.weatherCode)} · {Math.round(day.precipitationProbability)}% lluvia</small></span><strong>{Math.round(day.temperatureMax)}° / {Math.round(day.temperatureMin)}°</strong></div>)}
           </div>
-          <p className="weather-source-note">La conexión con una API meteorológica y la gestión de ciudades se incorporarán en la siguiente fase del módulo.</p>
+          <p className="weather-source-note">Datos meteorológicos de Open‑Meteo · Actualizado a las {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(forecast.fetchedAt))}</p>
         </section>
-      </div>
+      </div> : null}
     </div>
   )
 }
@@ -1620,9 +2039,9 @@ function ClockPage({
           <section className="timer-panel" aria-labelledby="timers-title">
             <div className="utility-heading"><div className="utility-tabs" role="tablist"><button type="button" role="tab" aria-selected={utilityMode === 'timers'} className={utilityMode === 'timers' ? 'is-active' : ''} onClick={() => setUtilityMode('timers')}>Temporizadores</button><button type="button" role="tab" aria-selected={utilityMode === 'stopwatch'} className={utilityMode === 'stopwatch' ? 'is-active' : ''} onClick={() => setUtilityMode('stopwatch')}>Cronómetro</button></div>{utilityMode === 'timers' ? <button type="button" className="text-action is-active" onClick={createAndEditTimer}><Plus size={16} />Nuevo</button> : null}</div>
             {utilityMode === 'timers' ? (timers.length > 0 ? <div className="timer-list">{timers.map((timer) => {
-              const remaining = timer.endsAt ? Math.max(0, Math.ceil((new Date(timer.endsAt).getTime() - now.getTime()) / 1000)) : timer.remainingSeconds
+              const remaining = timerRemainingSeconds(timer, now)
               const running = Boolean(timer.endsAt)
-              return <div key={timer.id} className="timer-row"><button type="button" className="timer-summary" onClick={() => setEditingTimerId(timer.id)}><span>{timer.label}</span><strong>{formatCountdown(remaining)}</strong></button><button type="button" className="text-action" onClick={() => running ? onUpdateTimer(timer.id, { remainingSeconds: remaining, endsAt: null }) : onUpdateTimer(timer.id, { endsAt: new Date(now.getTime() + remaining * 1000).toISOString() })}>{running ? 'Pausar' : 'Iniciar'}</button><button type="button" className="text-action" onClick={() => onUpdateTimer(timer.id, { remainingSeconds: timer.durationSeconds, endsAt: null })}>Reiniciar</button><button type="button" className="text-action danger" onClick={() => onDeleteTimer(timer.id)} aria-label={`Eliminar ${timer.label}`}><Trash2 size={16} /></button></div>
+              return <div key={timer.id} className="timer-row"><button type="button" className="timer-summary" onClick={() => setEditingTimerId(timer.id)}><span>{timer.label}</span><strong>{formatCountdown(remaining)}</strong></button><button type="button" className="text-action" onClick={() => { const next = running ? pauseTimer(timer, now) : startTimer(timer, now); onUpdateTimer(timer.id, { remainingSeconds: next.remainingSeconds, endsAt: next.endsAt }) }}>{running ? 'Pausar' : 'Iniciar'}</button><button type="button" className="text-action" onClick={() => { const next = resetTimer(timer); onUpdateTimer(timer.id, { remainingSeconds: next.remainingSeconds, endsAt: next.endsAt }) }}>Reiniciar</button><button type="button" className="text-action danger" onClick={() => onDeleteTimer(timer.id)} aria-label={`Eliminar ${timer.label}`}><Trash2 size={16} /></button></div>
             })}</div> : <div className="alarm-empty"><Clock3 size={22} /><span>No hay temporizadores activos.</span></div>) : <StopwatchPanel stopwatch={stopwatch} now={now} onToggle={onToggleStopwatch} onReset={onResetStopwatch} />}
           </section>
         </div>
@@ -1724,10 +2143,6 @@ function RingingAlertOverlay({ alert, snoozeMinutes, onSnoozeMinutesChange, onSn
   </div>
 }
 
-function formatCountdown(seconds: number) {
-  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
-}
-
 function formatStopwatch(milliseconds: number) {
   const totalSeconds = Math.floor(milliseconds / 1000)
   const hours = Math.floor(totalSeconds / 3600)
@@ -1747,8 +2162,8 @@ function NotesPage({
   onEditingChange,
 }: {
   notes: Note[]
-  onCreateNote: () => string
-  onUpdateNote: (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned' | 'reminderAt'>>) => void
+  onCreateNote: (type: NoteType) => string
+  onUpdateNote: (noteId: string, patch: NotePatch) => void
   onArchiveNote: (noteId: string) => void
   onRestoreNote: (noteId: string) => void
   onDeleteNote: (noteId: string) => void
@@ -1756,6 +2171,7 @@ function NotesPage({
   onEditingChange: (isEditing: boolean) => void
 }) {
   const [showArchived, setShowArchived] = useState(false)
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false)
   const visibleNotes = useMemo(
     () => notes.filter((note) => !note.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt)),
     [notes],
@@ -1766,257 +2182,178 @@ function NotesPage({
   const [selectedId, setSelectedId] = useState<string | null>(hashNoteId)
   const selectedNote = notesForView.find((note) => note.id === selectedId) ?? notesForView[0]
 
-  const createAndSelect = () => {
-    const noteId = onCreateNote()
+  const createAndSelect = (type: NoteType) => {
+    const noteId = onCreateNote(type)
     setSelectedId(noteId)
+    setIsCreateMenuOpen(false)
   }
+
+  const createMenu = !showArchived && isCreateMenuOpen ? <div className="note-create-menu" role="group" aria-label="Elegir formato de nota">
+    <button type="button" onClick={() => createAndSelect('text')}><FileText size={18} /><span><strong>Texto / lista</strong><small>Ideas, apuntes y tareas.</small></span></button>
+    <button type="button" onClick={() => createAndSelect('drawing')}><Pencil size={18} /><span><strong>Dibujo</strong><small>Un lienzo para escribir o dibujar.</small></span></button>
+  </div> : null
 
   return (
     <div className="fullscreen-page page-enter">
-      <PageHeader pageLabel="Nota rápida" />
+      <PageHeader pageLabel="Notas" />
       <section className="notes-workspace" aria-label="Notas locales">
         <aside className="notes-sidebar">
-          <div className="notes-sidebar-header"><div><h1>{showArchived ? 'Archivo' : 'Mis notas'}</h1><p>{showArchived ? `${archivedNotes.length} archivadas` : `${visibleNotes.length} guardadas en esta tablet`}</p></div>{!showArchived ? <button type="button" className="icon-button" onClick={createAndSelect} aria-label="Crear una nota"><Plus size={20} /></button> : null}</div>
-          <div className="note-filter" role="tablist" aria-label="Filtrar notas"><button type="button" className={!showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(false); setSelectedId(null) }} role="tab" aria-selected={!showArchived}>Activas</button><button type="button" className={showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(true); setSelectedId(null) }} role="tab" aria-selected={showArchived}>Archivo</button></div>
+          <div className="notes-sidebar-header"><div><h1>{showArchived ? 'Archivo' : 'Mis notas'}</h1><p>{showArchived ? `${archivedNotes.length} archivadas` : `${visibleNotes.length} guardadas en esta tablet`}</p></div>{!showArchived ? <button type="button" className="icon-button" onClick={() => setIsCreateMenuOpen((open) => !open)} aria-label="Crear una nota"><Plus size={20} /></button> : null}</div>
+          {createMenu}
+          <div className="note-filter" role="tablist" aria-label="Filtrar notas"><button type="button" className={!showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(false); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={!showArchived}>Activas</button><button type="button" className={showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(true); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={showArchived}>Archivo</button></div>
           <div className="note-list">
-            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => setSelectedId(note.id)}><span className="note-list-color" /><span><strong>{note.title || 'Sin título'}</strong><small>{note.content || 'Sin contenido'}</small></span>{note.pinned ? <Pin size={14} /> : null}</button>)}
-            {notesForView.length === 0 ? <div className="notes-empty"><FileText size={24} /><p>{showArchived ? 'No hay notas archivadas.' : 'Aún no hay notas.'}</p>{!showArchived ? <button type="button" onClick={createAndSelect}>Crear la primera</button> : null}</div> : null}
+            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => setSelectedId(note.id)}><span className="note-list-color" /><span><strong>{note.title || 'Sin título'}</strong><small>{note.type === 'drawing' ? (note.drawing.length ? 'Dibujo guardado' : 'Lienzo vacío') : (note.content || 'Texto / lista')}</small></span><span className="note-list-meta">{note.type === 'drawing' ? <Pencil size={14} aria-label="Dibujo" /> : <FileText size={14} aria-label="Texto o lista" />}{note.pinned ? <Pin size={14} /> : null}</span></button>)}
+            {notesForView.length === 0 ? <div className="notes-empty"><FileText size={24} /><p>{showArchived ? 'No hay notas archivadas.' : 'Aún no hay notas.'}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>Crear la primera</button> : null}</div> : null}
           </div>
         </aside>
-        {selectedNote ? <NoteEditor note={selectedNote} readOnly={showArchived} onUpdate={onUpdateNote} onArchive={() => { onArchiveNote(selectedNote.id); setSelectedId(null) }} onRestore={() => { onRestoreNote(selectedNote.id); setShowArchived(false); setSelectedId(selectedNote.id) }} onDelete={() => { if (window.confirm('¿Eliminar esta nota de forma permanente?')) { onDeleteNote(selectedNote.id); setSelectedId(null) } }} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} /> : <div className="notes-editor-placeholder"><FileText size={32} /><h2>{showArchived ? 'Archivo vacío' : 'Tu espacio de notas'}</h2><p>{showArchived ? 'Las notas archivadas aparecerán aquí.' : 'Crea una nota para guardar ideas y recordatorios locales.'}</p>{!showArchived ? <button type="button" onClick={createAndSelect}>Nueva nota</button> : null}</div>}
+        {selectedNote ? <NoteEditor key={selectedNote.id} note={selectedNote} readOnly={showArchived} onUpdate={onUpdateNote} onArchive={() => { onArchiveNote(selectedNote.id); setSelectedId(null) }} onRestore={() => { onRestoreNote(selectedNote.id); setShowArchived(false); setSelectedId(selectedNote.id) }} onDelete={() => { if (window.confirm('¿Eliminar esta nota de forma permanente?')) { onDeleteNote(selectedNote.id); setSelectedId(null) } }} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} /> : <div className="notes-editor-placeholder"><FileText size={32} /><h2>{showArchived ? 'Archivo vacío' : 'Tu espacio de notas'}</h2><p>{showArchived ? 'Las notas archivadas aparecerán aquí.' : 'Crea una nota para guardar ideas y recordatorios locales.'}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>Nueva nota</button> : null}</div>}
       </section>
     </div>
   )
 }
 
-function NoteEditor({ note, readOnly, onUpdate, onArchive, onRestore, onDelete, onPreviewNotification, onEditingChange }: { note: Note; readOnly: boolean; onUpdate: (noteId: string, patch: Partial<Pick<Note, 'title' | 'content' | 'color' | 'pinned' | 'reminderAt'>>) => void; onArchive: () => void; onRestore: () => void; onDelete: () => void; onPreviewNotification: (title: string, body: string) => void; onEditingChange: (isEditing: boolean) => void }) {
+function drawingPath(points: NoteDrawingPoint[]) {
+  if (points.length === 0) return ''
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y} l .01 .01`
+  return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
+}
+
+function NoteDrawingPreview({ drawing }: { drawing: NoteDrawingStroke[] }) {
+  return <svg className="note-preview-drawing" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Vista previa del dibujo">
+    <rect width="1000" height="600" className="note-preview-drawing-paper" />
+    {drawing.map((stroke, index) => <path key={`${index}-${stroke.points.length}`} d={drawingPath(stroke.points)} fill="none" stroke={stroke.color} strokeWidth={Math.max(5, stroke.width)} strokeLinecap="round" strokeLinejoin="round" />)}
+  </svg>
+}
+
+function NoteDrawingCanvas({ drawing, readOnly, onChange, onEditingChange }: { drawing: NoteDrawingStroke[]; readOnly: boolean; onChange: (drawing: NoteDrawingStroke[]) => void; onEditingChange: (isEditing: boolean) => void }) {
+  const [strokes, setStrokes] = useState(drawing)
+  const [activeStroke, setActiveStroke] = useState<NoteDrawingStroke | null>(null)
+  const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
+  const [inkColor, setInkColor] = useState('#f4f7ff')
+  const [inkWidth, setInkWidth] = useState(6)
+  const strokesRef = useRef(strokes)
+  const activeStrokeRef = useRef<NoteDrawingStroke | null>(null)
+  const gestureRef = useRef<{ pointerId: number; tool: 'pen' | 'eraser' } | null>(null)
+
+  const setWorkingStrokes = (next: NoteDrawingStroke[]) => {
+    strokesRef.current = next
+    setStrokes(next)
+  }
+
+  const pointFromEvent = (event: ReactPointerEvent<SVGSVGElement>): NoteDrawingPoint => {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    return {
+      x: Math.min(1000, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 1000)),
+      y: Math.min(600, Math.max(0, ((event.clientY - bounds.top) / bounds.height) * 600)),
+    }
+  }
+
+  const eraseAt = (point: NoteDrawingPoint) => {
+    const radius = 28
+    setWorkingStrokes(strokesRef.current.filter((stroke) => !stroke.points.some((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y) <= radius + stroke.width)))
+  }
+
+  const startDrawing = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (readOnly) return
+    event.preventDefault()
+    event.stopPropagation()
+    const point = pointFromEvent(event)
+    gestureRef.current = { pointerId: event.pointerId, tool }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    onEditingChange(true)
+    if (tool === 'eraser') {
+      eraseAt(point)
+      return
+    }
+    const next = { color: inkColor, width: inkWidth, points: [point] }
+    activeStrokeRef.current = next
+    setActiveStroke(next)
+  }
+
+  const continueDrawing = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const gesture = gestureRef.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+    const point = pointFromEvent(event)
+    if (gesture.tool === 'eraser') {
+      eraseAt(point)
+      return
+    }
+    const current = activeStrokeRef.current
+    if (!current) return
+    const previous = current.points[current.points.length - 1]
+    if (Math.hypot(previous.x - point.x, previous.y - point.y) < 2) return
+    const next = { ...current, points: [...current.points, point] }
+    activeStrokeRef.current = next
+    setActiveStroke(next)
+  }
+
+  const finishDrawing = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const gesture = gestureRef.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+    gestureRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (gesture.tool === 'pen' && activeStrokeRef.current) setWorkingStrokes([...strokesRef.current, activeStrokeRef.current])
+    activeStrokeRef.current = null
+    setActiveStroke(null)
+    onChange(strokesRef.current)
+    onEditingChange(false)
+  }
+
+  const commit = (next: NoteDrawingStroke[]) => {
+    setWorkingStrokes(next)
+    onChange(next)
+  }
+
+  return <div className="note-drawing-panel" data-swipe-block>
+    <div className="note-drawing-toolbar">
+      <div className="note-drawing-tools" aria-label="Herramientas de dibujo">
+        <button type="button" disabled={readOnly} className={tool === 'pen' ? 'is-active' : ''} onClick={() => setTool('pen')}><Pencil size={16} />Lápiz</button>
+        <button type="button" disabled={readOnly} className={tool === 'eraser' ? 'is-active' : ''} onClick={() => setTool('eraser')}><Eraser size={16} />Borrador</button>
+      </div>
+      <div className="note-ink-colors" aria-label="Color del lápiz">{['#f4f7ff', '#7fa2ff', '#ff9b80', '#7cdec2', '#f7c85e'].map((color) => <button key={color} type="button" disabled={readOnly} className={inkColor === color && tool === 'pen' ? 'is-active' : ''} style={{ '--ink-color': color } as CSSProperties} onClick={() => { setInkColor(color); setTool('pen') }} aria-label={`Color ${color}`} />)}</div>
+      <label className="note-stroke-width">Grosor<select value={inkWidth} disabled={readOnly} onChange={(event) => { setInkWidth(Number(event.target.value)); setTool('pen') }}><option value="3">Fino</option><option value="6">Medio</option><option value="12">Grueso</option></select></label>
+      <div className="note-drawing-history">
+        <button type="button" disabled={readOnly || strokes.length === 0} onClick={() => commit(strokes.slice(0, -1))}><Undo2 size={16} />Deshacer</button>
+        <button type="button" disabled={readOnly || strokes.length === 0} className="is-danger" onClick={() => commit([])}><Trash2 size={16} />Limpiar</button>
+      </div>
+    </div>
+    <svg className={`note-drawing-canvas ${readOnly ? 'is-read-only' : ''}`} viewBox="0 0 1000 600" preserveAspectRatio="none" role="img" aria-label="Lienzo de dibujo de la nota" onPointerDown={startDrawing} onPointerMove={continueDrawing} onPointerUp={finishDrawing} onPointerCancel={finishDrawing}>
+      <rect width="1000" height="600" className="note-drawing-paper" />
+      {[...strokes, ...(activeStroke ? [activeStroke] : [])].map((stroke, index) => <path key={`${index}-${stroke.points.length}`} d={drawingPath(stroke.points)} fill="none" stroke={stroke.color} strokeWidth={stroke.width} strokeLinecap="round" strokeLinejoin="round" />)}
+    </svg>
+  </div>
+}
+
+function NoteEditor({ note, readOnly, onUpdate, onArchive, onRestore, onDelete, onPreviewNotification, onEditingChange }: { note: Note; readOnly: boolean; onUpdate: (noteId: string, patch: NotePatch) => void; onArchive: () => void; onRestore: () => void; onDelete: () => void; onPreviewNotification: (title: string, body: string) => void; onEditingChange: (isEditing: boolean) => void }) {
   const colors: NoteColor[] = ['coral', 'violet', 'mint', 'sun']
+  const isDrawing = note.type === 'drawing'
+  const addListItem = () => onUpdate(note.id, { content: `${note.content}${note.content.trim() ? '\n' : ''}• ` })
+  const notificationBody = isDrawing
+    ? (note.drawing.length ? 'Tienes un dibujo guardado en esta nota.' : 'Tienes un lienzo de dibujo pendiente.')
+    : (note.content || 'Tienes un recordatorio en Pablo Tablet.')
+
   return (
-    <div className="note-editor">
+    <div className={`note-editor note-editor-${note.type}`}>
       <div className="note-editor-actions">
         <div className="note-colors" aria-label="Color de la nota">{colors.map((color) => <button key={color} type="button" disabled={readOnly} className={`color-dot ${color} ${note.color === color ? 'is-active' : ''}`} onClick={() => onUpdate(note.id, { color })} aria-label={`Usar color ${color}`} />)}</div>
         {!readOnly ? <button type="button" className={`text-action ${note.pinned ? 'is-active' : ''}`} onClick={() => onUpdate(note.id, { pinned: !note.pinned })}><Pin size={16} />{note.pinned ? 'Fijada' : 'Fijar'}</button> : null}
         <div className="editor-destructive-actions">{readOnly ? <button type="button" className="text-action" onClick={onRestore}><RotateCcw size={16} />Restaurar</button> : <button type="button" className="text-action" onClick={onArchive}><Archive size={16} />Archivar</button>}<button type="button" className="text-action danger" onClick={onDelete} aria-label="Eliminar nota"><Trash2 size={16} /></button></div>
       </div>
-      <input className="note-title-input" value={note.title} maxLength={80} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { title: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Título de la nota" aria-label="Título de la nota" />
-      <textarea value={note.content} maxLength={2000} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { content: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Escribe una nota o recordatorio…" aria-label="Contenido de la nota" />
-      <div className="note-editor-footer">{readOnly ? <span>Nota archivada</span> : <span className="reminder-controls"><label>Recordatorio<input type="datetime-local" value={note.reminderAt ?? ''} onChange={(event) => onUpdate(note.id, { reminderAt: event.target.value || null })} /></label><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || 'Recordatorio', note.content || 'Tienes un recordatorio en Pablo Tablet.')}><BellRing size={15} />Probar aviso</button></span>}<span>{note.content.length}/2000 · Guardado local</span></div>
+      <div className="note-editor-heading">
+        <input className="note-title-input" value={note.title} maxLength={80} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { title: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Título de la nota" aria-label="Título de la nota" />
+        <span className={`note-format-badge is-${note.type}`}>{isDrawing ? <Pencil size={15} /> : <FileText size={15} />}{isDrawing ? 'Dibujo' : 'Texto / lista'}</span>
+      </div>
+      <div className={`note-editor-body is-${note.type}`}>
+        {isDrawing
+          ? <NoteDrawingCanvas drawing={note.drawing} readOnly={readOnly} onChange={(drawing) => onUpdate(note.id, { drawing })} onEditingChange={onEditingChange} />
+          : <div className="note-text-editor"><div className="note-text-toolbar"><span>Texto o lista</span><button type="button" className="text-action" disabled={readOnly} onClick={addListItem}><Plus size={15} />Añadir elemento</button></div><textarea value={note.content} maxLength={2000} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { content: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Escribe una nota o crea una lista…" aria-label="Contenido de texto o lista de la nota" /></div>}
+      </div>
+      <div className="note-editor-footer">{readOnly ? <span>Nota archivada</span> : <span className="reminder-controls"><label>Recordatorio<input type="datetime-local" value={note.reminderAt ?? ''} onChange={(event) => onUpdate(note.id, { reminderAt: event.target.value || null })} /></label><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || 'Recordatorio', notificationBody)}><BellRing size={15} />Probar aviso</button></span>}<span>{isDrawing ? `${note.drawing.length} trazos · Dibujo local` : `${note.content.length}/2000 · Guardado local`}</span></div>
     </div>
-  )
-}
-
-function SettingsScreen({
-  preferences,
-  onBack,
-  onPreferencesChange,
-  onTogglePage,
-}: {
-  preferences: DashboardPreferences
-  onBack: () => void
-  onPreferencesChange: (patch: Partial<DashboardPreferences>) => void
-  onTogglePage: (pageId: DashboardPageId) => void
-}) {
-  return (
-    <div className="settings-page page-enter">
-      <header className="settings-header">
-        <div><p className="eyebrow">Pablo Tablet</p><h1>Ajustes</h1></div>
-        <button type="button" className="back-button" onClick={onBack}>Volver al inicio</button>
-      </header>
-
-      <section className="settings-section" aria-labelledby="dashboard-settings-title">
-        <div className="section-heading">
-          <div><p className="eyebrow">Dashboard</p><h2 id="dashboard-settings-title">Páginas y rotación</h2></div>
-          <RotateCw size={22} />
-        </div>
-        <SettingToggle
-          icon={preferences.rotationEnabled ? <Play size={20} /> : <Pause size={20} />}
-          title="Rotación automática"
-          detail="Cambia entre las páginas activas y reinicia el contador al tocar la pantalla."
-          checked={preferences.rotationEnabled}
-          onChange={(rotationEnabled) => onPreferencesChange({ rotationEnabled })}
-        />
-        <SettingsSelect
-          label="Intervalo de rotación"
-          value={preferences.rotationSeconds}
-          options={[15, 30, 60]}
-          suffix="s"
-          onChange={(rotationSeconds) => onPreferencesChange({ rotationSeconds })}
-        />
-        <SettingsSelect
-          label="Ocultar navegación tras"
-          value={preferences.navigationSeconds}
-          options={[3, 5, 8]}
-          suffix="s"
-          onChange={(navigationSeconds) => onPreferencesChange({ navigationSeconds })}
-        />
-        <div className="page-toggle-list">
-          {DASHBOARD_PAGES.filter((page) => page.id !== 'dashboard').map((page) => (
-            <SettingToggle
-              key={page.id}
-              icon={page.id === 'clock' ? <Clock3 size={20} /> : page.id === 'calendar' ? <CalendarDays size={20} /> : page.id === 'gallery' ? <Images size={20} /> : page.id === 'weather' ? <CloudSun size={20} /> : <FileText size={20} />}
-              title={`Página ${page.label}`}
-              detail="Página fullscreen incluida en el swipe y en la rotación."
-              checked={preferences.enabledPageIds.includes(page.id)}
-              onChange={() => onTogglePage(page.id)}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="settings-list device-settings" aria-label="Ajustes del dispositivo">
-        <div className="device-settings-heading"><p className="eyebrow">Dispositivo</p><h2>Pantalla y sonido</h2></div>
-        <SettingsRange
-          icon={<SunMedium size={20} />}
-          label="Brillo"
-          value={preferences.brightness}
-          minimum={10}
-          onChange={(brightness) => onPreferencesChange({ brightness })}
-        />
-        <SettingsRange
-          icon={<Volume2 size={20} />}
-          label="Volumen de alarmas"
-          value={preferences.alarmVolume}
-          minimum={0}
-          onChange={(alarmVolume) => {
-            onPreferencesChange({ alarmVolume })
-            void previewDeviceVolume('alarm', alarmVolume)
-          }}
-        />
-        <SettingsRange
-          icon={<Volume2 size={20} />}
-          label="Volumen general"
-          value={preferences.mediaVolume}
-          minimum={0}
-          onChange={(mediaVolume) => {
-            onPreferencesChange({ mediaVolume })
-            void playInteractionSound(mediaVolume)
-          }}
-        />
-        <SettingToggle
-          icon={<Volume2 size={20} />}
-          title="Sonido al interactuar"
-          detail="Reproduce un toque breve al pulsar controles."
-          checked={preferences.interactionSoundsEnabled}
-          onChange={(interactionSoundsEnabled) => {
-            onPreferencesChange({ interactionSoundsEnabled })
-            if (interactionSoundsEnabled) void playInteractionSound(preferences.mediaVolume)
-          }}
-        />
-        <SettingToggle
-          icon={<Images size={20} />}
-          title="Salvapantallas de fotos"
-          detail="Muestra las fotos elegidas cuando la tablet queda inactiva."
-          checked={preferences.screensaverEnabled}
-          onChange={(screensaverEnabled) => onPreferencesChange({ screensaverEnabled })}
-        />
-        {preferences.screensaverEnabled ? <ScreensaverDelaySelect value={preferences.screensaverDelaySeconds} onChange={(screensaverDelaySeconds) => onPreferencesChange({ screensaverDelaySeconds })} /> : null}
-        <SettingToggle
-          icon={<SunMedium size={20} />}
-          title="Pantalla siempre encendida"
-          detail="Evita que la tablet se suspenda mientras Pablo Tablet está abierta."
-          checked={preferences.keepScreenAwake}
-          onChange={(keepScreenAwake) => onPreferencesChange({ keepScreenAwake })}
-        />
-        {!preferences.keepScreenAwake ? <ScreenTimeoutSelect value={preferences.screenTimeoutSeconds} onChange={(screenTimeoutSeconds) => onPreferencesChange({ screenTimeoutSeconds })} /> : null}
-        <button type="button" className="settings-row exit-app-row" onClick={() => void exitTabletApp()}>
-          <span className="settings-icon"><LogOut size={20} /></span>
-          <span className="settings-copy"><strong>Salir de la app</strong><small>Desbloquear Android y cerrar Pablo Tablet</small></span>
-        </button>
-      </section>
-    </div>
-  )
-}
-
-function SettingToggle({
-  icon,
-  title,
-  detail,
-  checked,
-  onChange,
-}: {
-  icon: ReactNode
-  title: string
-  detail: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-}) {
-  return (
-    <button type="button" className="settings-row toggle-row" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
-      <span className="settings-icon">{icon}</span>
-      <span className="settings-copy"><strong>{title}</strong><small>{detail}</small></span>
-      <span className={`toggle ${checked ? 'is-on' : ''}`} aria-hidden="true"><span /></span>
-    </button>
-  )
-}
-
-function SettingsSelect({
-  label,
-  value,
-  options,
-  suffix,
-  onChange,
-}: {
-  label: string
-  value: number
-  options: number[]
-  suffix: string
-  onChange: (value: number) => void
-}) {
-  return (
-    <label className="settings-select-row">
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(Number(event.target.value))}>
-        {options.map((option) => <option key={option} value={option}>{option}{suffix}</option>)}
-      </select>
-    </label>
-  )
-}
-
-function SettingsRange({ icon, label, value, minimum, onChange }: { icon: ReactNode; label: string; value: number; minimum: number; onChange: (value: number) => void }) {
-  return (
-    <label className="settings-row settings-range-row">
-      <span className="settings-icon">{icon}</span>
-      <span className="settings-range-content">
-        <span><strong>{label}</strong><output>{value}%</output></span>
-        <input type="range" min={minimum} max="100" step="1" value={value} onChange={(event) => onChange(Number(event.target.value))} />
-      </span>
-    </label>
-  )
-}
-
-function ScreenTimeoutSelect({ value, onChange }: { value: number; onChange: (value: number) => void }) {
-  const options = [
-    { value: 30, label: '30 segundos' },
-    { value: 60, label: '1 minuto' },
-    { value: 120, label: '2 minutos' },
-    { value: 300, label: '5 minutos' },
-    { value: 600, label: '10 minutos' },
-  ]
-  return (
-    <label className="settings-row timeout-select-row">
-      <span className="settings-copy"><strong>Apagar pantalla tras</strong><small>Tiempo sin interacción antes de bloquearse.</small></span>
-      <select value={value} onChange={(event) => onChange(Number(event.target.value))}>
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-    </label>
-  )
-}
-
-function ScreensaverDelaySelect({ value, onChange }: { value: number; onChange: (value: number) => void }) {
-  const options = [
-    { value: 30, label: '30 segundos' },
-    { value: 60, label: '1 minuto' },
-    { value: 180, label: '3 minutos' },
-    { value: 300, label: '5 minutos' },
-    { value: 600, label: '10 minutos' },
-  ]
-  return (
-    <label className="settings-row timeout-select-row">
-      <span className="settings-copy"><strong>Activar tras</strong><small>Tiempo sin tocar la pantalla.</small></span>
-      <select value={value} onChange={(event) => onChange(Number(event.target.value))}>
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-    </label>
   )
 }
 
