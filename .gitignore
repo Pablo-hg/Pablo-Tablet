@@ -1,7 +1,14 @@
 node_modules/
 dist/
+coverage/
 .DS_Store
 android/.gradle/
 android/build/
 android/app/build/
 android/local.properties
+android/release-key.jks
+*.jks
+*.keystore
+/pablo-settings-update*.png
+/pablo-theme-installed*.png
+/tablet-*.png
