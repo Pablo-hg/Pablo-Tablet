@@ -1,0 +1,89 @@
+import { Capacitor, registerPlugin } from '@capacitor/core'
+
+export interface MobileAdminStatus {
+  running: boolean
+  port: number
+  localAddress: string | null
+  hostname: string
+  error: string | null
+}
+
+export interface PairingSession {
+  id: string
+  url: string
+  expiresAt: number
+}
+
+export interface PairingRequest {
+  id: string
+  deviceName: string
+  userAgent: string
+  status: 'pending'
+  createdAt: number
+  expiresAt: number
+}
+
+export interface AuthorizedDevice {
+  id: string
+  name: string
+  userAgent: string
+  createdAt: number
+  lastSeenAt: number
+  revokedAt: number | null
+}
+
+interface MobileAdminPlugin {
+  getStatus(): Promise<MobileAdminStatus>
+  createPairing(): Promise<PairingSession>
+  cancelPairing(options: { id: string }): Promise<void>
+  listPendingRequests(): Promise<{ requests: PairingRequest[] }>
+  approveRequest(options: { id: string }): Promise<void>
+  rejectRequest(options: { id: string }): Promise<void>
+  listDevices(): Promise<{ devices: AuthorizedDevice[] }>
+  renameDevice(options: { id: string; name: string }): Promise<void>
+  revokeDevice(options: { id: string }): Promise<void>
+}
+
+const NativeMobileAdmin = registerPlugin<MobileAdminPlugin>('MobileAdmin')
+
+export function supportsMobileAdmin() {
+  return Capacitor.isNativePlatform()
+}
+
+export async function getMobileAdminStatus(): Promise<MobileAdminStatus> {
+  if (!supportsMobileAdmin()) return { running: false, port: 8765, localAddress: null, hostname: 'http://pablotablet.local:8765', error: 'Disponible al ejecutar la app Android.' }
+  return NativeMobileAdmin.getStatus()
+}
+
+export async function createMobilePairing() {
+  if (!supportsMobileAdmin()) throw new Error('El emparejamiento solo está disponible en la tablet Android.')
+  return NativeMobileAdmin.createPairing()
+}
+
+export async function cancelMobilePairing(id: string) {
+  if (supportsMobileAdmin()) await NativeMobileAdmin.cancelPairing({ id })
+}
+
+export async function listPendingPairingRequests() {
+  if (!supportsMobileAdmin()) return []
+  return (await NativeMobileAdmin.listPendingRequests()).requests
+}
+
+export async function decidePairingRequest(id: string, approved: boolean) {
+  if (!supportsMobileAdmin()) return
+  if (approved) await NativeMobileAdmin.approveRequest({ id })
+  else await NativeMobileAdmin.rejectRequest({ id })
+}
+
+export async function listAuthorizedDevices() {
+  if (!supportsMobileAdmin()) return []
+  return (await NativeMobileAdmin.listDevices()).devices
+}
+
+export async function renameAuthorizedDevice(id: string, name: string) {
+  await NativeMobileAdmin.renameDevice({ id, name })
+}
+
+export async function revokeAuthorizedDevice(id: string) {
+  await NativeMobileAdmin.revokeDevice({ id })
+}

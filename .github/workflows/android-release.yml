@@ -1,0 +1,73 @@
+name: Publicar actualización Android
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Instalar y validar
+        run: |
+          npm ci
+          npm run lint
+          npm test
+          npm run build
+          npx cap sync android
+
+      - name: Recuperar la clave de firma
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/release-key.jks
+
+      - name: Compilar APK firmado
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/android/release-key.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleRelease -PappVersionName="$VERSION_NAME" -PappVersionCode="$VERSION_CODE"
+          cd ..
+          cp android/app/build/outputs/apk/release/app-release.apk "Pablo-Tablet-${VERSION_NAME}.apk"
+          sha256sum "Pablo-Tablet-${VERSION_NAME}.apk" > "Pablo-Tablet-${VERSION_NAME}.apk.sha256"
+
+      - name: Crear GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.UPDATE_REPO_TOKEN }}
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "Pablo-hg/Pablo-Tablet-Releases" \
+            "Pablo-Tablet-${VERSION_NAME}.apk" \
+            "Pablo-Tablet-${VERSION_NAME}.apk.sha256" \
+            --target main \
+            --generate-notes \
+            --title "Pablo Tablet ${VERSION_NAME}"

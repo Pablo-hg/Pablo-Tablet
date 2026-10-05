@@ -21,7 +21,11 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(DeviceSettingsPlugin.class);
         registerPlugin(KioskPlugin.class);
         registerPlugin(GalleryPlugin.class);
+        registerPlugin(AppStoragePlugin.class);
+        registerPlugin(MobileAdminPlugin.class);
+        registerPlugin(AppUpdaterPlugin.class);
         super.onCreate(savedInstanceState);
+        MobileAdminManager.get(this).start();
         getWindow().getDecorView().setOnSystemUiVisibilityChangeListener((visibility) -> {
             if (!kioskExitRequested && (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::enableImmersiveMode, 80);
@@ -69,6 +73,17 @@ public class MainActivity extends BridgeActivity {
 
     public void exitKioskMode() {
         kioskExitRequested = true;
+        leaveKioskMode();
+
+        new Handler(Looper.getMainLooper()).postDelayed(() -> finishAndRemoveTask(), 180);
+    }
+
+    public void prepareForExternalActivity() {
+        kioskExitRequested = true;
+        leaveKioskMode();
+    }
+
+    private void leaveKioskMode() {
         if (isInLockTaskMode()) {
             try {
                 stopLockTask();
@@ -83,8 +98,6 @@ public class MainActivity extends BridgeActivity {
             controller.show(WindowInsetsCompat.Type.systemBars());
         }
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
-
-        new Handler(Looper.getMainLooper()).postDelayed(() -> finishAndRemoveTask(), 180);
     }
 
     private boolean isInLockTaskMode() {

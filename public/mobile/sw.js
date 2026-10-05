@@ -1,0 +1,21 @@
+const CACHE = 'pablo-tablet-mobile-v5'
+const SHELL = ['/', '/index.html', '/styles.css?v=5', '/app.js?v=5', '/calendarTiming.js', '/manifest.webmanifest', '/icon.svg']
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))))
+  self.clients.claim()
+})
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET' || new URL(event.request.url).pathname.startsWith('/api/')) return
+  event.respondWith(fetch(event.request).then((response) => {
+    const copy = response.clone()
+    void caches.open(CACHE).then((cache) => cache.put(event.request, copy))
+    return response
+  }).catch(() => caches.match(event.request)))
+})

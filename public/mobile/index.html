@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#11152f" />
+    <meta name="description" content="Administración local de Pablo Tablet" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=5" />
+    <title>Pablo Tablet</title>
+  </head>
+  <body>
+    <header class="app-header">
+      <div><span class="brand-mark">PT</span><div><strong>Pablo Tablet</strong><small id="connection-label">Conectando…</small></div></div>
+      <button id="refresh-button" class="icon-button" type="button" aria-label="Actualizar">↻</button>
+    </header>
+
+    <main>
+      <section id="pair-screen" class="auth-card hidden">
+        <p class="eyebrow">Nuevo dispositivo</p>
+        <h1>Vincular este móvil</h1>
+        <p>Elige un nombre reconocible y solicita permiso. Después tendrás que aceptarlo en la pantalla de la tablet.</p>
+        <label>Nombre del dispositivo<input id="device-name" maxlength="60" autocomplete="off" /></label>
+        <button id="pair-button" class="primary-button" type="button">Solicitar autorización</button>
+        <p id="pair-message" class="status-message" aria-live="polite"></p>
+      </section>
+
+      <section id="locked-screen" class="auth-card hidden">
+        <p class="eyebrow">Acceso protegido</p>
+        <h1>Móvil no autorizado</h1>
+        <p>Abre <strong>Ajustes → Administración móvil</strong> en la tablet y escanea el QR temporal.</p>
+      </section>
+
+      <section id="app-screen" class="hidden">
+        <div id="offline-banner" class="offline-banner hidden">Sin conexión con la tablet. La edición está bloqueada hasta reconectar.</div>
+        <nav class="tabs" aria-label="Secciones del editor">
+          <button class="active" data-tab="overview" type="button">Inicio</button>
+          <button data-tab="notes" type="button">Notas</button>
+          <button data-tab="calendar" type="button">Calendario</button>
+          <button data-tab="clock" type="button">Reloj</button>
+          <button data-tab="weather" type="button">Tiempo</button>
+          <button data-tab="photos" type="button">Fotos</button>
+          <button data-tab="layout" type="button">Panel</button>
+          <button data-tab="settings" type="button">Ajustes</button>
+        </nav>
+        <div id="editor-content" class="editor-content"></div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast hidden" role="status"></div>
+    <script src="/app.js?v=5" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "Pablo Tablet",
+  "short_name": "Pablo Tablet",
+  "description": "Administración local de Pablo Tablet",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0e20",
+  "theme_color": "#11152f",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
