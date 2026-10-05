@@ -2,7 +2,7 @@ name: Convertir feedback a Markdown
 
 on:
   issues:
-    types: [opened, edited, closed, reopened, labeled, unlabeled]
+    types: [labeled]
 
 permissions:
   contents: write
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   generate:
-    if: contains(github.event.issue.labels.*.name, 'feedback-movil')
+    if: github.event.label.name == 'implementado' && contains(github.event.issue.labels.*.name, 'feedback-movil')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
             const directory = path.join(process.env.GITHUB_WORKSPACE, 'feedback')
             fs.mkdirSync(directory, { recursive: true })
             const labels = issue.labels.map(label => typeof label === 'string' ? label : label.name).filter(Boolean)
-            const status = issue.state === 'closed' && labels.includes('implementado')
+            const status = labels.includes('implementado')
               ? 'implementado'
               : labels.includes('en-desarrollo')
                 ? 'en desarrollo'
