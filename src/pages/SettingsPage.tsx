@@ -23,7 +23,7 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
         <button type="button" className="btn back-button" onClick={onBack}>Volver al inicio</button>
       </header>
 
-      <section className="settings-section" aria-labelledby="dashboard-settings-title">
+      <section className="settings-section dashboard-settings-section" data-swipe-block aria-labelledby="dashboard-settings-title">
         <div className="section-heading">
           <div><p className="eyebrow">Personalización</p><h2>Apariencia</h2></div>
           <Palette size={22} />

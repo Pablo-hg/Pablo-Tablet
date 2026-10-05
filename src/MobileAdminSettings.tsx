@@ -142,7 +142,7 @@ export function MobileAdminSettings() {
   const activeDevices = devices.filter((device) => device.revokedAt === null)
 
   return (
-    <section className="settings-section mobile-admin-section" aria-labelledby="mobile-admin-title">
+    <section className="settings-section mobile-admin-section" data-swipe-block aria-labelledby="mobile-admin-title">
       <div className="section-heading">
         <div><p className="eyebrow">Red local</p><h2 id="mobile-admin-title">Administración móvil</h2></div>
         <Smartphone size={22} />
