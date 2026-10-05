@@ -1,0 +1,56 @@
+name: Compilar APK de prueba
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Instalar y validar
+        run: |
+          npm ci
+          npm run lint
+          npm test
+          npm run build
+          npx cap sync android
+
+      - name: Compilar APK de prueba con el relay
+        env:
+          FEEDBACK_RELAY_URL: ${{ secrets.FEEDBACK_RELAY_URL }}
+          FEEDBACK_RELAY_KEY: ${{ secrets.FEEDBACK_RELAY_KEY }}
+        run: |
+          test -n "$FEEDBACK_RELAY_URL"
+          test -n "$FEEDBACK_RELAY_KEY"
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug \
+            -PfeedbackRelayUrl="$FEEDBACK_RELAY_URL" \
+            -PfeedbackRelayKey="$FEEDBACK_RELAY_KEY"
+
+      - name: Guardar APK de prueba
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pablo-Tablet-0.1.0-feedback-test
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
