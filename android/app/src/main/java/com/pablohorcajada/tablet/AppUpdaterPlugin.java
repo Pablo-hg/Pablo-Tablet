@@ -33,8 +33,8 @@ import java.util.Locale;
 
 @CapacitorPlugin(name = "AppUpdater")
 public class AppUpdaterPlugin extends Plugin {
-    private static final String RELEASE_API = "https://api.github.com/repos/Pablo-hg/Pablo-Tablet-Releases/releases/latest";
-    private static final String RELEASE_DOWNLOAD_PREFIX = "/Pablo-hg/Pablo-Tablet-Releases/releases/download/";
+    private static final String RELEASE_API = "https://api.github.com/repos/Pablo-hg/Pablo-Tablet/releases/latest";
+    private static final String RELEASE_DOWNLOAD_PREFIX = "/Pablo-hg/Pablo-Tablet/releases/download/";
     private static final String UPDATE_FILE = "pablo-tablet-update.apk";
     private static final long MAX_APK_BYTES = 500L * 1024L * 1024L;
 
