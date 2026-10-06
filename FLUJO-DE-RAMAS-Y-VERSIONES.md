@@ -162,4 +162,3 @@ El hotfix mantiene las mismas validaciones, firma y regla de etiquetado. Despué
 ## Adopción del flujo
 
 El PR #2 y la incidencia #1 se integraron antes de aprobar este proceso. Se conservan como parte del historial y no se revierten de nuevo artificialmente. La rama `dev` se creó desde el `main` que ya contiene ese merge; todos los trabajos posteriores siguen este documento.
-
