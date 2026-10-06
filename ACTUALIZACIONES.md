@@ -49,8 +49,6 @@ git push origin v0.1.0
 
 El workflow `.github/workflows/android-release.yml` ejecuta lint, tests y build, compila un APK firmado y crea la Release con su APK y SHA-256. La tablet podrá encontrarla desde `Ajustes > Sistema > Actualizaciones`.
 
-Fusionar una rama en `dev` o terminar sus pruebas no publica por sí solo una actualización. Los cambios aprobados se trasladan de forma selectiva a una rama `release/<version>` creada desde `main`, se validan de nuevo y llegan a `main` mediante PR. La publicación empieza únicamente al crear un tag `vX.Y.Z` sobre el commit fusionado. Después de una Release correcta, el workflow marca como `implementado` los Issues enumerados en el PR de publicación.
-
-La documentación ya adopta este recorrido selectivo, pero los workflows todavía deben aceptar `release/*` hacia `main` y reconocer ese PR durante la publicación antes de crear el primer tag.
+Fusionar una rama en `dev` o terminar sus pruebas no publica por sí solo una actualización. Los cambios aprobados se trasladan de forma selectiva a una rama `release/<version>` creada desde `main`, se validan de nuevo y llegan a `main` mediante PR. GitHub Actions solo acepta `release/*` o `hotfix/*` como origen de un PR hacia `main`. La publicación empieza únicamente al crear un tag `vX.Y.Z` sobre el commit fusionado. Después de una Release correcta, el workflow localiza ese PR y marca como `implementado` los Issues enumerados en él.
 
 No incrementar, reutilizar ni cambiar un número de versión sin indicación expresa de Pablo. Tampoco publicar manualmente APK firmados con otra clave.

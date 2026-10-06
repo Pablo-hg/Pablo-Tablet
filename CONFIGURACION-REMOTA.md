@@ -12,8 +12,8 @@ Esta guía reúne la configuración externa necesaria para reproducir las actual
 | --- | --- |
 | Repositorio público `Pablo-hg/Pablo-Tablet` | Operativo |
 | Ramas `dev` y `main` | Operativas; `dev` puede contener varios trabajos en pruebas |
-| Ramas de publicación `release/*` | Flujo documentado; adaptación de workflows pendiente |
-| Validación de PR con GitHub Actions | Operativa para el flujo actual; adaptación de `release/*` pendiente |
+| Ramas de publicación `release/*` | Flujo documentado y validado por GitHub Actions |
+| Validación de PR con GitHub Actions | Acepta `release/*` o `hotfix/*` hacia `main` y rechaza `dev` directo |
 | Worker de Cloudflare para feedback | Desplegado |
 | Creación real de GitHub Issues desde el móvil | Validada con el Issue #1 |
 | Etiquetas `feedback-movil`, `visto`, `en-desarrollo`, `implementado` | Creadas |
@@ -99,7 +99,7 @@ main → release/X.Y.Z → PR a main → merge → tag vX.Y.Z
                               Issues pasan a Implementado
 ```
 
-No hay una etiqueta visible «terminado» ni un workflow que elija automáticamente qué sale de `dev`. Cada `release/*` se crea desde `main` e incorpora solo los commits ya probados. Los workflows todavía deben adaptarse a este nuevo recorrido antes de la primera publicación. El detalle está en [FLUJO-DE-RAMAS-Y-VERSIONES.md](FLUJO-DE-RAMAS-Y-VERSIONES.md).
+No hay una etiqueta visible «terminado» ni un workflow que elija automáticamente qué sale de `dev`. Cada `release/*` se crea desde `main` e incorpora solo los commits ya probados. GitHub Actions valida ese recorrido y rechaza un PR directo de `dev` hacia `main`. El detalle está en [FLUJO-DE-RAMAS-Y-VERSIONES.md](FLUJO-DE-RAMAS-Y-VERSIONES.md).
 
 ## 6. Comprobación inicial
 
