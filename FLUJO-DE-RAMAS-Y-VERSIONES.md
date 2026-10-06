@@ -198,7 +198,7 @@ El tag `vX.Y.Z` ejecuta el workflow de publicación. Este debe:
 3. sincronizar y compilar Android;
 4. firmar el APK con la clave oficial;
 5. generar y verificar su SHA-256;
-6. publicar el APK en `Pablo-Tablet-Releases`;
+6. publicar el APK y su SHA-256 como Release de `Pablo-hg/Pablo-Tablet`;
 7. solo después del éxito, añadir `implementado`, retirar los otros estados y cerrar las incidencias incluidas.
 
 Si falla la compilación o la publicación, no existe una Release válida y las incidencias permanecen **En desarrollo**. La actualización de tickets se ejecuta en un trabajo separado después de publicar, por lo que puede reintentarse sin volver a crear la Release. Los tags publicados se consideran inmutables: si el código necesita otra corrección se prepara una versión posterior, sin mover ni reutilizar el tag anterior.
