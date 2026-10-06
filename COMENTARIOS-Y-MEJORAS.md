@@ -1,14 +1,14 @@
 # Comentarios, mejoras y errores desde el móvil
 
-> Estado: fases 2A y código de 2B preparados; etiquetas creadas y despliegue del relay pendiente
+> Estado: formulario, cola, Worker, Issues y seguimiento implementados; creación real validada con el Issue #1
 >
 > Versión de producto: `0.1.0`
 >
-> Actualizado: 05/10/2026
+> Actualizado: 06/10/2026
 
 ## Objetivo
 
-La pestaña **Comentarios** permite que una persona con un móvil vinculado comunique un error, una mejora o una nueva función. El reporte se conserva primero en la tablet y, cuando se configure el relay HTTPS, llegará a GitHub sin incluir credenciales de escritura en la tablet o en el móvil.
+La pestaña **Comentarios** permite que una persona con un móvil vinculado comunique un error, una mejora o una nueva función. El reporte se conserva primero en la tablet y llega a GitHub mediante un relay HTTPS sin incluir credenciales de escritura en la tablet o en el móvil.
 
 ## Estado implementado
 
@@ -24,7 +24,7 @@ La fase 2A incluye:
 - relay Cloudflare Worker en `feedback-relay/`, con autenticación, validación, límite de frecuencia y deduplicación;
 - workflow `feedback-to-markdown.yml` para convertir Issues con la etiqueta `feedback-movil` en `feedback/issue-<numero>.md`.
 
-Las etiquetas `feedback-movil`, `visto`, `en-desarrollo` e `implementado` ya existen en el repositorio privado. Todavía no se ha desplegado ni configurado el relay porque requiere autenticar una cuenta de Cloudflare y crear una credencial de GitHub limitada a Issues. Hasta entonces los reportes se guardan como pendientes y no crean un Issue real.
+Las etiquetas `feedback-movil`, `visto`, `en-desarrollo` e `implementado` existen en el repositorio público. El Worker de Cloudflare está desplegado y configurado con una credencial de GitHub limitada a Issues. El Issue #1 confirmó el recorrido real desde el móvil hasta GitHub.
 
 ## Campos del formulario
 
@@ -45,9 +45,9 @@ Las etiquetas `feedback-movil`, `visto`, `en-desarrollo` e `implementado` ya exi
 6. Si hay relay, Android realiza una petición HTTPS; el navegador nunca habla directamente con GitHub.
 7. El relay aplica validación y límite de frecuencia, y usa una credencial guardada exclusivamente en servidor para crear el Issue.
 8. El Issue recibe la etiqueta `feedback-movil` y las etiquetas funcionales correspondientes.
-9. GitHub Actions genera o actualiza `feedback/issue-<numero>.md`.
+9. Al aplicar `implementado`, GitHub Actions genera o actualiza `feedback/issue-<numero>.md` mediante un PR hacia `dev`.
 
-GitHub Issues será la fuente de verdad cuando el relay esté operativo. El Markdown del repositorio será una representación generada.
+GitHub Issues es la fuente de verdad. El Markdown del repositorio es una representación generada únicamente cuando se aplica `implementado`.
 
 ## Contrato del relay HTTPS
 
@@ -102,12 +102,12 @@ El relay debe crear el Issue con la etiqueta `feedback-movil`. GitHub Issues es 
 - No se guarda un Personal Access Token dentro del APK, JavaScript o almacenamiento del navegador.
 - La clave incluida en Android solo permite presentar comentarios al relay; no es una credencial de GitHub.
 - El endpoint solo se admite por HTTPS.
-- El token del relay tendrá permisos mínimos y estará limitado al repositorio de feedback.
+- El token del relay tiene permisos mínimos y está limitado al repositorio de feedback.
 - El cliente no puede modificar código, crear Releases ni administrar el repositorio.
 - No se envían notas, fotografías, calendario u otros datos personales automáticamente.
 - El formulario exige confirmar que el texto se ha revisado antes de guardarlo.
 - El número de serie no se recopila.
-- El relay deberá aplicar limitación de frecuencia antes de producción.
+- El relay aplica limitación de frecuencia y deduplicación.
 
 ## Formato Markdown
 
@@ -130,13 +130,11 @@ El relay debe crear el Issue con la etiqueta `feedback-movil`. GitHub Issues es 
 
 El formulario lo sirve la tablet, por lo que el móvil debe estar en la misma Wi-Fi para abrirlo y registrar el reporte. El envío posterior al relay requiere Internet en la tablet. Abrir el formulario desde cualquier red sigue fuera del alcance de `0.1.0`.
 
-## Pendiente para completar la fase 2
+## Operación y comprobaciones pendientes
 
-- autenticar Cloudflare y desplegar `feedback-relay/`;
-- crear y configurar en el Worker un token fine-grained con acceso únicamente a Issues de `Pablo-hg/Pablo-Tablet`;
-- guardar la URL y la clave de entrada como secretos del proceso de compilación Android;
-- probar la creación de un único Issue y su Markdown generado;
 - probar el flujo desde un móvil real y la Teclast T65;
+- comprobar en cada versión firmada que `FEEDBACK_RELAY_URL` y `FEEDBACK_RELAY_KEY` se inyectan correctamente;
+- rotar la clave de entrada si se distribuye fuera de los dispositivos autorizados;
 - decidir si una fase posterior admitirá capturas y respuestas desde el móvil.
 
 La implementación no autoriza un cambio de versión. Pablo indicará expresamente cuándo debe incrementarse.

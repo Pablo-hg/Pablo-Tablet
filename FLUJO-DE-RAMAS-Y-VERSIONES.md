@@ -8,7 +8,7 @@ La versión de producto actual continúa siendo `0.1.0`. Integrar código no cam
 
 | Rama   | Función                                          | Qué puede entrar                                                  |
 | ------ | ------------------------------------------------ | ----------------------------------------------------------------- |
-| `main` | Estado estable y publicado del producto          | Pull requests de publicación desde `dev` y hotfixes excepcionales |
+| `main` | Estado estable y publicado del producto          | Pull requests desde `release/*` y hotfixes excepcionales          |
 | `dev`  | Integración y validación de la siguiente versión | Pull requests procedentes de `feature/*` y `fix/*`                |
 
 No se desarrolla directamente sobre `main` ni sobre `dev`.
@@ -17,17 +17,88 @@ No se desarrolla directamente sobre `main` ni sobre `dev`.
 
 - `feature/<issue>-<descripcion>`: funcionalidad nueva. Parte de `dev`.
 - `fix/<issue>-<descripcion>`: corrección normal. Parte de `dev`.
+- `release/<version>`: selección de cambios ya probados que se publicará. Parte de `main`.
 - `hotfix/<issue>-<descripcion>`: corrección urgente de una versión ya publicada. Parte de `main` y, después de publicarse, también se incorpora a `dev`.
 
-Ejemplos:
+### Nomenclatura exacta
+
+| Tipo | Formato obligatorio | Rama base | Ejemplo válido |
+| --- | --- | --- | --- |
+| Funcionalidad | `feature/<numero-issue>-<descripcion>` | `dev` | `feature/12-copias-seguridad` |
+| Corrección normal | `fix/<numero-issue>-<descripcion>` | `dev` | `fix/18-reconexion-movil` |
+| Publicación | `release/<major>.<minor>.<patch>` | `main` | `release/0.1.1` |
+| Corrección urgente | `hotfix/<numero-issue>-<descripcion>` | `main` | `hotfix/24-arranque-tablet` |
+| Automatización interna | `automation/<descripcion>` | la que determine el workflow | `automation/feedback-24` |
+
+Reglas obligatorias:
+
+- utilizar siempre minúsculas;
+- crear primero el Issue si el trabajo manual todavía no tiene uno; no se inventa el número, no se usa `0` y no se omite;
+- escribir el número decimal del Issue sin `#` en `feature/*`, `fix/*` y `hotfix/*`;
+- utilizar una descripción corta en español, sin tildes ni `ñ` y separada con guiones;
+- no utilizar espacios, guiones bajos, mayúsculas ni caracteres especiales;
+- utilizar entre dos y seis palabras descriptivas después del número cuando sea posible;
+- no añadir `v` al nombre de `release/*`: la rama es `release/0.1.1` y el tag correspondiente es `v0.1.1`;
+- no reutilizar una rama para otro Issue o para otra versión;
+- reservar `automation/*` para ramas creadas por GitHub Actions, no para desarrollo manual.
+
+Ejemplos correctos:
 
 ```text
 feature/12-copias-seguridad
 fix/18-reconexion-movil
+release/0.1.1
 hotfix/24-arranque-tablet
+automation/feedback-24
 ```
 
-Siempre que el trabajo proceda de un Issue, su número debe aparecer en el nombre de la rama y en el pull request.
+Ejemplos incorrectos:
+
+```text
+feature/copias-seguridad       # falta el número del Issue
+feature/#12-copias             # no se escribe el símbolo #
+Fix/18_Reconexión_Móvil        # mayúsculas, guiones bajos y caracteres no ASCII
+release/v0.1.1                 # la v pertenece al tag, no a la rama
+hotfix/24                      # falta una descripción
+```
+
+### Comandos de creación
+
+Las ramas de funcionalidad y corrección normal se crean desde el último `dev` remoto:
+
+```powershell
+git switch dev
+git pull --ff-only origin dev
+git switch -c feature/12-copias-seguridad
+```
+
+Para una corrección se sustituye únicamente el último comando:
+
+```powershell
+git switch -c fix/18-reconexion-movil
+```
+
+Las ramas de publicación y los hotfixes se crean desde el último `main` remoto:
+
+```powershell
+git switch main
+git pull --ff-only origin main
+git switch -c release/0.1.1
+```
+
+Para un hotfix:
+
+```powershell
+git switch -c hotfix/24-arranque-tablet
+```
+
+Después de crear una rama manual se publica por primera vez con:
+
+```powershell
+git push -u origin <nombre-exacto-de-la-rama>
+```
+
+En `feature/*`, `fix/*` y `hotfix/*`, el número del Issue debe aparecer en el nombre de la rama y en el pull request. Una rama `release/*` agrupa una versión y enumera todos sus Issues en el cuerpo del PR.
 
 ## Flujo normal de un ticket
 
@@ -42,10 +113,14 @@ Issue
 feature/* o fix/*
         │  pull request + CI
         ▼
-       dev
-        │  pruebas conjuntas y validación en hardware cuando corresponda
+       dev ───────────── otros cambios todavía en pruebas
+        │
+        │ cambio concreto probado y seleccionado
         ▼
-pull request de publicación
+release/* creada desde main
+        │  incorporar solo los commits seleccionados y volver a validar
+        ▼
+pull request release/* → main
         │
         ▼
       main
@@ -73,13 +148,21 @@ GitHub Actions → APK firmado → GitHub Release
 
 Un cambio presente solamente en `dev` continúa en estado **En desarrollo**.
 
+Una rama fusionada en `dev` puede convivir con otros trabajos que todavía estén en pruebas. Por eso no se fusiona `dev` completo en `main` ni se abre directamente un PR de la rama original hacia `main`: al partir de `dev`, esa rama podría arrastrar cambios ajenos.
+
+No existe una detección automática de «trabajo terminado». La decisión de publicar es humana y no añade un quinto estado al móvil. Una incidencia permanece **En desarrollo** hasta que la Release que la contiene se publique correctamente.
+
 ### 3. Preparación de una versión
 
-1. Probar el contenido acumulado de `dev`, incluyendo la sincronización Android y las comprobaciones físicas que correspondan.
+1. Probar en `dev` cada incidencia candidata, incluyendo la sincronización Android y las comprobaciones físicas que correspondan.
 2. Elegir expresamente el número de versión.
-3. Abrir un pull request de `dev` hacia `main`.
-4. Enumerar en el cuerpo del PR las incidencias incluidas bajo el encabezado `Incidencias incluidas`.
-5. Fusionar únicamente cuando las validaciones sean correctas.
+3. Crear `release/<version>` desde el último `main`, nunca desde `dev`.
+4. Incorporar únicamente los commits de las incidencias aprobadas. Se recomienda usar squash al fusionar cada PR hacia `dev`, de modo que cada Issue pueda trasladarse como un único commit mediante `cherry-pick`.
+5. Resolver dependencias explícitamente: si un cambio necesita otro, ambos deben entrar en la misma Release.
+6. Volver a ejecutar todas las validaciones sobre `release/<version>`.
+7. Abrir un pull request de `release/<version>` hacia `main`.
+8. Enumerar en el cuerpo del PR las incidencias incluidas bajo el encabezado `Incidencias incluidas`.
+9. Fusionar únicamente cuando las validaciones sean correctas.
 
 Ejemplo de cuerpo del PR:
 
@@ -99,7 +182,7 @@ Ejemplo de cuerpo del PR:
 
 ### 4. Publicación
 
-El tag se crea **después** de fusionar `dev` en `main`, sobre el commit exacto que se va a distribuir:
+El tag se crea **después** de fusionar `release/<version>` en `main`, sobre el commit exacto que se va a distribuir:
 
 ```powershell
 git switch main
@@ -155,7 +238,7 @@ El hotfix mantiene las mismas validaciones, firma y regla de etiquetado. Despué
 ## Protecciones recomendadas en GitHub
 
 - Prohibir pushes directos a `main`.
-- Permitir en `main` únicamente PR desde `dev` o `hotfix/*`.
+- Permitir en `main` únicamente PR desde `release/*` o `hotfix/*`.
 - Exigir CI correcto antes de fusionar en `dev` y `main`.
 - Mantener los tags `v*` protegidos e inmutables.
 - No guardar claves, tokens ni contraseñas en ninguna rama.
@@ -163,11 +246,15 @@ El hotfix mantiene las mismas validaciones, firma y regla de etiquetado. Despué
 
 ## Automatización y agentes
 
-- `validate-pull-request.yml` valida los PR dirigidos a `dev` y `main`; también exige que todo PR hacia `main` enumere sus Issues bajo `Incidencias incluidas`, pero no publica versiones.
-- `android-release.yml` solo se ejecuta con un tag `vX.Y.Z`, verifica que el commit pertenece a `main`, publica la Release y después actualiza los Issues de feedback enumerados en el PR de `dev` hacia `main`.
+- `validate-pull-request.yml` debe validar los PR dirigidos a `dev` y `main`, aceptar `release/*` hacia `main` y exigir que enumeren sus Issues bajo `Incidencias incluidas`, pero no publica versiones.
+- `android-release.yml` debe ejecutarse solo con un tag `vX.Y.Z`, verificar que el commit pertenece a `main`, localizar el PR de `release/*` o `hotfix/*`, publicar la Release y después actualizar los Issues de feedback enumerados.
 - `feedback-to-markdown.yml` no escribe directamente en `main`: crea una rama automática y propone el Markdown mediante un PR hacia `dev`.
 - El agente `Pablo Tablet Developer` puede implementar Issues y preparar PR hacia `dev`, pero no puede fusionar, publicar, crear tags ni marcar tickets como implementados.
 - GitHub Actions es la autoridad determinista para validaciones y publicación. El agente es una ayuda opcional y su resultado siempre requiere revisión humana.
+
+Ninguna automatización debe seleccionar por sí sola qué cambios de `dev` se publican, crear o fusionar el PR de publicación, elegir el número de versión o crear el tag. Esos pasos requieren una decisión expresa. La automatización comienza validando el PR y, después de enviar el tag, construye y publica la Release.
+
+**Estado de adopción:** la documentación ya define `release/*`, pero los workflows de la rama actual todavía aceptan `dev` o `hotfix/*` hacia `main`. Antes de la primera publicación hay que adaptarlos para aceptar `release/*` y rechazar la publicación directa de `dev`.
 
 Para que `feedback-to-markdown.yml` pueda abrir el PR, en **Settings > Actions > General > Workflow permissions** debe estar activa la opción **Allow GitHub Actions to create and approve pull requests**. No hay que guardar un token personal para este paso: el workflow utiliza el `GITHUB_TOKEN` temporal de la propia ejecución.
 
