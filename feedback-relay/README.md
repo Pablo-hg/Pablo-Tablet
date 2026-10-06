@@ -1,6 +1,6 @@
 # Relay de comentarios
 
-Cloudflare Worker que recibe los comentarios de la tablet y crea o consulta GitHub Issues en el repositorio privado `Pablo-hg/Pablo-Tablet`.
+Cloudflare Worker desplegado para recibir los comentarios de la tablet y crear o consultar GitHub Issues en el repositorio público `Pablo-hg/Pablo-Tablet` sin exponer credenciales de escritura en el cliente.
 
 ## Seguridad
 
@@ -10,6 +10,8 @@ Cloudflare Worker que recibe los comentarios de la tablet y crea o consulta GitH
 - Los secretos no deben añadirse a archivos del repositorio.
 
 ## Despliegue
+
+El Worker de producción ya está desplegado. Estos comandos documentan cómo reproducir el despliegue o rotar sus secretos sin guardar sus valores en Git:
 
 ```powershell
 cd feedback-relay
@@ -27,6 +29,8 @@ La compilación Android debe recibir la URL y la misma clave de entrada:
 ```
 
 La clave de entrada debe ser aleatoria y tener al menos 32 caracteres. No es un token de GitHub y debe poder rotarse si se distribuyera fuera de los dispositivos autorizados.
+
+En GitHub Actions deben existir también `FEEDBACK_RELAY_URL` y `FEEDBACK_RELAY_KEY`. El primero apunta al Worker desplegado y el segundo debe coincidir con el secreto de entrada configurado en Cloudflare. No deben anotarse sus valores en este documento.
 
 ## Estados
 

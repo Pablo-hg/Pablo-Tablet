@@ -2,7 +2,7 @@
 
 > Documento relacionado: [OPERACION-REMOTA.md](OPERACION-REMOTA.md)
 
-El repositorio de código `Pablo-hg/Pablo-Tablet` se mantiene privado. La aplicación consulta la última Release de un repositorio público separado, `Pablo-hg/Pablo-Tablet-Releases`, que contiene únicamente los APK firmados. La versión actual es `0.1.0`. El número solo debe cambiar cuando Pablo lo indique expresamente, y una actualización únicamente se ofrece cuando el tag de la Release es superior a la versión instalada.
+El repositorio de código `Pablo-hg/Pablo-Tablet` es público para que cada instalación pueda descargarlo, revisarlo y adaptarlo. La aplicación no actualiza desde el código fuente: consulta la última Release de un repositorio público separado, `Pablo-hg/Pablo-Tablet-Releases`, que contiene únicamente los APK firmados. La versión actual es `0.1.0`. El número solo debe cambiar cuando Pablo lo indique expresamente, y una actualización únicamente se ofrece cuando el tag de la Release es superior a la versión instalada.
 
 ## Seguridad
 
@@ -21,7 +21,7 @@ El repositorio de código `Pablo-hg/Pablo-Tablet` se mantiene privado. La aplica
 
 2. Guardar el archivo y sus contraseñas en al menos dos ubicaciones privadas. Si se pierde esta clave no se podrán instalar nuevas versiones sobre la aplicación existente.
 3. Crear el repositorio público `Pablo-hg/Pablo-Tablet-Releases` con una rama `main`. No copiar allí el código fuente.
-4. En el repositorio privado `Pablo-hg/Pablo-Tablet`, crear estos Actions secrets:
+4. En `Pablo-hg/Pablo-Tablet`, crear estos Actions secrets aunque el repositorio sea público:
 
    - `ANDROID_KEYSTORE_BASE64`: contenido Base64 del archivo `.jks`.
    - `ANDROID_KEYSTORE_PASSWORD`: contraseña del almacén.
@@ -48,5 +48,9 @@ git push origin v0.1.0
 ```
 
 El workflow `.github/workflows/android-release.yml` ejecuta lint, tests y build, compila un APK firmado y crea la Release con su APK y SHA-256. La tablet podrá encontrarla desde `Ajustes > Sistema > Actualizaciones`.
+
+Fusionar una rama en `dev` o terminar sus pruebas no publica por sí solo una actualización. Los cambios aprobados se trasladan de forma selectiva a una rama `release/<version>` creada desde `main`, se validan de nuevo y llegan a `main` mediante PR. La publicación empieza únicamente al crear un tag `vX.Y.Z` sobre el commit fusionado. Después de una Release correcta, el workflow marca como `implementado` los Issues enumerados en el PR de publicación.
+
+La documentación ya adopta este recorrido selectivo, pero los workflows todavía deben aceptar `release/*` hacia `main` y reconocer ese PR durante la publicación antes de crear el primer tag.
 
 No incrementar, reutilizar ni cambiar un número de versión sin indicación expresa de Pablo. Tampoco publicar manualmente APK firmados con otra clave.
