@@ -23,14 +23,13 @@ Las fases técnicas de esta tabla no cambian la versión del producto. La versi�
 ```text
 Desarrollo                         Internet                         Otra vivienda
 
-Repositorio público
-Pablo-Tablet
+Repositorio público Pablo-Tablet
       |
       | tag aprobado + GitHub Actions
       v
-Repositorio público de Releases  -------- descarga HTTPS ------->  Teclast T65
-Pablo-Tablet-Releases                                              verifica SHA-256
-                                                                  abre instalador Android
+Release con APK y SHA-256  -------- descarga HTTPS ----------->  Teclast T65
+                                                               verifica SHA-256
+                                                               abre instalador Android
 
 GitHub Issues                    <-------- HTTPS (fase 2) --------  formulario del móvil
       |
@@ -41,7 +40,7 @@ Móvil vinculado                  <--------- Wi-Fi local --------->  servidor de
                                                                   SQLite = fuente de verdad
 ```
 
-El código fuente de `Pablo-Tablet` es público para que cualquier persona pueda descargarlo y adaptarlo. El repositorio de distribución `Pablo-Tablet-Releases` se mantiene separado y solo contendrá APK firmados y sus datos de Release. Que el código sea público no cambia la regla de seguridad: ninguna credencial de escritura de GitHub, clave de firma o secreto del Worker se incluye en la tablet, el navegador móvil o el repositorio.
+El código fuente y las Releases oficiales se mantienen en `Pablo-hg/Pablo-Tablet`. Cada Release contiene únicamente el APK firmado y su SHA-256 como artefactos descargables; los secretos de compilación permanecen cifrados en GitHub Actions. Que el código sea público no cambia la regla de seguridad: ninguna credencial de escritura de GitHub, clave de firma o secreto del Worker se incluye en la tablet, el navegador móvil o el repositorio.
 
 ## Flujo de una actualización
 
@@ -50,7 +49,7 @@ El código fuente de `Pablo-Tablet` es público para que cualquier persona pueda
 3. Se crea `release/<version>` desde `main` y se incorporan únicamente los cambios aprobados.
 4. Se valida de nuevo la rama de publicación con lint, tests, build web, sincronización Android, ensamblado e instalación en la tablet de desarrollo.
 5. Se fusiona mediante PR hacia `main` y se crea el tag aprobado sobre ese resultado.
-6. GitHub Actions compila el APK con la clave definitiva y publica la Release en `Pablo-Tablet-Releases`.
+6. GitHub Actions compila el APK con la clave definitiva y publica la Release en `Pablo-hg/Pablo-Tablet`.
 7. La tablet remota abre **Ajustes → Sistema → Actualizaciones** y consulta la última Release.
 8. Si la versión es superior, muestra las novedades y permite descargarla.
 9. La aplicación limita la descarga al repositorio de distribución oficial y verifica el SHA-256.
@@ -81,7 +80,6 @@ El servicio intermedio sigue siendo obligatorio para no exponer una clave de Git
 
 Antes de trasladar la tablet a la otra vivienda hay que completar:
 
-- crear o terminar de preparar el repositorio público `Pablo-hg/Pablo-Tablet-Releases`;
 - crear y respaldar la clave de firma definitiva;
 - configurar los secretos de GitHub Actions;
 - proteger los datos actuales y hacer la instalación inicial firmada;

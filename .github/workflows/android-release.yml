@@ -78,14 +78,14 @@ jobs:
 
       - name: Crear GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.UPDATE_REPO_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION_NAME="${GITHUB_REF_NAME#v}"
           gh release create "$GITHUB_REF_NAME" \
-            --repo "Pablo-hg/Pablo-Tablet-Releases" \
+            --repo "$GITHUB_REPOSITORY" \
             "Pablo-Tablet-${VERSION_NAME}.apk" \
             "Pablo-Tablet-${VERSION_NAME}.apk.sha256" \
-            --target main \
+            --verify-tag \
             --generate-notes \
             --title "Pablo Tablet ${VERSION_NAME}"
 

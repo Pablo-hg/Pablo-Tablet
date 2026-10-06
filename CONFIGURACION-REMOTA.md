@@ -4,7 +4,7 @@
 >
 > Actualizado: 06/10/2026
 
-Esta guía reúne la configuración externa necesaria para reproducir las actualizaciones y los comentarios remotos. No contiene valores de secretos. Cada persona que instale su propia copia debe crear sus credenciales, su Worker y, si desea publicar APK, su repositorio de Releases.
+Esta guía reúne la configuración externa necesaria para reproducir las actualizaciones y los comentarios remotos. No contiene valores de secretos. Cada persona que instale su propia copia debe crear sus credenciales y su Worker; si mantiene un fork, sus APK se publican como Releases de ese mismo fork.
 
 ## Estado de la instalación de referencia
 
@@ -19,7 +19,7 @@ Esta guía reúne la configuración externa necesaria para reproducir las actual
 | Etiquetas `feedback-movil`, `visto`, `en-desarrollo`, `implementado` | Creadas |
 | Markdown automático del feedback | Configurado; solo se ejecuta al aplicar `implementado` |
 | Publicación automática de APK por tag | Workflow preparado |
-| Repositorio `Pablo-Tablet-Releases` y primera Release firmada | Pendiente de completar y validar |
+| Releases en `Pablo-hg/Pablo-Tablet` | Workflow preparado; primera Release firmada pendiente de validar |
 | Protecciones de ramas y tags | Recomendadas; comprobar manualmente en GitHub |
 
 ## 1. Etiquetas de Issues
@@ -56,7 +56,6 @@ En **Settings → Secrets and variables → Actions** deben existir:
 | `ANDROID_KEYSTORE_PASSWORD` | Contraseña del almacén |
 | `ANDROID_KEY_ALIAS` | Alias de la clave |
 | `ANDROID_KEY_PASSWORD` | Contraseña de la clave |
-| `UPDATE_REPO_TOKEN` | Publicar Releases en `Pablo-Tablet-Releases`; permiso mínimo `Contents: Read and write` |
 
 El repositorio puede ser público, pero estos valores siguen siendo secretos y nunca deben aparecer en commits, Issues, logs o documentación.
 
@@ -65,9 +64,10 @@ El repositorio puede ser público, pero estos valores siguen siendo secretos y n
 En **Settings → Actions → General → Workflow permissions**:
 
 - mantener los permisos mínimos que permitan ejecutar los workflows;
+- permitir **Read and write permissions** para que `android-release.yml` publique una Release mediante el `GITHUB_TOKEN` temporal;
 - activar **Allow GitHub Actions to create and approve pull requests** para que `feedback-to-markdown.yml` pueda proponer el Markdown mediante un PR hacia `dev`.
 
-El workflow utiliza el `GITHUB_TOKEN` temporal de la ejecución para ese PR; no necesita un token personal adicional.
+Los workflows utilizan el `GITHUB_TOKEN` temporal tanto para ese PR como para publicar la Release en el propio repositorio; no necesitan un token personal adicional.
 
 ## 5. Ramas, reglas y publicación
 
