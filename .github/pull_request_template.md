@@ -4,7 +4,7 @@
 
 ## Incidencias incluidas
 
-<!-- Usa "Refs #123". En un PR de dev/hotfix hacia main, enumera aquí todos los Issues que contiene la publicación. -->
+<!-- Usa "Refs #123". En un PR de release/hotfix hacia main, enumera aquí todos los Issues que contiene la publicación. -->
 
 - Refs #
 

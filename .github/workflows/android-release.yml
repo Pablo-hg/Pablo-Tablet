@@ -103,17 +103,17 @@ jobs:
               github.rest.repos.listPullRequestsAssociatedWithCommit,
               { owner, repo, commit_sha: context.sha },
             )
-            const releasePull = associatedPulls.find((pull) =>
+            const publicationPull = associatedPulls.find((pull) =>
               pull.merged_at &&
               pull.base.ref === 'main' &&
-              (pull.head.ref === 'dev' || pull.head.ref.startsWith('hotfix/'))
+              (pull.head.ref.startsWith('release/') || pull.head.ref.startsWith('hotfix/'))
             )
-            if (!releasePull) {
-              core.setFailed('El tag no está asociado a un pull request fusionado de dev o hotfix/* hacia main.')
+            if (!publicationPull) {
+              core.setFailed('El tag no está asociado a un pull request fusionado de release/* o hotfix/* hacia main.')
               return
             }
 
-            const section = releasePull.body?.match(/##\s+Incidencias incluidas\s*([\s\S]*?)(?=\n##\s|$)/i)?.[1] ?? ''
+            const section = publicationPull.body?.match(/##\s+Incidencias incluidas\s*([\s\S]*?)(?=\n##\s|$)/i)?.[1] ?? ''
             const issueNumbers = [...new Set(
               [...section.matchAll(/#(\d+)/g)].map((match) => Number(match[1])),
             )]

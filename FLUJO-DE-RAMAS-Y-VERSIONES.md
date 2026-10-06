@@ -246,15 +246,15 @@ El hotfix mantiene las mismas validaciones, firma y regla de etiquetado. Despué
 
 ## Automatización y agentes
 
-- `validate-pull-request.yml` debe validar los PR dirigidos a `dev` y `main`, aceptar `release/*` hacia `main` y exigir que enumeren sus Issues bajo `Incidencias incluidas`, pero no publica versiones.
-- `android-release.yml` debe ejecutarse solo con un tag `vX.Y.Z`, verificar que el commit pertenece a `main`, localizar el PR de `release/*` o `hotfix/*`, publicar la Release y después actualizar los Issues de feedback enumerados.
+- `validate-pull-request.yml` valida los PR dirigidos a `dev` y `main`, acepta únicamente `release/MAJOR.MINOR.PATCH` o `hotfix/<issue>-<descripcion>` hacia `main` y exige que enumeren sus Issues bajo `Incidencias incluidas`, pero no publica versiones.
+- `android-release.yml` se ejecuta solo con un tag `vX.Y.Z`, verifica que el commit pertenece a `main`, localiza el PR de `release/*` o `hotfix/*`, publica la Release y después actualiza los Issues de feedback enumerados.
 - `feedback-to-markdown.yml` no escribe directamente en `main`: crea una rama automática y propone el Markdown mediante un PR hacia `dev`.
 - El agente `Pablo Tablet Developer` puede implementar Issues y preparar PR hacia `dev`, pero no puede fusionar, publicar, crear tags ni marcar tickets como implementados.
 - GitHub Actions es la autoridad determinista para validaciones y publicación. El agente es una ayuda opcional y su resultado siempre requiere revisión humana.
 
 Ninguna automatización debe seleccionar por sí sola qué cambios de `dev` se publican, crear o fusionar el PR de publicación, elegir el número de versión o crear el tag. Esos pasos requieren una decisión expresa. La automatización comienza validando el PR y, después de enviar el tag, construye y publica la Release.
 
-**Estado de adopción:** la documentación ya define `release/*`, pero los workflows de la rama actual todavía aceptan `dev` o `hotfix/*` hacia `main`. Antes de la primera publicación hay que adaptarlos para aceptar `release/*` y rechazar la publicación directa de `dev`.
+El workflow rechaza expresamente los PR directos de `dev`, `feature/*` o `fix/*` hacia `main`. Esto evita publicar por accidente otros cambios que sigan en pruebas dentro de `dev`.
 
 Para que `feedback-to-markdown.yml` pueda abrir el PR, en **Settings > Actions > General > Workflow permissions** debe estar activa la opción **Allow GitHub Actions to create and approve pull requests**. No hay que guardar un token personal para este paso: el workflow utiliza el `GITHUB_TOKEN` temporal de la propia ejecución.
 
