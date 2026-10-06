@@ -129,7 +129,7 @@ El contrato técnico y los pasos de validación están documentados en [ADMINIST
 - Consulta de un repositorio público separado que contendrá únicamente Releases y APK firmados.
 - Descarga restringida al repositorio oficial y verificación SHA-256 antes de abrir el instalador.
 - Validación adicional de identificador, `versionCode` y firma realizada por Android.
-- Workflow de GitHub Actions preparado para lint, tests, build, firma y publicación; pendiente adaptarlo al nuevo origen `release/*`.
+- Workflow de GitHub Actions preparado para lint, tests, build, firma y publicación desde `release/*` o `hotfix/*`.
 - Pendiente completar el repositorio de distribución y publicar la primera instalación firmada.
 
 El funcionamiento, la seguridad y la preparación operativa están en [ACTUALIZACIONES.md](ACTUALIZACIONES.md). La visión conjunta de administración, actualizaciones y feedback está en [OPERACION-REMOTA.md](OPERACION-REMOTA.md).
