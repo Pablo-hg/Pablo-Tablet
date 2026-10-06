@@ -3,10 +3,12 @@ name: Publicar actualización Android
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 permissions:
   contents: write
+  issues: write
+  pull-requests: read
 
 jobs:
   release:
@@ -14,6 +16,13 @@ jobs:
     steps:
       - name: Descargar el repositorio
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verificar que el tag pertenece a main
+        run: |
+          git fetch origin main --no-tags
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
 
       - name: Preparar Node.js
         uses: actions/setup-node@v4
@@ -79,3 +88,55 @@ jobs:
             --target main \
             --generate-notes \
             --title "Pablo Tablet ${VERSION_NAME}"
+
+  update-issues:
+    name: Actualizar incidencias publicadas
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Marcar incidencias publicadas como implementadas
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            const associatedPulls = await github.paginate(
+              github.rest.repos.listPullRequestsAssociatedWithCommit,
+              { owner, repo, commit_sha: context.sha },
+            )
+            const releasePull = associatedPulls.find((pull) =>
+              pull.merged_at &&
+              pull.base.ref === 'main' &&
+              (pull.head.ref === 'dev' || pull.head.ref.startsWith('hotfix/'))
+            )
+            if (!releasePull) {
+              core.setFailed('El tag no está asociado a un pull request fusionado de dev o hotfix/* hacia main.')
+              return
+            }
+
+            const section = releasePull.body?.match(/##\s+Incidencias incluidas\s*([\s\S]*?)(?=\n##\s|$)/i)?.[1] ?? ''
+            const issueNumbers = [...new Set(
+              [...section.matchAll(/#(\d+)/g)].map((match) => Number(match[1])),
+            )]
+            if (issueNumbers.length === 0) {
+              core.setFailed('El pull request de publicación no enumera incidencias bajo "Incidencias incluidas".')
+              return
+            }
+
+            for (const issue_number of issueNumbers) {
+              const { data: issue } = await github.rest.issues.get({ owner, repo, issue_number })
+              const labels = issue.labels
+                .map((label) => typeof label === 'string' ? label : label.name)
+                .filter(Boolean)
+              if (!labels.includes('feedback-movil')) {
+                core.info(`#${issue_number} no es feedback móvil; no se modifica su estado.`)
+                continue
+              }
+
+              for (const name of ['visto', 'en-desarrollo']) {
+                if (!labels.includes(name)) continue
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name })
+              }
+              await github.rest.issues.update({ owner, repo, issue_number, state: 'closed', state_reason: 'completed' })
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['implementado'] })
+              core.info(`#${issue_number} marcado como implementado.`)
+            }

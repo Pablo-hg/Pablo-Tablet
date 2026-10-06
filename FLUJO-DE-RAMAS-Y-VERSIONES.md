@@ -6,10 +6,10 @@ La versión de producto actual continúa siendo `0.1.0`. Integrar código no cam
 
 ## Ramas permanentes
 
-| Rama | Función | Qué puede entrar |
-| --- | --- | --- |
-| `main` | Estado estable y publicado del producto | Pull requests de publicación desde `dev` y hotfixes excepcionales |
-| `dev` | Integración y validación de la siguiente versión | Pull requests procedentes de `feature/*` y `fix/*` |
+| Rama   | Función                                          | Qué puede entrar                                                  |
+| ------ | ------------------------------------------------ | ----------------------------------------------------------------- |
+| `main` | Estado estable y publicado del producto          | Pull requests de publicación desde `dev` y hotfixes excepcionales |
+| `dev`  | Integración y validación de la siguiente versión | Pull requests procedentes de `feature/*` y `fix/*`                |
 
 No se desarrolla directamente sobre `main` ni sobre `dev`.
 
@@ -85,10 +85,12 @@ Ejemplo de cuerpo del PR:
 
 ```markdown
 ## Incidencias incluidas
+
 - #18
 - #21
 
 ## Validación
+
 - npm run lint
 - npm test
 - npm run build
@@ -116,16 +118,16 @@ El tag `vX.Y.Z` ejecuta el workflow de publicación. Este debe:
 6. publicar el APK en `Pablo-Tablet-Releases`;
 7. solo después del éxito, añadir `implementado`, retirar los otros estados y cerrar las incidencias incluidas.
 
-Si el workflow falla, la Release no se considera publicada y las incidencias permanecen **En desarrollo**. Los tags publicados se consideran inmutables: si el código necesita otra corrección se prepara una versión posterior, sin mover ni reutilizar el tag anterior.
+Si falla la compilación o la publicación, no existe una Release válida y las incidencias permanecen **En desarrollo**. La actualización de tickets se ejecuta en un trabajo separado después de publicar, por lo que puede reintentarse sin volver a crear la Release. Los tags publicados se consideran inmutables: si el código necesita otra corrección se prepara una versión posterior, sin mover ni reutilizar el tag anterior.
 
 ## Significado de los estados del móvil
 
-| Estado visible | Significado operativo |
-| --- | --- |
-| Enviado | El Issue se ha creado correctamente |
-| Visto | El desarrollador ha revisado y clasificado el reporte |
-| En desarrollo | El trabajo ha comenzado o está integrado en `dev`, pero aún no existe una Release correcta |
-| Implementado | La Release que contiene el cambio se ha publicado correctamente y está disponible para las tablets |
+| Estado visible | Significado operativo                                                                              |
+| -------------- | -------------------------------------------------------------------------------------------------- |
+| Enviado        | El Issue se ha creado correctamente                                                                |
+| Visto          | El desarrollador ha revisado y clasificado el reporte                                              |
+| En desarrollo  | El trabajo ha comenzado o está integrado en `dev`, pero aún no existe una Release correcta         |
+| Implementado   | La Release que contiene el cambio se ha publicado correctamente y está disponible para las tablets |
 
 Cerrar o fusionar un PR no basta por sí solo para mostrar **Implementado**. El cambio de estado depende del éxito de la publicación.
 
@@ -158,6 +160,18 @@ El hotfix mantiene las mismas validaciones, firma y regla de etiquetado. Despué
 - Mantener los tags `v*` protegidos e inmutables.
 - No guardar claves, tokens ni contraseñas en ninguna rama.
 - No publicar una Release hasta completar la firma definitiva y una instalación de prueba en la Teclast T65.
+
+## Automatización y agentes
+
+- `validate-pull-request.yml` valida los PR dirigidos a `dev` y `main`; también exige que todo PR hacia `main` enumere sus Issues bajo `Incidencias incluidas`, pero no publica versiones.
+- `android-release.yml` solo se ejecuta con un tag `vX.Y.Z`, verifica que el commit pertenece a `main`, publica la Release y después actualiza los Issues de feedback enumerados en el PR de `dev` hacia `main`.
+- `feedback-to-markdown.yml` no escribe directamente en `main`: crea una rama automática y propone el Markdown mediante un PR hacia `dev`.
+- El agente `Pablo Tablet Developer` puede implementar Issues y preparar PR hacia `dev`, pero no puede fusionar, publicar, crear tags ni marcar tickets como implementados.
+- GitHub Actions es la autoridad determinista para validaciones y publicación. El agente es una ayuda opcional y su resultado siempre requiere revisión humana.
+
+Para que `feedback-to-markdown.yml` pueda abrir el PR, en **Settings > Actions > General > Workflow permissions** debe estar activa la opción **Allow GitHub Actions to create and approve pull requests**. No hay que guardar un token personal para este paso: el workflow utiliza el `GITHUB_TOKEN` temporal de la propia ejecución.
+
+El perfil del agente solo aparecerá en GitHub Agents cuando `.github/agents/pablo-tablet.agent.md` haya llegado a la rama predeterminada (`main`). Su uso depende de que la cuenta tenga acceso a GitHub Copilot; no forma parte del mecanismo obligatorio de publicación ni se necesita para ejecutar los workflows.
 
 ## Adopción del flujo
 
