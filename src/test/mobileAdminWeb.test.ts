@@ -9,6 +9,7 @@ describe('administración móvil', () => {
   const originalWebSocket = window.WebSocket
 
   afterEach(() => {
+    vi.useRealTimers()
     Object.defineProperty(window, 'fetch', { configurable: true, value: originalFetch })
     Object.defineProperty(window, 'WebSocket', { configurable: true, value: originalWebSocket })
     window.localStorage.clear()
@@ -98,6 +99,8 @@ describe('administración móvil', () => {
       if (path === '/api/feedback' && init?.method === 'POST') {
         submitted = JSON.parse(String(init.body))
         body = { report: { id: 'feedback-1', ...submitted, appVersion: '0.1.0', tabletModel: 'Teclast T65', createdAt: Date.now(), status: 'pending', attempts: 0, lastError: null, githubIssueNumber: null, githubIssueUrl: null, markdown: '# Reporte' } }
+      } else if (path === '/api/feedback/feedback-1/refresh' && init?.method === 'POST') {
+        body = { report: { id: 'feedback-1', type: 'error', title: 'El reloj no suena', area: 'Inicio', createdAt: Date.now(), status: trackedStatus, githubIssueNumber: 12, lastError: null } }
       } else if (path === '/api/feedback') {
         body = { reports: trackedStatus ? [{ id: 'feedback-1', type: 'error', title: 'El reloj no suena', area: 'Inicio', createdAt: Date.now(), status: trackedStatus, githubIssueNumber: 12, lastError: null }] : [] }
       } else {
@@ -118,13 +121,15 @@ describe('administración móvil', () => {
     fireEvent.click(view.getByRole('button', { name: 'Comentarios' }))
     await waitFor(() => expect(view.getByRole('button', { name: 'Guardar y preparar envío' })).toBeInTheDocument())
 
-    fireEvent.change(view.getByLabelText('Título'), { target: { value: 'El reloj no suena' } })
-    fireEvent.change(view.getByLabelText('Descripción'), { target: { value: 'La alarma aparece, pero no reproduce audio.' } })
+    fireEvent.change(view.getByLabelText('Título'), { target: { value: 'Sin conexión con la tablet' } })
+    fireEvent.change(view.getByLabelText('Descripción'), { target: { value: 'El móvil pierde la conexión cada pocos segundos.' } })
     fireEvent.click(view.getByText(/He revisado el texto/))
     fireEvent.submit(view.getByRole('button', { name: 'Guardar y preparar envío' }).closest('form')!)
 
     await waitFor(() => expect(submitted).not.toBeNull())
-    expect(submitted).toMatchObject({ type: 'error', priority: 'normal', title: 'El reloj no suena', area: 'Inicio', privacyAccepted: true })
+    expect(submitted).toMatchObject({ type: 'error', priority: 'normal', title: 'Sin conexión con la tablet', description: 'El móvil pierde la conexión cada pocos segundos.', area: 'Inicio', privacyAccepted: true })
+    const feedbackRequest = fetchMock.mock.calls.find(([input, init]) => String(input) === '/api/feedback' && init?.method === 'POST')
+    expect(new Headers(feedbackRequest?.[1]?.headers).get('Content-Type')).toBe('application/json; charset=utf-8')
     expect(view.getByText('Todavía no se ha creado el Issue.')).toBeInTheDocument()
     expect(view.queryByLabelText(/Pasos para reproducir/)).not.toBeInTheDocument()
     expect(view.queryByLabelText('Resultado obtenido')).not.toBeInTheDocument()
@@ -134,9 +139,73 @@ describe('administración móvil', () => {
     expect(view.queryByText('Enviado', { selector: '.feedback-progress .current' })).not.toBeInTheDocument()
     expect(JSON.stringify(submitted)).not.toMatch(/github.*token|ghp_/i)
 
-    trackedStatus = 'implemented'
+    trackedStatus = 'sent'
     fireEvent.click(view.getByRole('button', { name: 'Comentarios' }))
+    await waitFor(() => expect(view.getByRole('button', { name: 'Actualizar estado' })).toBeInTheDocument())
+
+    trackedStatus = 'implemented'
+    fireEvent.click(view.getByRole('button', { name: 'Actualizar estado' }))
     await waitFor(() => expect(view.getByText('Implementado', { selector: '.feedback-status' })).toBeInTheDocument())
     expect(view.getByText('Implementado', { selector: '.feedback-progress .current' })).toBeInTheDocument()
+    expect(view.getByRole('status')).toHaveTextContent('Se ha cambiado el estado de tu comentario a «Implementado».')
+  })
+
+  it('mantiene vivo el WebSocket y oculta reconexiones breves', async () => {
+    const html = readFileSync(resolve(process.cwd(), 'public/mobile/index.html'), 'utf8')
+    const script = readFileSync(resolve(process.cwd(), 'public/mobile/app.js'), 'utf8')
+    document.open()
+    document.write(html)
+    document.close()
+    const view = within(document.body)
+    window.localStorage.setItem('pablo-tablet.mobile-token.v1', 'credencial-prueba')
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ state: { preferences: {} }, device: { name: 'Móvil de prueba' } }),
+    }))
+    const sockets: WebSocketStub[] = []
+    class WebSocketStub {
+      static OPEN = 1
+      readyState = 0
+      send = vi.fn()
+      private handlers = new Map<string, Array<(event: { data?: string }) => void>>()
+
+      constructor() { sockets.push(this) }
+      addEventListener(type: string, handler: (event: { data?: string }) => void) {
+        this.handlers.set(type, [...(this.handlers.get(type) ?? []), handler])
+      }
+      emit(type: string, event: { data?: string } = {}) {
+        this.handlers.get(type)?.forEach((handler) => handler(event))
+      }
+      close() {
+        this.readyState = 3
+        this.emit('close')
+      }
+    }
+    Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock })
+    Object.defineProperty(window, 'WebSocket', { configurable: true, value: WebSocketStub })
+
+    Object.assign(window, { calendarEventTiming })
+    window.eval(script.replace("import { calendarEventTiming } from './calendarTiming.js'", ''))
+    await waitFor(() => expect(sockets).toHaveLength(1))
+
+    vi.useFakeTimers()
+    sockets[0].readyState = WebSocketStub.OPEN
+    sockets[0].emit('open')
+    vi.advanceTimersByTime(8000)
+    expect(sockets[0].send).toHaveBeenCalledWith('ping')
+    sockets[0].emit('message', { data: '{"type":"pong"}' })
+
+    sockets[0].close()
+    vi.advanceTimersByTime(1800)
+    expect(sockets).toHaveLength(2)
+    sockets[1].readyState = WebSocketStub.OPEN
+    sockets[1].emit('open')
+    vi.advanceTimersByTime(6000)
+
+    expect(view.getByText('Sin conexión con la tablet. La edición está bloqueada hasta reconectar.')).toHaveClass('hidden')
+    expect(view.getByText('Sincronización activa')).toBeInTheDocument()
   })
 })
