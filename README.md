@@ -2,7 +2,7 @@
 
 Pablo Tablet es un panel doméstico local para una Teclast T65. La tablet actúa como nodo central del hogar y la interfaz de control principal. El proyecto combina una app web React con Capacitor + Android para ofrecer un dashboard minimalista, útil sin Internet, pensado para uso continuo en una sala, cocina o escritorio.
 
-Este documento recoge el estado real del repositorio a 05/10/2026. La versión actual es `0.1.0` y solo cambiará por indicación expresa de Pablo. La base funcional y las decisiones de producto quedan en la [especificación funcional](ESPECIFICACION-FUNCIONAL.md). La operación fuera de la vivienda se resume en [OPERACION-REMOTA.md](OPERACION-REMOTA.md). El histórico de conversaciones y decisiones previas sigue en el [índice de chats](chats/INDICE-CHATS.md).
+Este documento recoge el estado real del repositorio a 06/10/2026. La versión preparada para publicación es `0.2.0` y solo cambiará por indicación expresa de Pablo. La base funcional y las decisiones de producto quedan en la [especificación funcional](ESPECIFICACION-FUNCIONAL.md). La operación fuera de la vivienda se resume en [OPERACION-REMOTA.md](OPERACION-REMOTA.md) y su preparación reproducible en [CONFIGURACION-REMOTA.md](CONFIGURACION-REMOTA.md). El trabajo con `feature/*`, `fix/*`, `dev`, `release/*`, `main`, tags y Releases se define en [FLUJO-DE-RAMAS-Y-VERSIONES.md](FLUJO-DE-RAMAS-Y-VERSIONES.md). El histórico de conversaciones y decisiones previas sigue en el [índice de chats](chats/INDICE-CHATS.md).
 
 ## Resumen ejecutivo
 
@@ -17,7 +17,7 @@ La versión actual del repositorio ya no es solo un mockup ni una base técnica 
 - pantalla de ajustes con brillo, volumen, rotación, inactividad y modo salvapantallas;
 - persistencia privada de la aplicación en SQLite, con migración automática de los datos anteriores de `localStorage`.
 - primera versión funcional de la administración móvil local, con servidor Android, API autenticada, WebSocket, QR y editor web.
-- comprobación y descarga segura de actualizaciones desde GitHub Releases, pendiente de preparar el canal firmado de producción.
+- comprobación y descarga segura de actualizaciones desde GitHub Releases, pendiente de la primera publicación firmada de producción.
 
 La arquitectura final sigue planteada como híbrida y local, pero la parte ya implementada en este código es la capa funcional principal del prototipo realista del MVP.
 
@@ -37,8 +37,8 @@ La arquitectura final sigue planteada como híbrida y local, pero la parte ya im
 | Gestión desde móvil                            | Implementado parcialmente | editor web local para notas, calendario, reloj, tiempo, fotos y visibilidad del panel      |
 | Persistencia local de la aplicación            | Implementado              | SQLite privado en Android, migración del estado anterior y fallback web para desarrollo   |
 | Servidor local para el móvil                   | Implementado parcialmente | HTTP en LAN, API REST, WebSocket, tokens por dispositivo y archivos privados               |
-| Actualizaciones remotas                        | Implementado parcialmente | consulta, descarga, SHA-256 e instalador; falta canal público y firma definitiva            |
-| Comentarios y mejoras desde móvil              | Parcialmente implementado | formulario, cola, etiquetas y relay listos en código; despliegue y prueba real pendientes    |
+| Actualizaciones remotas                        | Implementado parcialmente | consulta, descarga, SHA-256, instalador y workflow; falta la primera Release firmada       |
+| Comentarios y mejoras desde móvil              | Implementado              | formulario, cola, Worker, Issues y cuatro estados; creación real validada con el Issue #1 |
 | Copias y restauración                          | Pendiente                 | no está desarrollada en esta rama                                                         |
 | Integración con Google Calendar / datos reales | Pendiente                 | queda fuera del MVP actual                                                                |
 
@@ -129,14 +129,14 @@ El contrato técnico y los pasos de validación están documentados en [ADMINIST
 - Consulta de un repositorio público separado que contendrá únicamente Releases y APK firmados.
 - Descarga restringida al repositorio oficial y verificación SHA-256 antes de abrir el instalador.
 - Validación adicional de identificador, `versionCode` y firma realizada por Android.
-- Workflow de GitHub Actions preparado para lint, tests, build, firma y publicación.
-- Pendiente crear el repositorio de distribución, la clave definitiva, los secretos y la primera instalación firmada.
+- Workflow de GitHub Actions preparado para lint, tests, build, firma y publicación desde `release/*` o `hotfix/*`.
+- Pendiente completar el repositorio de distribución y publicar la primera instalación firmada.
 
 El funcionamiento, la seguridad y la preparación operativa están en [ACTUALIZACIONES.md](ACTUALIZACIONES.md). La visión conjunta de administración, actualizaciones y feedback está en [OPERACION-REMOTA.md](OPERACION-REMOTA.md).
 
 ### 9. Comentarios y mejoras desde el móvil
 
-La fase técnica 2A añade un formulario móvil autenticado, una cola SQLite persistente y cuatro estados visibles: **Enviado**, **Visto**, **En desarrollo** e **Implementado**. Cada ticket será un GitHub Issue; la generación Markdown queda interna y no se ofrecen acciones para copiarla o descargarla desde el móvil. Falta desplegar el relay HTTPS y probar la creación real del Issue; no se incluyen tokens de GitHub en el cliente. Véase [COMENTARIOS-Y-MEJORAS.md](COMENTARIOS-Y-MEJORAS.md).
+La pestaña móvil incluye un formulario autenticado, una cola SQLite persistente y cuatro estados visibles: **Enviado**, **Visto**, **En desarrollo** e **Implementado**. Cada ticket es un GitHub Issue y el Worker de Cloudflare ya está desplegado; la creación real quedó validada con el Issue #1. La generación Markdown es interna, solo se ejecuta al aplicar `implementado` y no se ofrecen acciones para copiarla o descargarla desde el móvil. No se incluyen tokens de GitHub en el cliente. Véase [COMENTARIOS-Y-MEJORAS.md](COMENTARIOS-Y-MEJORAS.md).
 
 ## Qué queda pendiente
 
@@ -151,7 +151,7 @@ La administración móvil ya dispone de un recorrido funcional completo en códi
 - integración con Google Calendar;
 - pruebas reales en la Teclast T65.
 - preparación y prueba extremo a extremo del canal firmado de actualizaciones;
-- despliegue del relay y validación real del formulario de comentarios y mejoras.
+- validación del formulario de comentarios y sus cambios de estado en cada dispositivo físico adicional.
 
 ## Arquitectura actual y decisiones vigentes
 
@@ -165,8 +165,8 @@ La administración móvil ya dispone de un recorrido funcional completo en códi
 - Las credenciales permanentes se identifican por hashes SHA-256 y pueden revocarse individualmente; el token temporal del QR caduca a los cinco minutos o al cerrar la pantalla.
 - La lógica de widgets, notificaciones y estados ha sido normalizada para evitar corrupción o layouts inválidos.
 - El diseño sigue orientado a uso local sin Internet y sin dependencia de la nube.
-- Las actualizaciones usan Internet únicamente para consultar y descargar una Release pública; el código fuente permanece privado.
-- Los comentarios futuros se enviarán mediante un endpoint con credenciales solo en servidor; nunca desde un token incluido en el cliente.
+- Las actualizaciones usan Internet únicamente para consultar y descargar una Release pública. El código fuente de `Pablo-hg/Pablo-Tablet` también es público, pero los secretos de firma, publicación y relay permanecen fuera del repositorio.
+- Los comentarios se envían mediante un endpoint de Cloudflare con la credencial de GitHub guardada solo como secreto del Worker; nunca desde un token incluido en el cliente.
 
 ## Fases del MVP y estado real
 
@@ -183,9 +183,11 @@ La administración móvil ya dispone de un recorrido funcional completo en códi
 | 8. Copias y recuperación           | Backup / restore                      | Pendiente                                       |
 | 9. Seguridad y cierre              | Tokens, logs, recuperación            | Pendiente                                       |
 
-Estas son áreas de trabajo del MVP y no representan el número de versión. El producto continúa en `0.1.0` hasta que Pablo indique otro número.
+Estas son áreas de trabajo del MVP y no representan el número de versión. El producto está preparado como `0.2.0` hasta que Pablo indique otro número.
 
 ## Desarrollo
+
+Las contribuciones parten de `dev` mediante ramas `feature/<issue>-<descripcion>` o `fix/<issue>-<descripcion>`. Una rama `release/<major>.<minor>.<patch>` creada desde `main` selecciona únicamente los cambios ya probados que se publicarán; `main` queda reservado para versiones publicables. Todos los nombres se escriben en minúsculas, sin espacios ni tildes. Antes de crear una rama, consulta la nomenclatura y los comandos exactos en [FLUJO-DE-RAMAS-Y-VERSIONES.md](FLUJO-DE-RAMAS-Y-VERSIONES.md).
 
 ```bash
 npm install

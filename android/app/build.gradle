@@ -2,7 +2,7 @@ apply plugin: 'com.android.application'
 
 def releaseKeystoreFile = System.getenv('ANDROID_KEYSTORE_FILE')
 def configuredVersionCode = (project.findProperty('appVersionCode') ?: '1').toString().toInteger()
-def configuredVersionName = (project.findProperty('appVersionName') ?: '0.1.0').toString()
+def configuredVersionName = (project.findProperty('appVersionName') ?: '0.2.0').toString()
 def configuredFeedbackRelayUrl = (project.findProperty('feedbackRelayUrl') ?: '').toString().replace('\\', '\\\\').replace('"', '\\"')
 def configuredFeedbackRelayKey = (project.findProperty('feedbackRelayKey') ?: '').toString().replace('\\', '\\\\').replace('"', '\\"')
 

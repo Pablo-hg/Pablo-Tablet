@@ -2,7 +2,7 @@
 
 > Estado: documento actualizado con el estado real del proyecto en el repositorio
 > Actualizado: 05/10/2026
-> Versión actual: `0.1.0`; solo cambia por indicación expresa de Pablo.
+> Versión actual: `0.2.0`; solo cambia por indicación expresa de Pablo.
 > Prevalencia: este documento y el README son la referencia funcional actual. La operación remota se detalla en `OPERACION-REMOTA.md`; los archivos de `chats/` siguen siendo históricos.
 
 ## 1. Alcance real del MVP
@@ -38,6 +38,7 @@ La primera versión de administración móvil ya forma parte del código. Incluy
 - La vinculación exige un QR temporal y confirmación física en la tablet; cada móvil recibe una credencial individual revocable.
 - Los cambios se propagan mediante WebSocket y la tablet vuelve a leer el estado compartido desde SQLite.
 - La tablet puede consultar Releases, comparar versiones, descargar un APK, verificar su SHA-256 y abrir el instalador de Android.
+- El formulario móvil crea GitHub Issues de forma segura mediante un Worker de Cloudflare y muestra los estados Enviado, Visto, En desarrollo e Implementado.
 
 ### 2.2 Pendiente respecto al objetivo final
 
@@ -47,7 +48,6 @@ La primera versión de administración móvil ya forma parte del código. Incluy
 - servicio Android con autoarranque y recuperación independiente del proceso visible;
 - edición móvil avanzada de dibujos y distribución exacta del grid.
 - preparación operativa de la firma definitiva y del repositorio público de APK;
-- formulario móvil de comentarios, mejoras y errores con creación segura de GitHub Issues.
 
 ## 3. Arquitectura funcional vigente
 
@@ -58,7 +58,7 @@ La primera versión de administración móvil ya forma parte del código. Incluy
 - No existe ni se necesita una base de datos externa para el funcionamiento doméstico.
 - Los móviles autorizados se gestionan en la red local mediante una API autenticada y un editor web servido por la tablet.
 - El servidor usa REST para leer/escribir y WebSocket para comunicar cambios; la estrategia de conflicto de la V1 es Last Write Wins.
-- El código fuente permanece privado y los APK de actualización se distribuirán desde un repositorio público separado.
+- El código fuente es público y los APK de actualización se distribuirán desde un repositorio público separado; las claves y tokens permanecen siempre fuera de ambos repositorios.
 
 ## 4. Acceso, vinculación y seguridad
 
@@ -124,13 +124,13 @@ Las actualizaciones y el futuro envío de comentarios utilizan Internet. Ninguna
 
 ## 12. Operación remota y actualizaciones
 
-- La versión actual es `0.1.0` y su cambio requiere confirmación expresa de Pablo.
+- La versión actual es `0.2.0` y su cambio requiere confirmación expresa de Pablo.
 - La interfaz de actualización y el plugin Android están implementados y validados con una compilación debug.
 - El canal de producción requiere repositorio público de Releases, clave definitiva, secretos y una primera instalación firmada.
 - Android solicitará confirmación física para instalar mientras la tablet no sea un dispositivo administrado.
 - La administración móvil existente funciona únicamente dentro de la misma Wi‑Fi.
-- El formulario y la cola local de comentarios están implementados en la fase técnica 2A; el relay HTTPS y la validación real con GitHub están pendientes.
-- El estado completo y los flujos se mantienen en [OPERACION-REMOTA.md](OPERACION-REMOTA.md), [ACTUALIZACIONES.md](ACTUALIZACIONES.md), [ADMINISTRACION-MOVIL.md](ADMINISTRACION-MOVIL.md) y [COMENTARIOS-Y-MEJORAS.md](COMENTARIOS-Y-MEJORAS.md).
+- El formulario, la cola local y el relay HTTPS de comentarios están implementados; la creación real quedó validada con el Issue #1.
+- El estado completo y los flujos se mantienen en [OPERACION-REMOTA.md](OPERACION-REMOTA.md), [CONFIGURACION-REMOTA.md](CONFIGURACION-REMOTA.md), [ACTUALIZACIONES.md](ACTUALIZACIONES.md), [ADMINISTRACION-MOVIL.md](ADMINISTRACION-MOVIL.md) y [COMENTARIOS-Y-MEJORAS.md](COMENTARIOS-Y-MEJORAS.md).
 
 ## 13. Copias de seguridad y recuperación
 

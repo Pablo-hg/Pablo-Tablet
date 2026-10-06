@@ -23,6 +23,25 @@ npm test
 npm run build
 ```
 
+## Validación automática de pull requests
+
+El workflow `.github/workflows/validate-pull-request.yml` se ejecuta cuando se abre, se reabre o se actualiza una pull request cuyo destino es `dev` o `main`. También puede iniciarse manualmente desde GitHub Actions.
+
+La validación realiza estos pasos, en este orden:
+
+1. comprueba que la combinación de rama de origen y destino respeta el flujo documentado;
+2. en una PR hacia `main`, comprueba que el apartado `Incidencias incluidas` enumera al menos un Issue;
+3. instala exactamente las dependencias de `package-lock.json` con `npm ci`;
+4. ejecuta el análisis estático con `npm run lint`;
+5. ejecuta todas las suites de Vitest con `npm test`;
+6. compila la aplicación web con `npm run build`;
+7. sincroniza los recursos y plugins nativos con `npx cap sync android`;
+8. compila un APK debug de validación con `./gradlew assembleDebug`.
+
+El merge no inicia una ejecución adicional. Por eso la protección de las ramas debe exigir que el check **Validar pull request** termine correctamente antes de permitir la fusión. Fusionar una PR mientras el check sigue en curso no equivale a haberla validado.
+
+Cuando se crea un tag `vX.Y.Z`, `.github/workflows/android-release.yml` vuelve a ejecutar `npm ci`, lint, todas las pruebas, el build web y la sincronización Android. Después compila el APK release firmado, genera su SHA-256 y publica la Release. Esta validación del tag no sustituye la validación previa de la PR.
+
 ## Cobertura funcional
 
 ### Migraciones y recuperación
@@ -54,6 +73,25 @@ Archivo: `src/test/mobileCalendar.test.js`
 - Estado finalizado por fecha u hora de fin.
 - Diferenciación entre tareas vencidas y completadas.
 - Conservación de las series recurrentes como activas.
+
+### Administración móvil
+
+Archivo: `src/test/mobileAdminWeb.test.ts`
+
+- Carga, edición y persistencia de los ajustes nocturnos desde el móvil.
+- Presentación correcta del estado y duración de los eventos del calendario.
+- Creación de comentarios mediante JSON UTF-8 sin exponer credenciales de GitHub.
+- Ausencia de las acciones retiradas para copiar o descargar Markdown.
+- Sincronización de los cuatro estados visibles del ticket y del mensaje de cambio de estado.
+- Mantenimiento del WebSocket, envío de `ping` y recuperación de reconexiones breves.
+
+### Modo nocturno
+
+Archivo: `src/test/nightMode.test.ts`
+
+- Activación correcta de un horario que cruza la medianoche.
+- Aplicación de brillo y volumen nocturnos.
+- Recuperación de los valores diurnos sin modificarlos ni perderlos.
 
 ### Layouts de widgets
 
