@@ -2,7 +2,7 @@
 
 > Documento relacionado: [OPERACION-REMOTA.md](OPERACION-REMOTA.md)
 
-El repositorio de código `Pablo-hg/Pablo-Tablet` es público para que cada instalación pueda descargarlo, revisarlo y adaptarlo. La aplicación no actualiza desde el código fuente: consulta la última Release de un repositorio público separado, `Pablo-hg/Pablo-Tablet-Releases`, que contiene únicamente los APK firmados. La versión actual es `0.1.0`. El número solo debe cambiar cuando Pablo lo indique expresamente, y una actualización únicamente se ofrece cuando el tag de la Release es superior a la versión instalada.
+El repositorio de código `Pablo-hg/Pablo-Tablet` es público para que cada instalación pueda descargarlo, revisarlo y adaptarlo. La aplicación no actualiza desde el código fuente: consulta la última Release de un repositorio público separado, `Pablo-hg/Pablo-Tablet-Releases`, que contiene únicamente los APK firmados. La versión preparada es `0.2.0`. El número solo debe cambiar cuando Pablo lo indique expresamente, y una actualización únicamente se ofrece cuando el tag de la Release es superior a la versión instalada.
 
 ## Seguridad
 
@@ -40,11 +40,11 @@ El repositorio de código `Pablo-hg/Pablo-Tablet` es público para que cada inst
 
 ## Publicar una versión
 
-Después de integrar y validar los cambios, crear el tag que Pablo haya aprobado expresamente y enviarlo a GitHub. Para publicar la versión actual `0.1.0` como primera base firmada:
+Después de integrar y validar los cambios, crear el tag que Pablo haya aprobado expresamente y enviarlo a GitHub. Para publicar la versión `0.2.0`:
 
 ```powershell
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 El workflow `.github/workflows/android-release.yml` ejecuta lint, tests y build, compila un APK firmado y crea la Release con su APK y SHA-256. La tablet podrá encontrarla desde `Ajustes > Sistema > Actualizaciones`.

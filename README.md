@@ -2,7 +2,7 @@
 
 Pablo Tablet es un panel doméstico local para una Teclast T65. La tablet actúa como nodo central del hogar y la interfaz de control principal. El proyecto combina una app web React con Capacitor + Android para ofrecer un dashboard minimalista, útil sin Internet, pensado para uso continuo en una sala, cocina o escritorio.
 
-Este documento recoge el estado real del repositorio a 06/10/2026. La versión actual es `0.1.0` y solo cambiará por indicación expresa de Pablo. La base funcional y las decisiones de producto quedan en la [especificación funcional](ESPECIFICACION-FUNCIONAL.md). La operación fuera de la vivienda se resume en [OPERACION-REMOTA.md](OPERACION-REMOTA.md) y su preparación reproducible en [CONFIGURACION-REMOTA.md](CONFIGURACION-REMOTA.md). El trabajo con `feature/*`, `fix/*`, `dev`, `release/*`, `main`, tags y Releases se define en [FLUJO-DE-RAMAS-Y-VERSIONES.md](FLUJO-DE-RAMAS-Y-VERSIONES.md). El histórico de conversaciones y decisiones previas sigue en el [índice de chats](chats/INDICE-CHATS.md).
+Este documento recoge el estado real del repositorio a 06/10/2026. La versión preparada para publicación es `0.2.0` y solo cambiará por indicación expresa de Pablo. La base funcional y las decisiones de producto quedan en la [especificación funcional](ESPECIFICACION-FUNCIONAL.md). La operación fuera de la vivienda se resume en [OPERACION-REMOTA.md](OPERACION-REMOTA.md) y su preparación reproducible en [CONFIGURACION-REMOTA.md](CONFIGURACION-REMOTA.md). El trabajo con `feature/*`, `fix/*`, `dev`, `release/*`, `main`, tags y Releases se define en [FLUJO-DE-RAMAS-Y-VERSIONES.md](FLUJO-DE-RAMAS-Y-VERSIONES.md). El histórico de conversaciones y decisiones previas sigue en el [índice de chats](chats/INDICE-CHATS.md).
 
 ## Resumen ejecutivo
 
@@ -183,7 +183,7 @@ La administración móvil ya dispone de un recorrido funcional completo en códi
 | 8. Copias y recuperación           | Backup / restore                      | Pendiente                                       |
 | 9. Seguridad y cierre              | Tokens, logs, recuperación            | Pendiente                                       |
 
-Estas son áreas de trabajo del MVP y no representan el número de versión. El producto continúa en `0.1.0` hasta que Pablo indique otro número.
+Estas son áreas de trabajo del MVP y no representan el número de versión. El producto está preparado como `0.2.0` hasta que Pablo indique otro número.
 
 ## Desarrollo
 

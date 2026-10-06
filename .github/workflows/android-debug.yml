@@ -50,7 +50,7 @@ jobs:
       - name: Guardar APK de prueba
         uses: actions/upload-artifact@v7
         with:
-          name: Pablo-Tablet-0.1.0-feedback-test
+          name: Pablo-Tablet-0.2.0-feedback-test
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7

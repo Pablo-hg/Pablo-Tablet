@@ -2,7 +2,7 @@
 
 > Estado: formulario, cola, Worker, Issues y seguimiento implementados; creación real validada con el Issue #1
 >
-> Versión de producto: `0.1.0`
+> Versión de producto: `0.2.0`
 >
 > Actualizado: 06/10/2026
 
@@ -40,7 +40,7 @@ Las etiquetas `feedback-movil`, `visto`, `en-desarrollo` e `implementado` existe
 1. El usuario rellena el formulario desde el móvil vinculado.
 2. El navegador valida los campos.
 3. El servidor local autenticado de la tablet vuelve a validar y guarda el reporte en SQLite.
-4. Android añade la versión `0.1.0`, el modelo de tablet, la fecha y el móvil autorizado.
+4. Android añade la versión instalada, el modelo de tablet, la fecha y el móvil autorizado.
 5. Si no hay relay configurado, el reporte queda en `pending`; la interfaz no expone acciones para copiar o descargar el Markdown interno.
 6. Si hay relay, Android realiza una petición HTTPS; el navegador nunca habla directamente con GitHub.
 7. El relay aplica validación y límite de frecuencia, y usa una credencial guardada exclusivamente en servidor para crear el Issue.
@@ -128,7 +128,7 @@ El relay debe crear el Issue con la etiqueta `feedback-movil`. GitHub Issues es 
 
 ## Red y alcance
 
-El formulario lo sirve la tablet, por lo que el móvil debe estar en la misma Wi-Fi para abrirlo y registrar el reporte. El envío posterior al relay requiere Internet en la tablet. Abrir el formulario desde cualquier red sigue fuera del alcance de `0.1.0`.
+El formulario lo sirve la tablet, por lo que el móvil debe estar en la misma Wi-Fi para abrirlo y registrar el reporte. El envío posterior al relay requiere Internet en la tablet. Abrir el formulario desde cualquier red sigue fuera del alcance de `0.2.0`.
 
 ## Operación y comprobaciones pendientes
 

@@ -5,7 +5,7 @@
 - El trabajo normal parte de `dev` en una rama `feature/<issue>-<descripcion>` o `fix/<issue>-<descripcion>`.
 - Los pull requests de trabajo apuntan a `dev` y usan `Refs #<numero>`. No uses `Fixes` ni `Closes` antes de una publicación correcta.
 - No hagas push directo a `dev` o `main`, no crees tags ni Releases y no cambies etiquetas de estado de los Issues.
-- La versión continúa siendo `0.1.0` hasta que Pablo apruebe expresamente otra.
+- La versión aprobada para esta rama de publicación es `0.2.0`.
 - Antes de entregar código ejecuta `npm run lint`, `npm test`, `npm run build` y `npx cap sync android`.
 - Para cambios Android, compila también el APK correspondiente cuando el entorno lo permita.
 - No afirmes que una función está validada en la Teclast T65 si no existe una prueba física realizada por una persona.

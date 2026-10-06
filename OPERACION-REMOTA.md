@@ -1,6 +1,6 @@
 # Operación remota de Pablo Tablet
 
-> Versión de producto actual: `0.1.0`
+> Versión de producto actual: `0.2.0`
 >
 > Actualizado: 06/10/2026
 
@@ -8,7 +8,7 @@ Este documento explica cómo se mantiene y administra Pablo Tablet cuando la Tec
 
 ## Mapa de capacidades
 
-| Capacidad | Alcance de red | Estado en `0.1.0` | Documento detallado |
+| Capacidad | Alcance de red | Estado en `0.2.0` | Documento detallado |
 | --- | --- | --- | --- |
 | Uso normal de la tablet | Sin Internet, salvo servicios concretos como Tiempo | Implementado | [README](README.md) |
 | Administración desde un móvil vinculado | Misma Wi‑Fi que la tablet | Implementada en código; validación completa pendiente | [ADMINISTRACION-MOVIL](ADMINISTRACION-MOVIL.md) |
@@ -58,7 +58,7 @@ El código fuente de `Pablo-Tablet` es público para que cualquier persona pueda
 11. Una persona en la vivienda confirma la instalación cuando Android la solicite.
 12. Tras reiniciarse la app, se comprueba la versión instalada y el funcionamiento del modo hogar.
 
-La instalación completamente silenciosa no forma parte de `0.1.0`. Exigiría administrar la tablet como Device Owner/MDM.
+La instalación completamente silenciosa no forma parte de `0.2.0`. Exigiría administrar la tablet como Device Owner/MDM.
 
 ## Flujo de administración móvil local
 
@@ -86,7 +86,7 @@ Antes de trasladar la tablet a la otra vivienda hay que completar:
 - configurar los secretos de GitHub Actions;
 - proteger los datos actuales y hacer la instalación inicial firmada;
 - autorizar una vez la instalación desde Pablo Tablet;
-- publicar y probar una Release real sin cambiar `0.1.0` salvo instrucción expresa;
+- publicar y probar la Release `0.2.0` sin cambiar de nuevo el número salvo instrucción expresa;
 - validar la administración móvil con el router y los móviles de la vivienda;
 - documentar quién puede confirmar físicamente una instalación o un nuevo emparejamiento.
 
@@ -105,4 +105,4 @@ La lista de secretos, etiquetas, permisos y comprobaciones iniciales se mantiene
 
 ## Regla de versionado
 
-La versión actual es `0.1.0`. Los tags, `versionName`, documentación y Releases deben conservar ese número hasta que Pablo comunique expresamente el siguiente.
+La versión actual es `0.2.0`. Los tags, `versionName`, documentación y Releases deben conservar ese número hasta que Pablo comunique expresamente el siguiente.

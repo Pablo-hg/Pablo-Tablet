@@ -2,7 +2,7 @@
 
 Este documento define el proceso de trabajo de Pablo Tablet. Su objetivo es mantener `main` siempre estable y distribuible, probar conjuntamente los cambios antes de publicarlos y conservar la relación entre GitHub Issues, ramas, pull requests, versiones y APK.
 
-La versión de producto actual continúa siendo `0.1.0`. Integrar código no cambia por sí solo ese número: una versión nueva existe cuando se crea un tag aprobado y el workflow publica correctamente su Release.
+La versión de producto preparada para publicación es `0.2.0`. Integrar código no cambia por sí solo ese número: la nueva versión estará disponible cuando se cree el tag aprobado y el workflow publique correctamente su Release.
 
 ## Ramas permanentes
 

@@ -1,6 +1,6 @@
 # Configuración remota y estado operativo
 
-> Versión de producto: `0.1.0`
+> Versión de producto: `0.2.0`
 >
 > Actualizado: 06/10/2026
 

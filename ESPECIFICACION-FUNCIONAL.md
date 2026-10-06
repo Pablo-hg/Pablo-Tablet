@@ -2,7 +2,7 @@
 
 > Estado: documento actualizado con el estado real del proyecto en el repositorio
 > Actualizado: 05/10/2026
-> Versión actual: `0.1.0`; solo cambia por indicación expresa de Pablo.
+> Versión actual: `0.2.0`; solo cambia por indicación expresa de Pablo.
 > Prevalencia: este documento y el README son la referencia funcional actual. La operación remota se detalla en `OPERACION-REMOTA.md`; los archivos de `chats/` siguen siendo históricos.
 
 ## 1. Alcance real del MVP
@@ -124,7 +124,7 @@ Las actualizaciones y el futuro envío de comentarios utilizan Internet. Ninguna
 
 ## 12. Operación remota y actualizaciones
 
-- La versión actual es `0.1.0` y su cambio requiere confirmación expresa de Pablo.
+- La versión actual es `0.2.0` y su cambio requiere confirmación expresa de Pablo.
 - La interfaz de actualización y el plugin Android están implementados y validados con una compilación debug.
 - El canal de producción requiere repositorio público de Releases, clave definitiva, secretos y una primera instalación firmada.
 - Android solicitará confirmación física para instalar mientras la tablet no sea un dispositivo administrado.
