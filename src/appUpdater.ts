@@ -1,4 +1,9 @@
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+
+export interface InstalledAppVersion {
+  currentVersionName: string
+  currentVersionCode: number
+}
 
 export interface AppUpdateInfo {
   currentVersionName: string
@@ -21,15 +26,24 @@ export interface AppUpdateDownloadResult {
   bytesDownloaded: number
 }
 
+export interface AppUpdateProgress {
+  phase: 'downloading' | 'verifying' | 'ready'
+  bytesDownloaded: number
+  totalBytes: number | null
+  percent: number | null
+}
+
 export interface AppUpdateInstallResult {
   permissionRequired: boolean
   installerOpened: boolean
 }
 
 interface AppUpdaterPlugin {
+  getInstalledVersion(): Promise<InstalledAppVersion>
   checkForUpdate(): Promise<AppUpdateInfo>
   downloadUpdate(options: { downloadUrl: string; sha256: string; assetName: string }): Promise<AppUpdateDownloadResult>
   installDownloadedUpdate(): Promise<AppUpdateInstallResult>
+  addListener(eventName: 'downloadProgress', listener: (progress: AppUpdateProgress) => void): Promise<PluginListenerHandle>
 }
 
 const AppUpdater = registerPlugin<AppUpdaterPlugin>('AppUpdater')
@@ -58,10 +72,23 @@ export async function checkForAppUpdate(): Promise<AppUpdateInfo> {
   return AppUpdater.checkForUpdate()
 }
 
-export async function downloadAppUpdate(update: AppUpdateInfo): Promise<AppUpdateDownloadResult> {
+export async function getInstalledAppVersion(): Promise<InstalledAppVersion> {
+  if (!appUpdatesSupported()) return { currentVersionName: 'web', currentVersionCode: 0 }
+  return AppUpdater.getInstalledVersion()
+}
+
+export async function downloadAppUpdate(
+  update: AppUpdateInfo,
+  onProgress?: (progress: AppUpdateProgress) => void,
+): Promise<AppUpdateDownloadResult> {
   if (!appUpdatesSupported()) throw new Error('Las actualizaciones solo se pueden instalar desde la tablet Android.')
   if (!update.downloadUrl || !update.sha256 || !update.assetName) throw new Error('La Release no contiene un APK verificable.')
-  return AppUpdater.downloadUpdate({ downloadUrl: update.downloadUrl, sha256: update.sha256, assetName: update.assetName })
+  const listener = onProgress ? await AppUpdater.addListener('downloadProgress', onProgress) : null
+  try {
+    return await AppUpdater.downloadUpdate({ downloadUrl: update.downloadUrl, sha256: update.sha256, assetName: update.assetName })
+  } finally {
+    await listener?.remove()
+  }
 }
 
 export async function installDownloadedAppUpdate(): Promise<AppUpdateInstallResult> {

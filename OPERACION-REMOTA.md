@@ -51,11 +51,11 @@ El código fuente y las Releases oficiales se mantienen en `Pablo-hg/Pablo-Table
 5. Se fusiona mediante PR hacia `main` y se crea el tag aprobado sobre ese resultado.
 6. GitHub Actions compila el APK con la clave definitiva y publica la Release en `Pablo-hg/Pablo-Tablet`.
 7. La tablet remota abre **Ajustes → Sistema → Actualizaciones** y consulta la última Release.
-8. Si la versión es superior, muestra las novedades y permite descargarla.
-9. La aplicación limita la descarga al repositorio de distribución oficial y verifica el SHA-256.
+8. Si la versión es superior, muestra las novedades y permite descargarla con porcentaje y tamaño transferido.
+9. La aplicación verifica el SHA-256 y espera una confirmación separada antes de abrir el instalador.
 10. Android valida el identificador, el `versionCode` y la firma del APK.
-11. Una persona en la vivienda confirma la instalación cuando Android la solicite.
-12. Tras reiniciarse la app, se comprueba la versión instalada y el funcionamiento del modo hogar.
+11. Una persona en la vivienda pulsa **Actualizar** cuando Android lo solicite.
+12. Al regresar a Pablo Tablet, la aplicación comprueba la versión instalada y comunica si terminó o permite reintentar.
 
 La instalación completamente silenciosa no forma parte de `0.2.0`. Exigiría administrar la tablet como Device Owner/MDM.
 

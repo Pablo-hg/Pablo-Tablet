@@ -13,7 +13,19 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-    private boolean kioskExitRequested = false;
+    private final Handler kioskHandler = new Handler(Looper.getMainLooper());
+    private boolean appExitRequested = false;
+    private boolean activityResumed = false;
+    private final Runnable startLockTaskRunnable = () -> {
+        if (appExitRequested || !activityResumed || !hasWindowFocus() || isInLockTaskMode()) return;
+
+        try {
+            startLockTask();
+        } catch (RuntimeException ignored) {
+            // The activity can lose focus while Android handles permissions or another native screen.
+            // onWindowFocusChanged will retry when Pablo Tablet is foreground again.
+        }
+    };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -27,59 +39,61 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         MobileAdminManager.get(this).start();
         getWindow().getDecorView().setOnSystemUiVisibilityChangeListener((visibility) -> {
-            if (!kioskExitRequested && (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+            if (!appExitRequested && (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::enableImmersiveMode, 80);
             }
         });
-        enterKioskMode();
+        enableImmersiveMode();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (!kioskExitRequested) {
+        activityResumed = true;
+        if (!appExitRequested) {
             enterKioskMode();
         }
     }
 
     @Override
+    public void onPause() {
+        activityResumed = false;
+        kioskHandler.removeCallbacks(startLockTaskRunnable);
+        super.onPause();
+    }
+
+    @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && !kioskExitRequested) {
-            enableImmersiveMode();
+        if (hasFocus && activityResumed && !appExitRequested) {
+            enterKioskMode();
         }
     }
 
     @Override
     public void onBackPressed() {
-        if (kioskExitRequested) {
+        if (appExitRequested) {
             super.onBackPressed();
         }
     }
 
     public void enterKioskMode() {
-        kioskExitRequested = false;
+        appExitRequested = false;
         enableImmersiveMode();
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            if (!isInLockTaskMode()) {
-                try {
-                    startLockTask();
-                } catch (IllegalStateException ignored) {
-                    // Immersive mode remains active when lock task is unavailable.
-                }
-            }
-        }, 350);
+        kioskHandler.removeCallbacks(startLockTaskRunnable);
+        kioskHandler.postDelayed(startLockTaskRunnable, 350);
     }
 
     public void exitKioskMode() {
-        kioskExitRequested = true;
+        appExitRequested = true;
+        kioskHandler.removeCallbacks(startLockTaskRunnable);
         leaveKioskMode();
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> finishAndRemoveTask(), 180);
     }
 
     public void prepareForExternalActivity() {
-        kioskExitRequested = true;
+        kioskHandler.removeCallbacks(startLockTaskRunnable);
         leaveKioskMode();
     }
 

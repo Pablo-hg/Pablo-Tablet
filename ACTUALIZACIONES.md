@@ -48,6 +48,10 @@ git push origin v0.2.0
 
 El workflow `.github/workflows/android-release.yml` ejecuta lint, tests y build, compila un APK firmado y crea la Release con su APK y SHA-256. La tablet podrá encontrarla desde `Ajustes > Sistema > Actualizaciones`.
 
+En la tablet, la actualización se realiza en tres pasos visibles: **Descarga**, **Verificación** e **Instalación**. Durante la descarga se muestran el porcentaje y los MB transferidos. Al terminar la verificación SHA-256, la aplicación espera a que el usuario pulse **Continuar con la instalación** antes de abrir Android. Al regresar, comprueba la versión instalada y confirma si la actualización terminó o permite reabrir el instalador y volver a descargar.
+
+La interfaz muestra únicamente el `versionName` público (`0.2.0`, `0.2.1`, etc.). El `versionCode` interno no se enseña al usuario, aunque Android lo sigue utilizando para impedir instalaciones antiguas. Una instalación que todavía contenga el actualizador anterior puede necesitar una última actualización manual; las versiones posteriores ya consultarán las Releases del repositorio principal.
+
 Fusionar una rama en `dev` o terminar sus pruebas no publica por sí solo una actualización. Los cambios aprobados se trasladan de forma selectiva a una rama `release/<version>` creada desde `main`, se validan de nuevo y llegan a `main` mediante PR. GitHub Actions solo acepta `release/*` o `hotfix/*` como origen de un PR hacia `main`. La publicación empieza únicamente al crear un tag `vX.Y.Z` sobre el commit fusionado. Después de una Release correcta, el workflow localiza ese PR y marca como `implementado` los Issues enumerados en él.
 
 No incrementar, reutilizar ni cambiar un número de versión sin indicación expresa de Pablo. Tampoco publicar manualmente APK firmados con otra clave.
