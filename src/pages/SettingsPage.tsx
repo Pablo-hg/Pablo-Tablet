@@ -1,4 +1,4 @@
-import { CalendarDays, Clock3, CloudSun, FileText, Home, Images, LogOut, Moon, Palette, SunMedium, Volume2 } from 'lucide-react'
+import { CalendarDays, Clock3, CloudSun, FileText, Home, Images, LogOut, Moon, Palette, RotateCw, SunMedium, Volume2 } from 'lucide-react'
 import { DASHBOARD_PAGES, type DashboardPageId, type DashboardPreferences } from '../dashboardState'
 import { playInteractionSound, previewDeviceVolume } from '../deviceSettings'
 import { exitTabletApp } from '../kioskMode'
@@ -47,7 +47,7 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
 
       <MobileAdminSettings />
 
-      <section className="settings-list device-settings" aria-label="Ajustes del dispositivo">
+      <section className="settings-section settings-list device-settings" aria-label="Ajustes del dispositivo">
         <div className="device-settings-heading"><p className="eyebrow">Dispositivo</p><h2>Pantalla y sonido</h2></div>
         <div className={`night-mode-settings ${nightModeActive ? 'is-active' : ''}`}>
           <SettingToggle
@@ -67,6 +67,7 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
             <SettingsRange icon={<Volume2 size={20} />} label="Volumen nocturno" value={preferences.nightMediaVolume} minimum={0} onChange={(nightMediaVolume) => onPreferencesChange({ nightMediaVolume })} />
           </div> : null}
         </div>
+        <SettingToggle icon={<RotateCw size={20} />} title="Rotación automática" detail={preferences.autoRotate ? 'La pantalla cambia al girar la tablet.' : 'La orientación actual permanecerá bloqueada.'} checked={preferences.autoRotate} onChange={(autoRotate) => onPreferencesChange({ autoRotate })} />
         <SettingToggle icon={<SunMedium size={20} />} title={nightModeActive && preferences.autoBrightness ? 'Brillo automático en pausa' : 'Brillo automático'} detail={nightModeActive && preferences.autoBrightness ? 'Se recuperará al terminar el horario nocturno.' : 'Adapta el brillo a la luz ambiental de la habitación.'} checked={preferences.autoBrightness} onChange={(autoBrightness) => onPreferencesChange({ autoBrightness })} />
         <SettingsRange icon={<SunMedium size={20} />} label="Brillo" value={preferences.brightness} minimum={10} disabled={preferences.autoBrightness} onChange={(brightness) => onPreferencesChange({ brightness })} />
         <SettingsRange icon={<Volume2 size={20} />} label="Volumen de alarmas" value={preferences.alarmVolume} minimum={0} onChange={(alarmVolume) => { onPreferencesChange({ alarmVolume }); void previewDeviceVolume('alarm', alarmVolume) }} />
