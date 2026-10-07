@@ -39,6 +39,15 @@ public class AppUpdaterPlugin extends Plugin {
     private static final long MAX_APK_BYTES = 500L * 1024L * 1024L;
 
     @PluginMethod
+    public void getInstalledVersion(PluginCall call) {
+        try {
+            call.resolve(installedVersionResponse());
+        } catch (Exception error) {
+            call.reject(message(error, "No se pudo consultar la versión instalada."), error);
+        }
+    }
+
+    @PluginMethod
     public void checkForUpdate(PluginCall call) {
         new Thread(() -> {
             HttpURLConnection connection = null;
@@ -116,9 +125,11 @@ public class AppUpdaterPlugin extends Plugin {
                 if (status != HttpURLConnection.HTTP_OK) throw new IllegalStateException("GitHub respondió con el código " + status + ".");
                 long declaredSize = connection.getContentLengthLong();
                 if (declaredSize > MAX_APK_BYTES) throw new IllegalStateException("El APK supera el tamaño máximo permitido.");
+                notifyDownloadProgress("downloading", 0, declaredSize);
 
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
                 long downloaded = 0;
+                long lastProgressNotification = 0;
                 try (InputStream input = new BufferedInputStream(connection.getInputStream()); FileOutputStream output = new FileOutputStream(temporary)) {
                     byte[] buffer = new byte[16 * 1024];
                     int count;
@@ -127,10 +138,16 @@ public class AppUpdaterPlugin extends Plugin {
                         if (downloaded > MAX_APK_BYTES) throw new IllegalStateException("El APK supera el tamaño máximo permitido.");
                         output.write(buffer, 0, count);
                         digest.update(buffer, 0, count);
+                        long now = System.currentTimeMillis();
+                        if (now - lastProgressNotification >= 200 || (declaredSize > 0 && downloaded >= declaredSize)) {
+                            notifyDownloadProgress("downloading", downloaded, declaredSize);
+                            lastProgressNotification = now;
+                        }
                     }
                     output.getFD().sync();
                 }
 
+                notifyDownloadProgress("verifying", downloaded, declaredSize);
                 String actualSha256 = hex(digest.digest());
                 if (!actualSha256.equalsIgnoreCase(expectedSha256)) {
                     throw new SecurityException("La huella del APK descargado no coincide con la publicada en GitHub.");
@@ -139,6 +156,7 @@ public class AppUpdaterPlugin extends Plugin {
                 File destination = downloadedUpdate();
                 if (destination.exists() && !destination.delete()) throw new IllegalStateException("No se pudo reemplazar la descarga anterior.");
                 if (!temporary.renameTo(destination)) throw new IllegalStateException("No se pudo guardar el APK descargado.");
+                notifyDownloadProgress("ready", downloaded, declaredSize);
 
                 JSObject response = new JSObject();
                 response.put("readyToInstall", true);
@@ -162,31 +180,33 @@ public class AppUpdaterPlugin extends Plugin {
             return;
         }
 
-        try {
-            prepareForExternalActivity();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getContext().getPackageManager().canRequestPackageInstalls()) {
-                Intent settingsIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()));
-                getActivity().startActivity(settingsIntent);
+        getActivity().runOnUiThread(() -> {
+            try {
+                prepareForExternalActivity();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getContext().getPackageManager().canRequestPackageInstalls()) {
+                    Intent settingsIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()));
+                    getActivity().startActivity(settingsIntent);
+                    JSObject response = new JSObject();
+                    response.put("permissionRequired", true);
+                    response.put("installerOpened", false);
+                    call.resolve(response);
+                    return;
+                }
+
+                Uri apkUri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", apk);
+                Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                getActivity().startActivity(installIntent);
+
                 JSObject response = new JSObject();
-                response.put("permissionRequired", true);
-                response.put("installerOpened", false);
+                response.put("permissionRequired", false);
+                response.put("installerOpened", true);
                 call.resolve(response);
-                return;
+            } catch (Exception error) {
+                call.reject(message(error, "No se pudo abrir el instalador de Android."), error);
             }
-
-            Uri apkUri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", apk);
-            Intent installIntent = new Intent(Intent.ACTION_VIEW);
-            installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-            installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-            getActivity().startActivity(installIntent);
-
-            JSObject response = new JSObject();
-            response.put("permissionRequired", false);
-            response.put("installerOpened", true);
-            call.resolve(response);
-        } catch (Exception error) {
-            call.reject(message(error, "No se pudo abrir el instalador de Android."), error);
-        }
+        });
     }
 
     private HttpURLConnection openConnection(URL url) throws Exception {
@@ -271,6 +291,15 @@ public class AppUpdaterPlugin extends Plugin {
 
     private File downloadedUpdate() {
         return new File(updateDirectory(), UPDATE_FILE);
+    }
+
+    private void notifyDownloadProgress(String phase, long downloaded, long total) {
+        JSObject progress = new JSObject();
+        progress.put("phase", phase);
+        progress.put("bytesDownloaded", downloaded);
+        progress.put("totalBytes", total > 0 ? total : JSONObject.NULL);
+        progress.put("percent", total > 0 ? Math.min(100, Math.round(downloaded * 100f / total)) : JSONObject.NULL);
+        getActivity().runOnUiThread(() -> notifyListeners("downloadProgress", progress));
     }
 
     private void prepareForExternalActivity() {
