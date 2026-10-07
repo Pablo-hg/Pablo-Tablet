@@ -480,6 +480,19 @@
 .tablet-shell[data-theme] .note-drawing-toolbar { background: color-mix(in srgb, var(--theme-surface-solid) 92%, transparent); border-color: var(--theme-border); }
 .tablet-shell[data-theme] .note-drawing-toolbar :is(button, .note-stroke-width) { background: var(--theme-surface-soft); border-color: var(--theme-border); color: var(--theme-muted); }
 .tablet-shell[data-theme] .note-drawing-toolbar button.is-active { background: var(--theme-accent-soft); border-color: var(--theme-border-strong); color: var(--theme-text); }
+.tablet-shell[data-theme] .note-drawing-toolbar .note-ink-colors button {
+  background: var(--ink-color);
+  border-color: color-mix(in srgb, var(--theme-text) 35%, transparent);
+}
+.tablet-shell[data-theme] .note-drawing-toolbar .note-ink-colors button.is-active {
+  background: var(--ink-color);
+  border-color: var(--theme-text);
+  box-shadow: 0 0 0 2px var(--theme-accent);
+}
+.tablet-shell[data-theme] .color-dot.is-active {
+  border-color: var(--theme-text);
+  box-shadow: 0 0 0 2px var(--theme-accent);
+}
 
 .tablet-shell[data-theme] .alarm-editor { background: var(--theme-surface-solid); border-color: var(--theme-border-strong); color: var(--theme-text); }
 .tablet-shell[data-theme] .editor-close { background: var(--theme-surface-soft); border-color: var(--theme-border); color: var(--theme-text); }
@@ -528,6 +541,161 @@
   .weather-forecast strong,
   .gallery-empty h2
 ) { color: var(--theme-text); }
+
+/* Calendar: event colours remain categorical; text always follows the active theme. */
+.tablet-shell[data-theme] .calendar-cell-events > span {
+  background: var(--theme-accent-soft);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] .calendar-cell-events > span.event-mint { background: color-mix(in srgb, #55d8b0 22%, var(--theme-surface-solid)); }
+.tablet-shell[data-theme] .calendar-cell-events > span.event-coral { background: color-mix(in srgb, #ff9e82 22%, var(--theme-surface-solid)); }
+.tablet-shell[data-theme] .calendar-cell-events > span.event-sun { background: color-mix(in srgb, #f7c76e 24%, var(--theme-surface-solid)); }
+.tablet-shell[data-theme] :is(.calendar-day-event, .calendar-upcoming-event) strong { color: var(--theme-text); }
+.tablet-shell[data-theme] :is(.calendar-day-event, .calendar-upcoming-event) small { color: var(--theme-muted); }
+.tablet-shell[data-theme] .calendar-event-time { color: var(--theme-accent); font-weight: 750; }
+.tablet-shell[data-theme] .calendar-recurrence-mark { color: var(--theme-muted); }
+.tablet-shell[data-theme] :is(.calendar-cell-events > span.is-completed, .calendar-cell-events > span.is-past, .calendar-day-event.is-completed, .calendar-day-event.is-past, .calendar-upcoming-event.is-completed) { opacity: 1; }
+.tablet-shell[data-theme] .calendar-toolbar .calendar-hide-completed.is-active {
+  background: var(--theme-accent);
+  border-color: var(--theme-accent);
+  color: var(--theme-accent-contrast);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-accent) 22%, transparent);
+}
+
+/* Clock: remove the original dark-theme-only text colours from every utility state. */
+.tablet-shell[data-theme] :is(.alarm-summary, .alarm-summary > strong, .alarm-summary b, .timer-summary, .timer-summary span, .timer-summary strong) { color: var(--theme-text); }
+.tablet-shell[data-theme] :is(.alarm-summary small, .alarm-summary > svg, .alarm-empty) { color: var(--theme-muted); }
+.tablet-shell[data-theme] .utility-tabs { background: var(--theme-inset); border-color: var(--theme-border); }
+.tablet-shell[data-theme] .utility-tabs button { color: var(--theme-muted); }
+.tablet-shell[data-theme] .utility-tabs button.is-active { background: var(--theme-accent-soft); color: var(--theme-text); }
+.tablet-shell[data-theme] .stopwatch-panel { color: var(--theme-muted); }
+.tablet-shell[data-theme] .stopwatch-panel > strong { color: var(--theme-text); }
+.tablet-shell[data-theme] .text-action { background: var(--theme-surface-soft); border-color: var(--theme-border); color: var(--theme-text); }
+.tablet-shell[data-theme] .text-action.is-active { background: var(--theme-accent-soft); border-color: var(--theme-border-strong); color: var(--theme-text); }
+.tablet-shell[data-theme] .text-action.danger { color: var(--theme-danger); }
+
+/* Weather: full-page controls and forecast copy use semantic contrast roles. */
+.tablet-shell[data-theme] .weather-location-chip button { color: var(--theme-text); }
+.tablet-shell[data-theme] .weather-location-chip.is-active { background: var(--theme-accent-soft); border-color: var(--theme-border-strong); }
+.tablet-shell[data-theme] .weather-location-chip small { background: var(--theme-accent-soft); color: var(--theme-accent); }
+.tablet-shell[data-theme] .weather-location-chip .weather-chip-action { border-color: var(--theme-border); color: var(--theme-muted); }
+.tablet-shell[data-theme] .weather-location-chip .weather-chip-action:hover { background: var(--theme-surface-hover); color: var(--theme-text); }
+.tablet-shell[data-theme] .weather-search-results > button { color: var(--theme-text); }
+.tablet-shell[data-theme] :is(.weather-search-results > button small, .weather-search-results > p) { color: var(--theme-muted); }
+.tablet-shell[data-theme] :is(.weather-refresh, .weather-empty-state > button) { background: var(--theme-accent-soft); border-color: var(--theme-border-strong); color: var(--theme-text); }
+.tablet-shell[data-theme] .weather-current-main > div > strong { color: var(--theme-text); }
+.tablet-shell[data-theme] .weather-current-main p { color: var(--theme-text); }
+.tablet-shell[data-theme] .weather-current-main span { color: var(--theme-muted); }
+.tablet-shell[data-theme] .weather-stats > div { background: var(--theme-inset); border-color: var(--theme-border); color: var(--theme-accent); }
+.tablet-shell[data-theme] .weather-stats span { color: var(--theme-muted); }
+.tablet-shell[data-theme] .weather-stats strong { color: var(--theme-text); }
+.tablet-shell[data-theme] .hourly-forecast > div { color: var(--theme-muted); }
+.tablet-shell[data-theme] .hourly-forecast span { color: var(--theme-muted); }
+.tablet-shell[data-theme] .hourly-forecast strong { color: var(--theme-text); }
+.tablet-shell[data-theme] .hourly-forecast small { color: var(--theme-muted); }
+.tablet-shell[data-theme] .forecast-heading > span { color: var(--theme-text); }
+.tablet-shell[data-theme] :is(.forecast-heading small, .daily-copy small, .weather-source-note, .weather-empty-state p, .weather-widget-empty span) { color: var(--theme-muted); }
+.tablet-shell[data-theme] :is(.daily-copy strong, .daily-forecast-row > strong, .weather-empty-state h2, .weather-widget-empty strong) { color: var(--theme-text); }
+
+/* Mobile administration: server and authorized-device cards follow the settings theme. */
+.tablet-shell[data-theme] :is(.mobile-server-status, .authorized-device, .pairing-request) {
+  background: var(--theme-surface-soft);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] :is(.mobile-server-status, .authorized-device, .pairing-request) strong { color: var(--theme-text); }
+.tablet-shell[data-theme] :is(.mobile-server-status small, .authorized-device small, .pairing-request small, .settings-help, .empty-mobile-devices) { color: var(--theme-muted); }
+.tablet-shell[data-theme] .mobile-status-icon {
+  background: var(--theme-inset);
+  color: var(--theme-muted);
+}
+.tablet-shell[data-theme] .mobile-server-status.is-online .mobile-status-icon {
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent);
+}
+.tablet-shell[data-theme] .authorized-devices-heading { color: var(--theme-text); }
+.tablet-shell[data-theme] .authorized-devices-heading span {
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent);
+}
+.tablet-shell[data-theme] .authorized-device-copy input {
+  background: var(--theme-inset-strong);
+  border-color: var(--theme-border-strong);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] .pairing-panel {
+  background: var(--theme-surface-solid);
+  border-color: var(--theme-border-strong);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] .pairing-panel-header small { color: var(--theme-muted); }
+.tablet-shell[data-theme] .pairing-address {
+  background: var(--theme-inset-strong);
+  color: var(--theme-accent);
+}
+.tablet-shell[data-theme] .pairing-request {
+  background: color-mix(in srgb, var(--theme-warm) 12%, var(--theme-surface-solid));
+  border-color: color-mix(in srgb, var(--theme-warm) 42%, var(--theme-border));
+}
+.tablet-shell[data-theme] .pairing-request-actions button {
+  background: var(--theme-surface-soft);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] .pairing-request-actions .is-primary,
+.tablet-shell[data-theme] .mobile-pair-button {
+  background: var(--theme-accent);
+  border-color: var(--theme-accent);
+  color: var(--theme-accent-contrast);
+}
+.tablet-shell[data-theme] .mobile-admin-message {
+  background: var(--theme-accent-soft);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] .mobile-admin-message.is-error {
+  background: color-mix(in srgb, var(--theme-danger) 14%, var(--theme-surface-solid));
+  color: var(--theme-danger);
+}
+
+.tablet-shell[data-theme] .app-update-settings { border-color: var(--theme-border); }
+.tablet-shell[data-theme] .app-update-card {
+  background: var(--theme-surface-soft);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] .app-update-ok { color: var(--theme-accent); }
+.tablet-shell[data-theme] .app-update-notes {
+  background: var(--theme-inset);
+  border-color: var(--theme-border);
+  color: var(--theme-muted);
+}
+.tablet-shell[data-theme] .app-update-notes summary { color: var(--theme-text); }
+.tablet-shell[data-theme] .app-update-message {
+  background: var(--theme-accent-soft);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] .app-update-message.is-error {
+  background: color-mix(in srgb, var(--theme-danger) 14%, var(--theme-surface-solid));
+  color: var(--theme-danger);
+}
+.tablet-shell[data-theme] .app-update-actions button {
+  background: var(--theme-surface-soft);
+  border-color: var(--theme-border);
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] .app-update-actions button.is-primary {
+  background: var(--theme-accent);
+  border-color: var(--theme-accent);
+  color: var(--theme-accent-contrast);
+}
+.tablet-shell[data-theme] .exit-app-row {
+  border-color: color-mix(in srgb, var(--theme-danger) 42%, var(--theme-border));
+  color: var(--theme-text);
+}
+.tablet-shell[data-theme] .exit-app-row .settings-icon {
+  background: color-mix(in srgb, var(--theme-danger) 14%, transparent);
+  color: var(--theme-danger);
+}
 
 .tablet-shell[data-theme] :where(
   .calendar-widget-month,
@@ -738,6 +906,9 @@
 .tablet-shell[data-theme="brutalist"] .gallery-screensaver-agenda :is(strong, small, p) { color: #070707; }
 
 .tablet-shell[data-theme="brutalist"] .settings-section { background: #73e7b7; }
+.tablet-shell[data-theme="brutalist"] :is(.mobile-server-status, .authorized-device, .pairing-request, .pairing-panel) { background: #fffaf0; border: 3px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .mobile-server-status.is-online .mobile-status-icon { background: #73e7b7; border: 2px solid #070707; color: #070707; }
+.tablet-shell[data-theme="brutalist"] .authorized-devices-heading span { background: #ffdc2f; border: 2px solid #070707; color: #070707; }
 .tablet-shell[data-theme="brutalist"] .night-mode-settings.is-active { background: #fff4a8; border: 4px solid #070707; box-shadow: 8px 9px 0 #070707; }
 .tablet-shell[data-theme="brutalist"] .night-mode-settings.is-active > .settings-row { background: #fffaf0; }
 .tablet-shell[data-theme="brutalist"] .settings-list > .settings-row { background: #fffaf0; }

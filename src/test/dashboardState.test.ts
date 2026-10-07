@@ -40,6 +40,11 @@ describe('migraciones del estado', () => {
     expect(state.widgets.find((widget) => widget.id === 'clock')?.layouts.landscape).toEqual({ x: 2, y: 0, width: 2, height: 1 })
     expect(state.preferences.enabledPageIds[0]).toBe('dashboard')
     expect(state.preferences.themeId).toBe('original')
+    expect(state.preferences.autoRotate).toBe(true)
+  })
+
+  it('conserva la preferencia para bloquear la rotación', () => {
+    expect(loadDashboardState(JSON.stringify({ preferences: { autoRotate: false } })).preferences.autoRotate).toBe(false)
   })
 
   it('conserva temas válidos y descarta identificadores desconocidos', () => {

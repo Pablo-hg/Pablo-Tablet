@@ -28,6 +28,7 @@ export interface DashboardPreferences {
   alarmVolume: number
   mediaVolume: number
   interactionSoundsEnabled: boolean
+  autoRotate: boolean
   keepScreenAwake: boolean
   screenTimeoutSeconds: number
   hideCompletedCalendarTasks: boolean
@@ -191,6 +192,7 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
     alarmVolume: 80,
     mediaVolume: 60,
     interactionSoundsEnabled: true,
+    autoRotate: true,
     keepScreenAwake: true,
     screenTimeoutSeconds: 60,
     hideCompletedCalendarTasks: false,
@@ -537,6 +539,9 @@ export function loadDashboardState(serializedState?: string): DashboardState {
         interactionSoundsEnabled: typeof parsedPreferences.interactionSoundsEnabled === 'boolean'
           ? parsedPreferences.interactionSoundsEnabled
           : DEFAULT_DASHBOARD_STATE.preferences.interactionSoundsEnabled,
+        autoRotate: typeof parsedPreferences.autoRotate === 'boolean'
+          ? parsedPreferences.autoRotate
+          : DEFAULT_DASHBOARD_STATE.preferences.autoRotate,
         keepScreenAwake: typeof parsedPreferences.keepScreenAwake === 'boolean'
           ? parsedPreferences.keepScreenAwake
           : DEFAULT_DASHBOARD_STATE.preferences.keepScreenAwake,

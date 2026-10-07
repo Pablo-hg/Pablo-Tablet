@@ -7,9 +7,9 @@ import { syncAlarmNotifications, syncCalendarEventNotifications, syncReminderNot
 export function useDeviceEffects(state: DashboardState, nightModeActive: boolean) {
   useEffect(() => {
     const activeSettings = effectiveDeviceSettings(state.preferences, nightModeActive)
-    const { autoBrightness, brightness, alarmVolume, mediaVolume, keepScreenAwake, screenTimeoutSeconds } = activeSettings
+    const { autoBrightness, brightness, alarmVolume, mediaVolume, autoRotate, keepScreenAwake, screenTimeoutSeconds } = activeSettings
     const timeout = window.setTimeout(() => {
-      void applyDeviceSettings(autoBrightness, brightness, alarmVolume, mediaVolume, keepScreenAwake, screenTimeoutSeconds)
+      void applyDeviceSettings(autoBrightness, brightness, alarmVolume, mediaVolume, autoRotate, keepScreenAwake, screenTimeoutSeconds)
         .catch((error) => console.warn('No se pudieron aplicar los ajustes del dispositivo.', error))
     }, 80)
     return () => window.clearTimeout(timeout)
