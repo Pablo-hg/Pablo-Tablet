@@ -27,6 +27,7 @@ export function effectiveDeviceSettings(preferences: DashboardPreferences, night
     brightness: nightModeActive ? preferences.nightBrightness : preferences.brightness,
     alarmVolume: nightModeActive ? preferences.nightAlarmVolume : preferences.alarmVolume,
     mediaVolume: nightModeActive ? preferences.nightMediaVolume : preferences.mediaVolume,
+    autoRotate: preferences.autoRotate,
     keepScreenAwake: preferences.keepScreenAwake,
     screenTimeoutSeconds: preferences.screenTimeoutSeconds,
   }

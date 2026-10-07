@@ -355,7 +355,7 @@
 .calendar-toolbar > div:last-child { display: flex; gap: 6px; }
 .calendar-toolbar button { align-items: center; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.11); border-radius: 11px; color: #e8efff; cursor: pointer; display: flex; font: inherit; justify-content: center; min-height: 36px; padding: 7px 9px; }
 .calendar-toolbar .calendar-today-button { font-size: .72rem; padding-left: 13px; padding-right: 13px; }
-.calendar-toolbar .calendar-hide-completed { gap: 5px; padding-left: 11px; padding-right: 11px; }.calendar-hide-completed span { font-size: .62rem; white-space: nowrap; }.calendar-toolbar .calendar-hide-completed.is-active { background: rgba(85,216,176,.16); border-color: rgba(85,216,176,.35); color: #8deacb; }
+.calendar-toolbar .calendar-hide-completed { gap: 5px; padding-left: 11px; padding-right: 11px; }.calendar-hide-completed span { font-size: .62rem; white-space: nowrap; }
 .calendar-weekdays, .calendar-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 .calendar-weekdays { color: #8f9eb8; font-size: .65rem; font-weight: 700; margin-top: clamp(14px, 2.5vh, 22px); text-align: center; text-transform: uppercase; }
 .calendar-weekdays span { padding: 5px; }
@@ -762,7 +762,7 @@
   .settings-list .settings-icon { height: 36px; width: 36px; }
   .settings-list .settings-copy small { font-size: .7rem; }
   .device-settings-heading { padding-bottom: 0; }
-  .device-settings { gap: 6px; grid-area: device; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; scrollbar-color: rgba(255,255,255,.24) transparent; -webkit-overflow-scrolling: touch; }
+  .device-settings { box-sizing: border-box; gap: 6px; grid-area: device; height: 100%; max-height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 14px 10px 14px 14px; scrollbar-color: rgba(255,255,255,.24) transparent; -webkit-overflow-scrolling: touch; }
   .device-settings .settings-row { border-radius: 15px; padding: 8px 10px; }
   .device-settings .settings-icon { height: 32px; width: 32px; }
   .device-settings .settings-copy small { display: none; }
