@@ -30,6 +30,11 @@ describe('navegación y flujos principales', () => {
     expect(screen.getByRole('heading', { name: 'Ajustes' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Páginas' })).toBeInTheDocument()
 
+    const rotationToggle = screen.getByRole('switch', { name: /Rotación automática/ })
+    expect(rotationToggle).toHaveAttribute('aria-checked', 'true')
+    await user.click(rotationToggle)
+    expect(rotationToggle).toHaveAttribute('aria-checked', 'false')
+
     await user.click(screen.getByRole('radio', { name: /1\. Cálido/ }))
     expect(document.querySelector('.tablet-shell')).toHaveAttribute('data-theme', 'warm')
 

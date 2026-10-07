@@ -1,6 +1,7 @@
 package com.pablohorcajada.tablet;
 
 import android.content.Context;
+import android.content.pm.ActivityInfo;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.hardware.Sensor;
@@ -31,6 +32,7 @@ public class DeviceSettingsPlugin extends Plugin implements SensorEventListener 
         boolean autoBrightness = call.getBoolean("autoBrightness", false);
         int alarmVolume = clamp(call.getInt("alarmVolume", 80), 0, 100);
         int mediaVolume = clamp(call.getInt("mediaVolume", 60), 0, 100);
+        boolean autoRotate = call.getBoolean("autoRotate", true);
         boolean keepScreenAwake = call.getBoolean("keepScreenAwake", true);
         int screenTimeoutSeconds = clamp(call.getInt("screenTimeoutSeconds", 60), 30, 600);
 
@@ -45,6 +47,12 @@ public class DeviceSettingsPlugin extends Plugin implements SensorEventListener 
         }
 
         getActivity().runOnUiThread(() -> {
+            getActivity().setRequestedOrientation(
+                autoRotate
+                    ? ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                    : ActivityInfo.SCREEN_ORIENTATION_LOCKED
+            );
+
             if (autoBrightness) {
                 enableAutomaticBrightness();
             } else {
