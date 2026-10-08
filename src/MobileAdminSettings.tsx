@@ -10,6 +10,7 @@ import {
   listPendingPairingRequests,
   renameAuthorizedDevice,
   revokeAuthorizedDevice,
+  setMobileAdminEnabled,
   type AuthorizedDevice,
   type MobileAdminStatus,
   type PairingRequest,
@@ -100,6 +101,20 @@ export function MobileAdminSettings() {
     }
   }
 
+  const toggleAccess = async () => {
+    if (!status) return
+    setBusy(true)
+    setMessage(null)
+    try {
+      if (status.enabled && pairing) await closePairing()
+      setStatus(await setMobileAdminEnabled(!status.enabled))
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo cambiar el acceso desde la red local.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const closePairing = async () => {
     if (pairing) await cancelMobilePairing(pairing.id)
     setPairing(null)
@@ -148,9 +163,14 @@ export function MobileAdminSettings() {
         <Smartphone size={22} />
       </div>
 
+      <button type="button" className="mobile-access-toggle" role="switch" aria-checked={status?.enabled ?? false} disabled={busy || !status} onClick={() => void toggleAccess()}>
+        <span><strong>Permitir administración desde otros dispositivos</strong><small>Solo desde la red Wi-Fi privada activa.</small></span>
+        <i className={status?.enabled ? 'is-on' : ''} aria-hidden="true"><b /></i>
+      </button>
+
       <div className={`mobile-server-status ${status?.running ? 'is-online' : 'is-offline'}`}>
         <span className="mobile-status-icon"><Wifi size={21} /></span>
-        <span><strong>{status?.running ? 'Servidor local activo' : 'Servidor no disponible'}</strong><small>{status?.localAddress ?? status?.hostname ?? 'Comprobando la conexión…'}</small></span>
+        <span><strong>{status?.running ? 'Servidor local activo' : status?.enabled ? 'Servidor no disponible' : 'Acceso desde la red desactivado'}</strong><small>{status?.localAddress ?? (status?.enabled ? 'Esperando una Wi-Fi privada…' : 'La tablet sigue funcionando con sus datos locales.')}</small></span>
         <button type="button" className="icon-button" onClick={() => void refresh()} aria-label="Actualizar servidor"><RefreshCw size={17} /></button>
       </div>
       <p className="settings-help">El móvil debe estar conectado a la misma Wi‑Fi. Los datos y las fotos siguen guardándose únicamente en esta tablet.</p>

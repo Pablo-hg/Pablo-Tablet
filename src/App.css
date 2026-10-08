@@ -551,6 +551,27 @@
   gap: 14px;
 }
 
+.mobile-access-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 17px;
+  color: inherit;
+  text-align: left;
+  background: rgba(14, 18, 43, 0.58);
+}
+
+.mobile-access-toggle > span { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.mobile-access-toggle small { color: var(--muted); }
+.mobile-access-toggle > i { width: 46px; height: 26px; padding: 3px; border-radius: 999px; background: rgba(255,255,255,.15); transition: background .2s ease; }
+.mobile-access-toggle > i > b { display: block; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s ease; }
+.mobile-access-toggle > i.is-on { background: #57cf9d; }
+.mobile-access-toggle > i.is-on > b { transform: translateX(20px); }
+.mobile-access-toggle:disabled { opacity: .58; }
+
 .mobile-server-status,
 .authorized-device,
 .pairing-request {
