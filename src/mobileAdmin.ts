@@ -1,10 +1,11 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 
 export interface MobileAdminStatus {
+  enabled: boolean
   running: boolean
   port: number
   localAddress: string | null
-  hostname: string
+  hostname: string | null
   error: string | null
 }
 
@@ -34,6 +35,7 @@ export interface AuthorizedDevice {
 
 interface MobileAdminPlugin {
   getStatus(): Promise<MobileAdminStatus>
+  setEnabled(options: { enabled: boolean }): Promise<MobileAdminStatus>
   createPairing(): Promise<PairingSession>
   cancelPairing(options: { id: string }): Promise<void>
   listPendingRequests(): Promise<{ requests: PairingRequest[] }>
@@ -51,8 +53,13 @@ export function supportsMobileAdmin() {
 }
 
 export async function getMobileAdminStatus(): Promise<MobileAdminStatus> {
-  if (!supportsMobileAdmin()) return { running: false, port: 8765, localAddress: null, hostname: 'http://pablotablet.local:8765', error: 'Disponible al ejecutar la app Android.' }
+  if (!supportsMobileAdmin()) return { enabled: false, running: false, port: 8765, localAddress: null, hostname: null, error: 'Disponible al ejecutar la app Android.' }
   return NativeMobileAdmin.getStatus()
+}
+
+export async function setMobileAdminEnabled(enabled: boolean): Promise<MobileAdminStatus> {
+  if (!supportsMobileAdmin()) return getMobileAdminStatus()
+  return NativeMobileAdmin.setEnabled({ enabled })
 }
 
 export async function createMobilePairing() {

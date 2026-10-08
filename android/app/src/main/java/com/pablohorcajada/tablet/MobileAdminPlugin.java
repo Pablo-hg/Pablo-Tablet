@@ -21,15 +21,27 @@ public class MobileAdminPlugin extends Plugin {
             manager.start();
             String localAddress = manager.localAddress();
             JSObject result = new JSObject();
+            result.put("enabled", manager.isEnabled());
             result.put("running", manager.isRunning());
             result.put("port", manager.port());
             result.put("localAddress", localAddress == null ? JSObject.NULL : localAddress);
-            result.put("hostname", "http://pablotablet.local:" + manager.port());
+            result.put("hostname", JSObject.NULL);
             result.put("error", manager.error() == null ? JSObject.NULL : manager.error());
             call.resolve(result);
         } catch (Exception error) {
             call.reject("No se pudo consultar el servidor local.", error);
         }
+    }
+
+    @PluginMethod
+    public void setEnabled(PluginCall call) {
+        Boolean enabled = call.getBoolean("enabled");
+        if (enabled == null) {
+            call.reject("Falta indicar si el acceso móvil debe estar activado.");
+            return;
+        }
+        manager.setEnabled(enabled);
+        getStatus(call);
     }
 
     @PluginMethod
