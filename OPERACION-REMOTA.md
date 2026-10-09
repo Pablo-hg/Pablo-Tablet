@@ -63,13 +63,14 @@ La instalación completamente silenciosa no forma parte de `0.1.0`. Exigiría ad
 
 1. La opción **Permitir administración desde otros dispositivos** está desactivada por defecto, tanto en instalaciones nuevas como al actualizar desde una versión que no guardaba esta preferencia. Los dispositivos ya vinculados se conservan, pero Pablo debe volver a activar expresamente el acceso LAN.
 2. Al activarla, la tablet inicia el servidor en la IPv4 privada de la Wi‑Fi activa y, desde Android 13, anuncia el servicio mDNS únicamente en esa red. En versiones anteriores se mantiene la URL por IP y se omite el anuncio global por seguridad.
-3. La tablet muestra un QR temporal desde **Ajustes → Administración móvil**.
-4. Un móvil conectado a la misma Wi‑Fi escanea el QR y solicita acceso.
-5. Una persona confirma físicamente la solicitud en la tablet.
-6. El móvil recibe una credencial individual y revocable.
-7. Al desactivar el acceso se invalidan los QR y solicitudes pendientes, se retira mDNS y se cierran el servidor y sus conexiones; la app de la tablet continúa usando SQLite directamente.
-8. El editor web modifica el estado almacenado en la tablet; no mantiene una copia maestra en la nube.
-9. WebSocket notifica los cambios y la interfaz vuelve a leer el estado compartido desde SQLite.
+3. La dirección se actualiza automáticamente al conectar, desconectar o cambiar de Wi‑Fi y al recibir otra IP. Ese cambio invalida cualquier QR o solicitud pendiente y vuelve a registrar mDNS en la red nueva.
+4. La tablet muestra un QR temporal desde **Ajustes → Administración móvil**.
+5. Un móvil conectado a la misma Wi‑Fi escanea el QR y solicita acceso.
+6. Una persona confirma físicamente la solicitud en la tablet.
+7. El móvil recibe una credencial individual y revocable.
+8. Al desactivar el acceso se invalidan los QR y solicitudes pendientes, se retira mDNS y se cierran el servidor y sus conexiones; la app de la tablet continúa usando SQLite directamente.
+9. El editor web modifica el estado almacenado en la tablet; no mantiene una copia maestra en la nube.
+10. WebSocket notifica los cambios y la interfaz vuelve a leer el estado compartido desde SQLite.
 
 Este flujo no permite administrar la tablet desde otra red. Su validación completa con móviles y routers reales continúa pendiente.
 

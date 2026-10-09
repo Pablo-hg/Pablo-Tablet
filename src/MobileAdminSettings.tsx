@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { Check, Link2, Pencil, RefreshCw, ShieldCheck, Smartphone, Unlink, Wifi, X } from 'lucide-react'
 import {
   cancelMobilePairing,
   createMobilePairing,
   decidePairingRequest,
+  addMobileAdminStatusListener,
   getMobileAdminStatus,
   listAuthorizedDevices,
   listPendingPairingRequests,
@@ -30,12 +31,30 @@ export function MobileAdminSettings() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [now, setNow] = useState(() => new Date().getTime())
+  const pairingRef = useRef<PairingSession | null>(null)
+
+  const storePairing = useCallback((nextPairing: PairingSession | null) => {
+    pairingRef.current = nextPairing
+    setPairing(nextPairing)
+  }, [])
+
+  const applyStatus = useCallback((nextStatus: MobileAdminStatus) => {
+    const currentPairing = pairingRef.current
+    if (currentPairing && currentPairing.networkGeneration !== nextStatus.networkGeneration) {
+      void cancelMobilePairing(currentPairing.id)
+      storePairing(null)
+      setPairingQr(null)
+      setRequests([])
+      setMessage('La Wi-Fi o la dirección IP han cambiado. El QR anterior ya no es válido; genera uno nuevo.')
+    }
+    setStatus(nextStatus)
+  }, [storePairing])
 
   const refresh = useCallback(async () => {
     const [nextStatus, nextDevices] = await Promise.all([getMobileAdminStatus(), listAuthorizedDevices()])
-    setStatus(nextStatus)
+    applyStatus(nextStatus)
     setDevices(nextDevices)
-  }, [])
+  }, [applyStatus])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -43,6 +62,23 @@ export function MobileAdminSettings() {
     }, 0)
     return () => window.clearTimeout(timeout)
   }, [refresh])
+
+  useEffect(() => {
+    let active = true
+    let removeListener: (() => Promise<void>) | undefined
+    void addMobileAdminStatusListener((nextStatus) => {
+      if (active) applyStatus(nextStatus)
+    }).then((handle) => {
+      if (!active) void handle.remove()
+      else removeListener = () => handle.remove()
+    }).catch((error) => {
+      if (active) setMessage(error instanceof Error ? error.message : 'No se pudieron observar los cambios de red.')
+    })
+    return () => {
+      active = false
+      if (removeListener) void removeListener()
+    }
+  }, [applyStatus])
 
   useEffect(() => {
     if (!pairing) return
@@ -60,7 +96,7 @@ export function MobileAdminSettings() {
       const currentTime = new Date().getTime()
       setNow(currentTime)
       if (currentTime >= pairing.expiresAt) {
-        setPairing(null)
+        storePairing(null)
         setRequests([])
         setMessage('El QR ha caducado. Genera uno nuevo para vincular otro móvil.')
         return
@@ -68,7 +104,7 @@ export function MobileAdminSettings() {
       void update()
     }, 1_000)
     return () => { cancelled = true; window.clearInterval(interval) }
-  }, [pairing])
+  }, [pairing, storePairing])
 
   useEffect(() => {
     if (!pairing) return
@@ -80,8 +116,8 @@ export function MobileAdminSettings() {
   }, [pairing])
 
   useEffect(() => () => {
-    if (pairing) void cancelMobilePairing(pairing.id)
-  }, [pairing])
+    if (pairingRef.current) void cancelMobilePairing(pairingRef.current.id)
+  }, [])
 
   const remainingSeconds = useMemo(() => pairing ? Math.max(0, Math.ceil((pairing.expiresAt - now) / 1_000)) : 0, [now, pairing])
 
@@ -90,7 +126,7 @@ export function MobileAdminSettings() {
     setMessage(null)
     try {
       if (pairing) await cancelMobilePairing(pairing.id)
-      setPairing(await createMobilePairing())
+      storePairing(await createMobilePairing())
       setPairingQr(null)
       setRequests([])
       setNow(new Date().getTime())
@@ -107,7 +143,7 @@ export function MobileAdminSettings() {
     setMessage(null)
     try {
       if (status.enabled && pairing) await closePairing()
-      setStatus(await setMobileAdminEnabled(!status.enabled))
+      applyStatus(await setMobileAdminEnabled(!status.enabled))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo cambiar el acceso desde la red local.')
     } finally {
@@ -117,7 +153,7 @@ export function MobileAdminSettings() {
 
   const closePairing = async () => {
     if (pairing) await cancelMobilePairing(pairing.id)
-    setPairing(null)
+    storePairing(null)
     setPairingQr(null)
     setRequests([])
   }
@@ -130,7 +166,7 @@ export function MobileAdminSettings() {
       setMessage(approved ? `${request.deviceName} ya está autorizado.` : `Solicitud de ${request.deviceName} rechazada.`)
       if (approved) {
         await refresh()
-        setPairing(null)
+        storePairing(null)
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo responder a la solicitud.')
@@ -173,7 +209,7 @@ export function MobileAdminSettings() {
         <span><strong>{status?.running ? 'Servidor local activo' : status?.enabled ? 'Servidor no disponible' : 'Acceso desde la red desactivado'}</strong><small>{status?.localAddress ?? (status?.enabled ? 'Esperando una Wi-Fi privada…' : 'La tablet sigue funcionando con sus datos locales.')}</small></span>
         <button type="button" className="icon-button" onClick={() => void refresh()} aria-label="Actualizar servidor"><RefreshCw size={17} /></button>
       </div>
-      <p className="settings-help">El móvil debe estar conectado a la misma Wi‑Fi. Los datos y las fotos siguen guardándose únicamente en esta tablet.</p>
+      <p className="settings-help">El móvil debe estar conectado a la misma Wi‑Fi. Si no puede abrir la dirección, comprueba que la red no aísle unos dispositivos de otros. Los datos y las fotos siguen guardándose únicamente en esta tablet.</p>
       {status?.error ? <p className="mobile-admin-message is-error">{status.error}</p> : null}
       {message ? <p className="mobile-admin-message">{message}</p> : null}
 

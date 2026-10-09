@@ -9,25 +9,25 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "MobileAdmin")
 public class MobileAdminPlugin extends Plugin {
     private MobileAdminManager manager;
+    private final Runnable statusListener = this::emitStatusChanged;
 
     @Override
     public void load() {
         manager = MobileAdminManager.get(getContext());
+        manager.addStatusListener(statusListener);
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        if (manager != null) manager.removeStatusListener(statusListener);
+        super.handleOnDestroy();
     }
 
     @PluginMethod
     public void getStatus(PluginCall call) {
         try {
             manager.start();
-            String localAddress = manager.localAddress();
-            JSObject result = new JSObject();
-            result.put("enabled", manager.isEnabled());
-            result.put("running", manager.isRunning());
-            result.put("port", manager.port());
-            result.put("localAddress", localAddress == null ? JSObject.NULL : localAddress);
-            result.put("hostname", JSObject.NULL);
-            result.put("error", manager.error() == null ? JSObject.NULL : manager.error());
-            call.resolve(result);
+            call.resolve(statusResult());
         } catch (Exception error) {
             call.reject("No se pudo consultar el servidor local.", error);
         }
@@ -47,11 +47,13 @@ public class MobileAdminPlugin extends Plugin {
     @PluginMethod
     public void createPairing(PluginCall call) {
         try {
-            MobileAdminRepository.PairingSession session = manager.repository().createPairing(manager.pairingBaseAddress());
+            MobileAdminManager.PairingSnapshot snapshot = manager.createPairing();
+            MobileAdminRepository.PairingSession session = snapshot.session;
             JSObject result = new JSObject();
             result.put("id", session.id);
             result.put("url", session.url);
             result.put("expiresAt", session.expiresAt);
+            result.put("networkGeneration", snapshot.networkGeneration);
             call.resolve(result);
         } catch (Exception error) {
             call.reject("No se pudo crear el QR de vinculación.", error);
@@ -115,6 +117,23 @@ public class MobileAdminPlugin extends Plugin {
         if (id == null) return;
         manager.repository().revokeDevice(id);
         call.resolve();
+    }
+
+    private void emitStatusChanged() {
+        notifyListeners("statusChanged", statusResult(), true);
+    }
+
+    private JSObject statusResult() {
+        MobileAdminManager.StatusSnapshot snapshot = manager.statusSnapshot();
+        JSObject result = new JSObject();
+        result.put("enabled", snapshot.enabled);
+        result.put("running", snapshot.running);
+        result.put("port", snapshot.port);
+        result.put("localAddress", snapshot.localAddress == null ? JSObject.NULL : snapshot.localAddress);
+        result.put("hostname", JSObject.NULL);
+        result.put("networkGeneration", snapshot.networkGeneration);
+        result.put("error", snapshot.error == null ? JSObject.NULL : snapshot.error);
+        return result;
     }
 
     private String required(PluginCall call, String key) {
