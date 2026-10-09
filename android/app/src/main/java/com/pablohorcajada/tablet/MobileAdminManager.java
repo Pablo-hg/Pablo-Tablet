@@ -1,7 +1,6 @@
 package com.pablohorcajada.tablet;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
@@ -20,14 +19,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 final class MobileAdminManager {
-    private static final String PREFERENCES_NAME = "mobile-admin-security";
-    private static final String ENABLED_KEY = "lan-access-enabled";
     private static MobileAdminManager instance;
     private final Context context;
     private final MobileAdminRepository repository;
     private final MobilePairingRateLimiter pairingRateLimiter;
     private final ScheduledExecutorService maintenanceExecutor;
-    private final SharedPreferences preferences;
+    private final MobileAdminAccessPreference accessPreference;
     private final ConnectivityManager connectivityManager;
     private final NsdManager nsdManager;
     private final Set<Runnable> statusListeners = new CopyOnWriteArraySet<>();
@@ -60,7 +57,7 @@ final class MobileAdminManager {
         });
         runMaintenance();
         maintenanceExecutor.scheduleWithFixedDelay(this::runMaintenance, 1, 1, TimeUnit.MINUTES);
-        preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        accessPreference = new MobileAdminAccessPreference(context);
         connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
         registerNetworkCallback();
@@ -72,7 +69,7 @@ final class MobileAdminManager {
     }
 
     synchronized void setEnabled(boolean enabled) {
-        preferences.edit().putBoolean(ENABLED_KEY, enabled).apply();
+        accessPreference.setEnabled(enabled);
         if (enabled) {
             reconcileServer();
         } else {
@@ -89,7 +86,7 @@ final class MobileAdminManager {
         discoveryError = null;
     }
 
-    boolean isEnabled() { return preferences.getBoolean(ENABLED_KEY, false); }
+    boolean isEnabled() { return accessPreference.isEnabled(); }
     synchronized boolean isRunning() { return server != null && server.isAlive(); }
     int port() { return MobileAdminServer.PORT; }
     synchronized String error() { return lastError == null ? discoveryError : lastError; }
