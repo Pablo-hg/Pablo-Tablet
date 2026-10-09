@@ -32,8 +32,8 @@ final class MobileAdminServer extends NanoWSD {
     private final FeedbackRelayClient feedbackRelay;
     private final Set<AdminSocket> sockets = new CopyOnWriteArraySet<>();
 
-    MobileAdminServer(Context context, PabloTabletDatabase database, MobileAdminRepository repository) {
-        super(PORT);
+    MobileAdminServer(Context context, PabloTabletDatabase database, MobileAdminRepository repository, String bindAddress) {
+        super(bindAddress, PORT);
         this.context = context.getApplicationContext();
         this.database = database;
         this.repository = repository;
