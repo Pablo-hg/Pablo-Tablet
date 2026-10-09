@@ -15,6 +15,9 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 final class MobileAdminManager {
     private static final String PREFERENCES_NAME = "mobile-admin-security";
@@ -22,6 +25,8 @@ final class MobileAdminManager {
     private static MobileAdminManager instance;
     private final Context context;
     private final MobileAdminRepository repository;
+    private final MobilePairingRateLimiter pairingRateLimiter;
+    private final ScheduledExecutorService maintenanceExecutor;
     private final SharedPreferences preferences;
     private final ConnectivityManager connectivityManager;
     private final NsdManager nsdManager;
@@ -47,6 +52,14 @@ final class MobileAdminManager {
         this.context = context;
         PabloTabletDatabase database = PabloTabletDatabase.get(context);
         repository = new MobileAdminRepository(database);
+        pairingRateLimiter = new MobilePairingRateLimiter();
+        maintenanceExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "mobile-admin-maintenance");
+            thread.setDaemon(true);
+            return thread;
+        });
+        runMaintenance();
+        maintenanceExecutor.scheduleWithFixedDelay(this::runMaintenance, 1, 1, TimeUnit.MINUTES);
         preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
@@ -84,6 +97,14 @@ final class MobileAdminManager {
 
     void addStatusListener(Runnable listener) { statusListeners.add(listener); }
     void removeStatusListener(Runnable listener) { statusListeners.remove(listener); }
+
+    private void runMaintenance() {
+        try {
+            repository.cleanupExpired();
+        } catch (RuntimeException ignored) {
+            // A transient database failure must not cancel future scheduled cleanups.
+        }
+    }
 
     synchronized String localAddress() {
         return isRunning() && boundAddress != null ? "http://" + boundAddress + ":" + port() : null;
@@ -157,7 +178,7 @@ final class MobileAdminManager {
 
         stopServer();
         try {
-            server = new MobileAdminServer(context, PabloTabletDatabase.get(context), repository, binding.address);
+            server = new MobileAdminServer(context, PabloTabletDatabase.get(context), repository, pairingRateLimiter, binding.address);
             server.start(10_000, false);
             boundAddress = binding.address;
             boundNetwork = binding.network;

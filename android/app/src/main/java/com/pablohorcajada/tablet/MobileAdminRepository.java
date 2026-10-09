@@ -18,6 +18,8 @@ import java.util.Set;
 
 final class MobileAdminRepository {
     private static final long PAIRING_LIFETIME_MS = 5 * 60 * 1000L;
+    private static final long PAIRING_HISTORY_RETENTION_MS = 24 * 60 * 60 * 1000L;
+    private static final int MAX_PENDING_PAIRINGS = 8;
     private static final Set<String> FEEDBACK_TYPES = new HashSet<>(Arrays.asList("error", "improvement", "feature"));
     private static final Set<String> FEEDBACK_PRIORITIES = new HashSet<>(Arrays.asList("low", "normal", "high", "blocking"));
     private static final Set<String> FEEDBACK_STATUSES = new HashSet<>(Arrays.asList("sent", "seen", "in_progress", "implemented"));
@@ -96,22 +98,36 @@ final class MobileAdminRepository {
     PairingRequest requestPairing(String pairingToken, String requestedName, String userAgent) throws Exception {
         cleanupExpired();
         long now = System.currentTimeMillis();
-        String sessionId = findActiveSessionId(pairingToken, now);
-        if (sessionId == null) throw new SecurityException("El QR ha caducado o ya no es válido.");
+        SQLiteDatabase writable = database.getWritableDatabase();
+        writable.beginTransaction();
+        try {
+            String sessionId = findActiveSessionId(writable, pairingToken, now);
+            if (sessionId == null) throw new SecurityException("El QR ha caducado o ya no es válido.");
 
-        String requestId = UUID.randomUUID().toString();
-        String name = cleanName(requestedName);
-        String agent = cleanUserAgent(userAgent);
-        ContentValues row = new ContentValues();
-        row.put("request_id", requestId);
-        row.put("session_id", sessionId);
-        row.put("device_name", name);
-        row.put("user_agent", agent);
-        row.put("status", "pending");
-        row.put("created_at", now);
-        row.put("expires_at", now + PAIRING_LIFETIME_MS);
-        database.getWritableDatabase().insertOrThrow("pairing_requests", null, row);
-        return new PairingRequest(requestId, name, agent, "pending", now, now + PAIRING_LIFETIME_MS);
+            long earliestExpiry = earliestPendingExpiry(writable, now);
+            int pendingCount = activePendingCount(writable, now);
+            if (pendingCount >= MAX_PENDING_PAIRINGS) {
+                int retryAfter = (int) Math.max(1L, (earliestExpiry - now + 999L) / 1000L);
+                throw new PairingCapacityException(retryAfter);
+            }
+
+            String requestId = UUID.randomUUID().toString();
+            String name = cleanName(requestedName);
+            String agent = cleanUserAgent(userAgent);
+            ContentValues row = new ContentValues();
+            row.put("request_id", requestId);
+            row.put("session_id", sessionId);
+            row.put("device_name", name);
+            row.put("user_agent", agent);
+            row.put("status", "pending");
+            row.put("created_at", now);
+            row.put("expires_at", now + PAIRING_LIFETIME_MS);
+            writable.insertOrThrow("pairing_requests", null, row);
+            writable.setTransactionSuccessful();
+            return new PairingRequest(requestId, name, agent, "pending", now, now + PAIRING_LIFETIME_MS);
+        } finally {
+            writable.endTransaction();
+        }
     }
 
     JSONObject pairingResult(String requestId, String pairingToken) throws Exception {
@@ -415,8 +431,8 @@ final class MobileAdminRepository {
         return result.toString();
     }
 
-    private String findActiveSessionId(String pairingToken, long now) throws Exception {
-        try (Cursor cursor = database.getReadableDatabase().query(
+    private String findActiveSessionId(SQLiteDatabase readable, String pairingToken, long now) throws Exception {
+        try (Cursor cursor = readable.query(
             "pairing_sessions",
             new String[] { "session_id" },
             "token_hash = ? AND consumed_at IS NULL AND expires_at > ?",
@@ -430,26 +446,58 @@ final class MobileAdminRepository {
         }
     }
 
-    private void cleanupExpired() {
-        long now = System.currentTimeMillis();
-        ContentValues request = new ContentValues();
-        request.put("status", "expired");
-        request.put("decided_at", now);
-        request.putNull("issued_token");
-        database.getWritableDatabase().update(
-            "pairing_requests",
-            request,
-            "status = ? AND expires_at <= ?",
+    private static int activePendingCount(SQLiteDatabase readable, long now) {
+        try (Cursor cursor = readable.rawQuery(
+            "SELECT COUNT(*) FROM pairing_requests WHERE status = ? AND expires_at > ?",
             new String[] { "pending", Long.toString(now) }
-        );
-        ContentValues clearCredentials = new ContentValues();
-        clearCredentials.putNull("issued_token");
-        database.getWritableDatabase().update(
-            "pairing_requests",
-            clearCredentials,
-            "expires_at <= ?",
-            new String[] { Long.toString(now) }
-        );
+        )) {
+            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        }
+    }
+
+    private static long earliestPendingExpiry(SQLiteDatabase readable, long now) {
+        try (Cursor cursor = readable.rawQuery(
+            "SELECT MIN(expires_at) FROM pairing_requests WHERE status = ? AND expires_at > ?",
+            new String[] { "pending", Long.toString(now) }
+        )) {
+            return cursor.moveToFirst() && !cursor.isNull(0) ? cursor.getLong(0) : now + PAIRING_LIFETIME_MS;
+        }
+    }
+
+    void cleanupExpired() {
+        long now = System.currentTimeMillis();
+        long retentionCutoff = now - PAIRING_HISTORY_RETENTION_MS;
+        SQLiteDatabase writable = database.getWritableDatabase();
+        writable.beginTransaction();
+        try {
+            ContentValues request = new ContentValues();
+            request.put("status", "expired");
+            request.put("decided_at", now);
+            request.putNull("issued_token");
+            writable.update(
+                "pairing_requests",
+                request,
+                "status = ? AND expires_at <= ?",
+                new String[] { "pending", Long.toString(now) }
+            );
+            ContentValues clearCredentials = new ContentValues();
+            clearCredentials.putNull("issued_token");
+            writable.update(
+                "pairing_requests",
+                clearCredentials,
+                "expires_at <= ?",
+                new String[] { Long.toString(now) }
+            );
+            writable.delete("pairing_requests", "expires_at <= ?", new String[] { Long.toString(retentionCutoff) });
+            writable.delete(
+                "pairing_sessions",
+                "expires_at <= ? AND session_id NOT IN (SELECT session_id FROM pairing_requests)",
+                new String[] { Long.toString(retentionCutoff) }
+            );
+            writable.setTransactionSuccessful();
+        } finally {
+            writable.endTransaction();
+        }
     }
 
     private static JSONObject requestJson(Cursor cursor) {
@@ -497,6 +545,15 @@ final class MobileAdminRepository {
         final long expiresAt;
         PairingSession(String id, String token, String url, long expiresAt) {
             this.id = id; this.token = token; this.url = url; this.expiresAt = expiresAt;
+        }
+    }
+
+    static final class PairingCapacityException extends Exception {
+        final int retryAfterSeconds;
+
+        PairingCapacityException(int retryAfterSeconds) {
+            super("Se ha alcanzado el máximo de solicitudes de vinculación pendientes.");
+            this.retryAfterSeconds = retryAfterSeconds;
         }
     }
 
