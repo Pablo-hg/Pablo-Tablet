@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MobileAdminSettings } from '../MobileAdminSettings'
@@ -9,6 +9,9 @@ const mobileAdmin = vi.hoisted(() => ({
   listDevices: vi.fn(),
   createPairing: vi.fn(),
   cancelPairing: vi.fn(),
+  addStatusListener: vi.fn(),
+  removeStatusListener: vi.fn(),
+  statusListener: null as null | ((status: Record<string, unknown>) => void),
 }))
 
 vi.mock('../mobileAdmin', () => ({
@@ -17,6 +20,7 @@ vi.mock('../mobileAdmin', () => ({
   listAuthorizedDevices: mobileAdmin.listDevices,
   cancelMobilePairing: mobileAdmin.cancelPairing,
   createMobilePairing: mobileAdmin.createPairing,
+  addMobileAdminStatusListener: mobileAdmin.addStatusListener,
   decidePairingRequest: vi.fn(),
   listPendingPairingRequests: vi.fn().mockResolvedValue([]),
   renameAuthorizedDevice: vi.fn(),
@@ -26,12 +30,18 @@ vi.mock('../mobileAdmin', () => ({
 describe('MobileAdminSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mobileAdmin.statusListener = null
+    mobileAdmin.addStatusListener.mockImplementation(async (listener) => {
+      mobileAdmin.statusListener = listener
+      return { remove: mobileAdmin.removeStatusListener }
+    })
     mobileAdmin.getStatus.mockResolvedValue({
       enabled: false,
       running: false,
       port: 8765,
       localAddress: null,
       hostname: null,
+      networkGeneration: 0,
       error: null,
     })
     mobileAdmin.setEnabled.mockResolvedValue({
@@ -40,10 +50,11 @@ describe('MobileAdminSettings', () => {
       port: 8765,
       localAddress: 'http://192.168.1.50:8765',
       hostname: null,
+      networkGeneration: 1,
       error: null,
     })
     mobileAdmin.listDevices.mockResolvedValue([])
-    mobileAdmin.createPairing.mockResolvedValue({ id: 'pair-1', url: 'http://192.168.1.50:8765/?pair=token', expiresAt: Date.now() + 300_000 })
+    mobileAdmin.createPairing.mockResolvedValue({ id: 'pair-1', url: 'http://192.168.1.50:8765/?pair=token', expiresAt: Date.now() + 300_000, networkGeneration: 1 })
     mobileAdmin.cancelPairing.mockResolvedValue(undefined)
   })
 
@@ -69,11 +80,12 @@ describe('MobileAdminSettings', () => {
       port: 8765,
       localAddress: 'http://192.168.1.50:8765',
       hostname: null,
+      networkGeneration: 1,
       error: null,
     })
     mobileAdmin.setEnabled
-      .mockResolvedValueOnce({ enabled: false, running: false, port: 8765, localAddress: null, hostname: null, error: null })
-      .mockResolvedValueOnce({ enabled: true, running: true, port: 8765, localAddress: 'http://192.168.1.50:8765', hostname: null, error: null })
+      .mockResolvedValueOnce({ enabled: false, running: false, port: 8765, localAddress: null, hostname: null, networkGeneration: 2, error: null })
+      .mockResolvedValueOnce({ enabled: true, running: true, port: 8765, localAddress: 'http://192.168.1.50:8765', hostname: null, networkGeneration: 3, error: null })
 
     const user = userEvent.setup()
     render(<MobileAdminSettings />)
@@ -99,6 +111,7 @@ describe('MobileAdminSettings', () => {
       port: 8765,
       localAddress: null,
       hostname: null,
+      networkGeneration: 1,
       error: 'No se pudo abrir el puerto local.',
     })
 
@@ -107,5 +120,40 @@ describe('MobileAdminSettings', () => {
     expect(await screen.findByText('Servidor no disponible')).toBeInTheDocument()
     expect(screen.getByText('No se pudo abrir el puerto local.')).toBeInTheDocument()
     expect(screen.queryByText('Acceso desde la red desactivado')).not.toBeInTheDocument()
+  })
+
+  it('actualiza la dirección e invalida automáticamente un QR de la red anterior', async () => {
+    mobileAdmin.getStatus.mockResolvedValue({
+      enabled: true,
+      running: true,
+      port: 8765,
+      localAddress: 'http://192.168.1.50:8765',
+      hostname: null,
+      networkGeneration: 1,
+      error: null,
+    })
+
+    const user = userEvent.setup()
+    render(<MobileAdminSettings />)
+    await user.click(await screen.findByRole('button', { name: /vincular un móvil/i }))
+    expect(await screen.findByText('Escanea este QR')).toBeInTheDocument()
+    await waitFor(() => expect(mobileAdmin.statusListener).not.toBeNull())
+
+    act(() => {
+      mobileAdmin.statusListener?.({
+        enabled: true,
+        running: true,
+        port: 8765,
+        localAddress: 'http://192.168.1.77:8765',
+        hostname: null,
+        networkGeneration: 2,
+        error: null,
+      })
+    })
+
+    expect(await screen.findByText('http://192.168.1.77:8765')).toBeInTheDocument()
+    expect(screen.queryByText('Escanea este QR')).not.toBeInTheDocument()
+    expect(screen.getByText(/el QR anterior ya no es válido/i)).toBeInTheDocument()
+    await waitFor(() => expect(mobileAdmin.cancelPairing).toHaveBeenCalledWith('pair-1'))
   })
 })

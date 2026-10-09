@@ -13,6 +13,8 @@ import android.os.Build;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 final class MobileAdminManager {
     private static final String PREFERENCES_NAME = "mobile-admin-security";
@@ -23,11 +25,16 @@ final class MobileAdminManager {
     private final SharedPreferences preferences;
     private final ConnectivityManager connectivityManager;
     private final NsdManager nsdManager;
+    private final Set<Runnable> statusListeners = new CopyOnWriteArraySet<>();
     private boolean networkCallbackRegistered;
     private MobileAdminServer server;
     private String boundAddress;
     private Network boundNetwork;
+    private String observedAddress;
+    private Network observedNetwork;
+    private long networkGeneration;
     private String lastError;
+    private String networkError;
     private String discoveryError;
     private NsdManager.RegistrationListener registrationListener;
 
@@ -57,8 +64,10 @@ final class MobileAdminManager {
             reconcileServer();
         } else {
             repository.cancelPendingPairings();
+            updateObservedBinding(null);
             stop();
         }
+        notifyStatusChanged();
     }
 
     synchronized void stop() {
@@ -73,14 +82,26 @@ final class MobileAdminManager {
     synchronized String error() { return lastError == null ? discoveryError : lastError; }
     MobileAdminRepository repository() { return repository; }
 
+    void addStatusListener(Runnable listener) { statusListeners.add(listener); }
+    void removeStatusListener(Runnable listener) { statusListeners.remove(listener); }
+
     synchronized String localAddress() {
         return isRunning() && boundAddress != null ? "http://" + boundAddress + ":" + port() : null;
+    }
+
+    synchronized StatusSnapshot statusSnapshot() {
+        return new StatusSnapshot(isEnabled(), isRunning(), port(), localAddress(), networkGeneration, error());
     }
 
     synchronized String pairingBaseAddress() {
         String address = localAddress();
         if (address == null) throw new IllegalStateException("Activa el acceso móvil y conecta la tablet a una Wi-Fi privada.");
         return address;
+    }
+
+    synchronized PairingSnapshot createPairing() throws Exception {
+        MobileAdminRepository.PairingSession session = repository.createPairing(pairingBaseAddress());
+        return new PairingSnapshot(session, networkGeneration);
     }
 
     synchronized void broadcastStateChanged(long updatedAt) {
@@ -104,24 +125,28 @@ final class MobileAdminManager {
 
     private void refreshAfterNetworkChange() {
         synchronized (this) { reconcileServer(); }
+        notifyStatusChanged();
     }
 
     private void reconcileServer() {
         if (!isEnabled()) {
+            updateObservedBinding(null);
             stopServer();
             lastError = null;
             return;
         }
         if (!networkCallbackRegistered) {
+            updateObservedBinding(null);
             stopServer();
             lastError = "No se pueden vigilar los cambios de red; el servidor se mantiene detenido por seguridad.";
             return;
         }
 
         WifiBinding binding = activePrivateWifiBinding();
+        if (updateObservedBinding(binding)) repository.cancelPendingPairings();
         if (binding == null) {
             stopServer();
-            lastError = "Conecta la tablet a una red Wi-Fi privada para permitir el acceso móvil.";
+            lastError = networkError;
             return;
         }
         if (binding.address.equals(boundAddress) && binding.network.equals(boundNetwork) && server != null && server.isAlive()) {
@@ -153,18 +178,51 @@ final class MobileAdminManager {
     }
 
     private WifiBinding activePrivateWifiBinding() {
-        if (connectivityManager == null) return null;
+        networkError = null;
+        if (connectivityManager == null) {
+            networkError = "Android no permite consultar la red activa; el servidor se mantiene detenido.";
+            return null;
+        }
         Network network = connectivityManager.getActiveNetwork();
-        if (network == null) return null;
+        if (network == null) {
+            networkError = "La tablet no está conectada a una red Wi-Fi.";
+            return null;
+        }
         NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
-        if (capabilities == null || !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return null;
+        if (capabilities == null || !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            networkError = "La conexión activa no es una red Wi-Fi privada.";
+            return null;
+        }
         LinkProperties properties = connectivityManager.getLinkProperties(network);
-        if (properties == null) return null;
+        if (properties == null) {
+            networkError = "Android todavía no ha proporcionado una dirección para esta Wi-Fi.";
+            return null;
+        }
         for (LinkAddress linkAddress : properties.getLinkAddresses()) {
             InetAddress address = linkAddress.getAddress();
             if (MobileAdminNetworkPolicy.isAllowedPrivateIpv4(address)) return new WifiBinding(network, address.getHostAddress());
         }
+        networkError = "La Wi-Fi actual no tiene una dirección IPv4 privada disponible.";
         return null;
+    }
+
+    private boolean updateObservedBinding(WifiBinding binding) {
+        Network nextNetwork = binding == null ? null : binding.network;
+        String nextAddress = binding == null ? null : binding.address;
+        boolean sameNetwork = observedNetwork == null ? nextNetwork == null : observedNetwork.equals(nextNetwork);
+        boolean sameAddress = observedAddress == null ? nextAddress == null : observedAddress.equals(nextAddress);
+        if (sameNetwork && sameAddress) return false;
+        observedNetwork = nextNetwork;
+        observedAddress = nextAddress;
+        networkGeneration++;
+        return true;
+    }
+
+    private void notifyStatusChanged() {
+        if (statusListeners.isEmpty()) return;
+        context.getMainExecutor().execute(() -> {
+            for (Runnable listener : statusListeners) listener.run();
+        });
     }
 
     private void registerMdns(Network network) {
@@ -186,6 +244,7 @@ final class MobileAdminManager {
                 synchronized (MobileAdminManager.this) {
                     if (registrationListener == this) discoveryError = null;
                 }
+                notifyStatusChanged();
             }
 
             @Override public void onRegistrationFailed(NsdServiceInfo service, int errorCode) {
@@ -194,6 +253,7 @@ final class MobileAdminManager {
                     registrationListener = null;
                     discoveryError = "El servidor está activo por IP, pero no se pudo publicar mediante mDNS (" + errorCode + ").";
                 }
+                notifyStatusChanged();
             }
 
             @Override public void onServiceUnregistered(NsdServiceInfo service) { }
@@ -206,6 +266,7 @@ final class MobileAdminManager {
         } catch (RuntimeException error) {
             registrationListener = null;
             discoveryError = "El servidor está activo por IP, pero no se pudo publicar mediante mDNS.";
+            notifyStatusChanged();
         }
     }
 
@@ -231,6 +292,34 @@ final class MobileAdminManager {
         WifiBinding(Network network, String address) {
             this.network = network;
             this.address = address;
+        }
+    }
+
+    static final class PairingSnapshot {
+        final MobileAdminRepository.PairingSession session;
+        final long networkGeneration;
+
+        PairingSnapshot(MobileAdminRepository.PairingSession session, long networkGeneration) {
+            this.session = session;
+            this.networkGeneration = networkGeneration;
+        }
+    }
+
+    static final class StatusSnapshot {
+        final boolean enabled;
+        final boolean running;
+        final int port;
+        final String localAddress;
+        final long networkGeneration;
+        final String error;
+
+        StatusSnapshot(boolean enabled, boolean running, int port, String localAddress, long networkGeneration, String error) {
+            this.enabled = enabled;
+            this.running = running;
+            this.port = port;
+            this.localAddress = localAddress;
+            this.networkGeneration = networkGeneration;
+            this.error = error;
         }
     }
 }
