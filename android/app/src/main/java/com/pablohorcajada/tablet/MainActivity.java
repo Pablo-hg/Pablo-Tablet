@@ -25,7 +25,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MobileAdminPlugin.class);
         registerPlugin(AppUpdaterPlugin.class);
         super.onCreate(savedInstanceState);
-        MobileAdminManager.get(this).start();
+        MobileAdminServiceController.reconcile(this);
         getWindow().getDecorView().setOnSystemUiVisibilityChangeListener((visibility) -> {
             if (!kioskExitRequested && (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::enableImmersiveMode, 80);

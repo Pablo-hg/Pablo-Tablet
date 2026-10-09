@@ -226,7 +226,7 @@ export function MobileAdminSettings() {
 
       <div className={`mobile-server-status ${status?.running ? 'is-online' : 'is-offline'}`}>
         <span className="mobile-status-icon"><Wifi size={21} /></span>
-        <span><strong>{status?.running ? 'Servidor local activo' : status?.enabled ? 'Servidor no disponible' : 'Acceso desde la red desactivado'}</strong><small>{status?.localAddress ?? (status?.enabled ? 'Esperando una Wi-Fi privada…' : 'La tablet sigue funcionando con sus datos locales.')}</small></span>
+        <span><strong>{status?.serviceState === 'available' ? 'Servidor local activo' : status?.serviceState === 'starting' ? 'Iniciando servidor local…' : status?.serviceState === 'error' ? 'Servidor no disponible' : 'Acceso desde la red desactivado'}</strong><small>{status?.localAddress ?? (status?.enabled ? 'Esperando una Wi-Fi privada…' : 'La tablet sigue funcionando con sus datos locales.')}</small></span>
         <button type="button" className="icon-button" onClick={() => void refresh()} aria-label="Actualizar servidor"><RefreshCw size={17} /></button>
       </div>
       <p className="settings-help">El móvil debe estar conectado a la misma Wi‑Fi. Si no puede abrir la dirección, comprueba que la red no aísle unos dispositivos de otros. Los datos y las fotos siguen guardándose únicamente en esta tablet.</p>

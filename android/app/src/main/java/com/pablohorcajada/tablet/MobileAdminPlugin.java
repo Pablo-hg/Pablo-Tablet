@@ -26,7 +26,6 @@ public class MobileAdminPlugin extends Plugin {
     @PluginMethod
     public void getStatus(PluginCall call) {
         try {
-            manager.start();
             call.resolve(statusResult());
         } catch (Exception error) {
             call.reject("No se pudo consultar el servidor local.", error);
@@ -40,7 +39,7 @@ public class MobileAdminPlugin extends Plugin {
             call.reject("Falta indicar si el acceso móvil debe estar activado.");
             return;
         }
-        manager.setEnabled(enabled);
+        MobileAdminServiceController.setEnabled(getContext(), enabled);
         getStatus(call);
     }
 
@@ -145,6 +144,7 @@ public class MobileAdminPlugin extends Plugin {
         result.put("hostname", JSObject.NULL);
         result.put("networkGeneration", snapshot.networkGeneration);
         result.put("error", snapshot.error == null ? JSObject.NULL : snapshot.error);
+        result.put("serviceState", snapshot.serviceState);
         return result;
     }
 

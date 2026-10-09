@@ -4,4 +4,8 @@
     <string name="title_activity_main">Pablo Tablet</string>
     <string name="package_name">com.pablohorcajada.tablet</string>
     <string name="custom_url_scheme">com.pablohorcajada.tablet</string>
+    <string name="mobile_admin_channel_name">Administración móvil</string>
+    <string name="mobile_admin_notification_title">Administración móvil activa</string>
+    <string name="mobile_admin_notification_available">Disponible en %1$s</string>
+    <string name="mobile_admin_notification_waiting">Esperando una red Wi-Fi privada</string>
 </resources>

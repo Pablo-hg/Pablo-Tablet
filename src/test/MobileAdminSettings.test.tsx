@@ -45,6 +45,7 @@ describe('MobileAdminSettings', () => {
       hostname: null,
       networkGeneration: 0,
       error: null,
+      serviceState: 'disabled',
     })
     mobileAdmin.setEnabled.mockResolvedValue({
       enabled: true,
@@ -54,6 +55,7 @@ describe('MobileAdminSettings', () => {
       hostname: null,
       networkGeneration: 1,
       error: null,
+      serviceState: 'available',
     })
     mobileAdmin.listDevices.mockResolvedValue([])
     mobileAdmin.createPairing.mockResolvedValue({ id: 'pair-1', url: 'http://192.168.1.50:8765/?pair=token', expiresAt: Date.now() + 300_000, networkGeneration: 1 })
@@ -86,10 +88,11 @@ describe('MobileAdminSettings', () => {
       hostname: null,
       networkGeneration: 1,
       error: null,
+      serviceState: 'available',
     })
     mobileAdmin.setEnabled
-      .mockResolvedValueOnce({ enabled: false, running: false, port: 8765, localAddress: null, hostname: null, networkGeneration: 2, error: null })
-      .mockResolvedValueOnce({ enabled: true, running: true, port: 8765, localAddress: 'http://192.168.1.50:8765', hostname: null, networkGeneration: 3, error: null })
+      .mockResolvedValueOnce({ enabled: false, running: false, port: 8765, localAddress: null, hostname: null, networkGeneration: 2, error: null, serviceState: 'disabled' })
+      .mockResolvedValueOnce({ enabled: true, running: true, port: 8765, localAddress: 'http://192.168.1.50:8765', hostname: null, networkGeneration: 3, error: null, serviceState: 'available' })
 
     const user = userEvent.setup()
     render(<MobileAdminSettings />)
@@ -117,6 +120,7 @@ describe('MobileAdminSettings', () => {
       hostname: null,
       networkGeneration: 1,
       error: 'No se pudo abrir el puerto local.',
+      serviceState: 'error',
     })
 
     render(<MobileAdminSettings />)
@@ -124,6 +128,23 @@ describe('MobileAdminSettings', () => {
     expect(await screen.findByText('Servidor no disponible')).toBeInTheDocument()
     expect(screen.getByText('No se pudo abrir el puerto local.')).toBeInTheDocument()
     expect(screen.queryByText('Acceso desde la red desactivado')).not.toBeInTheDocument()
+  })
+
+  it('muestra el estado de arranque mientras el servicio recuperable se inicia', async () => {
+    mobileAdmin.getStatus.mockResolvedValue({
+      enabled: true,
+      running: false,
+      port: 8765,
+      localAddress: null,
+      hostname: null,
+      networkGeneration: 1,
+      error: null,
+      serviceState: 'starting',
+    })
+
+    render(<MobileAdminSettings />)
+
+    expect(await screen.findByText('Iniciando servidor local…')).toBeInTheDocument()
   })
 
   it('actualiza la dirección e invalida automáticamente un QR de la red anterior', async () => {
@@ -135,6 +156,7 @@ describe('MobileAdminSettings', () => {
       hostname: null,
       networkGeneration: 1,
       error: null,
+      serviceState: 'available',
     })
 
     const user = userEvent.setup()
@@ -152,6 +174,7 @@ describe('MobileAdminSettings', () => {
         hostname: null,
         networkGeneration: 2,
         error: null,
+        serviceState: 'available',
       })
     })
 

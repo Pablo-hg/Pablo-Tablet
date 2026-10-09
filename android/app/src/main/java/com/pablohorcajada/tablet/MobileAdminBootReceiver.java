@@ -1,0 +1,15 @@
+package com.pablohorcajada.tablet;
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+
+public final class MobileAdminBootReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        String action = intent == null ? null : intent.getAction();
+        if (!Intent.ACTION_BOOT_COMPLETED.equals(action) && !Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) return;
+        if (!new MobileAdminAccessPreference(context).isEnabled()) return;
+        MobileAdminServiceController.reconcile(context);
+    }
+}

@@ -2,7 +2,7 @@
 
 > Versión de producto actual: `0.1.0`
 >
-> Actualizado: 06/10/2026
+> Actualizado: 10/10/2026
 
 Este documento explica cómo se mantiene y administra Pablo Tablet cuando la Teclast T65 está instalada en otra vivienda. Es el punto de entrada de la documentación remota y separa expresamente lo que ya existe de lo que todavía está planificado.
 
@@ -62,7 +62,7 @@ La instalación completamente silenciosa no forma parte de `0.1.0`. Exigiría ad
 ## Flujo de administración móvil local
 
 1. La opción **Permitir administración desde otros dispositivos** está desactivada por defecto, tanto en instalaciones nuevas como al actualizar desde una versión que no guardaba esta preferencia. Los dispositivos ya vinculados se conservan, pero Pablo debe volver a activar expresamente el acceso LAN.
-2. Al activarla, la tablet inicia el servidor en la IPv4 privada de la Wi‑Fi activa y, desde Android 13, anuncia el servicio mDNS únicamente en esa red. En versiones anteriores se mantiene la URL por IP y se omite el anuncio global por seguridad.
+2. Al activarla, Android mantiene un servicio en primer plano de tipo `connectedDevice`, con una notificación persistente, que inicia el servidor en la IPv4 privada de la Wi‑Fi activa. Desde Android 13, anuncia el servicio mDNS únicamente en esa red; en versiones anteriores se mantiene la URL por IP y se omite el anuncio global por seguridad.
 3. La dirección se actualiza automáticamente al conectar, desconectar o cambiar de Wi‑Fi y al recibir otra IP. Ese cambio invalida cualquier QR o solicitud pendiente y vuelve a registrar mDNS en la red nueva.
 4. La tablet muestra un QR temporal desde **Ajustes → Administración móvil**.
 5. Un móvil conectado a la misma Wi‑Fi escanea el QR y solicita acceso.
@@ -71,8 +71,21 @@ La instalación completamente silenciosa no forma parte de `0.1.0`. Exigiría ad
 8. Al desactivar el acceso se invalidan los QR y solicitudes pendientes, se retira mDNS y se cierran el servidor y sus conexiones; la app de la tablet continúa usando SQLite directamente.
 9. El editor web modifica el estado almacenado en la tablet; no mantiene una copia maestra en la nube.
 10. WebSocket notifica los cambios y la interfaz vuelve a leer el estado compartido desde SQLite.
+11. Si Android finaliza el servicio, lo vuelve a crear mediante `START_STICKY`; después de reiniciar la tablet o actualizar el paquete, el receptor de arranque lo restaura únicamente cuando la preferencia LAN continúa activada. Cerrar la interfaz no detiene el servicio ni crea una segunda instancia.
 
 Este flujo no permite administrar la tablet desde otra red. Su validación completa con móviles y routers reales continúa pendiente.
+
+### Validación del servicio recuperable
+
+La automatización cubre que el servicio sea `START_STICKY`, publique su notificación foreground, no se mantenga cuando el acceso LAN está desactivado y solo se restaure desde `BOOT_COMPLETED` cuando la preferencia continúa activa. La validación física pendiente debe comprobar:
+
+1. cerrar o apartar la interfaz de Pablo Tablet y confirmar que la URL sigue respondiendo;
+2. terminar el proceso sin aplicar **Forzar detención** y comprobar que Android recupera una única instancia del servicio;
+3. reiniciar la tablet con el acceso activado y después desactivado;
+4. perder y recuperar la Wi‑Fi, verificando socket, URL, mDNS y reconexión del móvil;
+5. revisar con `adb shell dumpsys activity services com.pablohorcajada.tablet` que no se duplican servicios ni notificaciones.
+
+**Forzar detención** desde los ajustes de Android pone el paquete completo en estado detenido y bloquea receptores y reinicios automáticos hasta que una persona vuelve a abrir la aplicación. Ninguna app normal puede eludir esa decisión del usuario; no debe confundirse con que Android finalice el proceso para recuperar memoria.
 
 ## Flujo de comentarios y mejoras
 

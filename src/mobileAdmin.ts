@@ -8,6 +8,7 @@ export interface MobileAdminStatus {
   hostname: string | null
   networkGeneration: number
   error: string | null
+  serviceState: 'disabled' | 'starting' | 'available' | 'error'
 }
 
 export interface PairingSession {
@@ -57,7 +58,7 @@ export function supportsMobileAdmin() {
 }
 
 export async function getMobileAdminStatus(): Promise<MobileAdminStatus> {
-  if (!supportsMobileAdmin()) return { enabled: false, running: false, port: 8765, localAddress: null, hostname: null, networkGeneration: 0, error: 'Disponible al ejecutar la app Android.' }
+  if (!supportsMobileAdmin()) return { enabled: false, running: false, port: 8765, localAddress: null, hostname: null, networkGeneration: 0, error: 'Disponible al ejecutar la app Android.', serviceState: 'disabled' }
   return NativeMobileAdmin.getStatus()
 }
 
