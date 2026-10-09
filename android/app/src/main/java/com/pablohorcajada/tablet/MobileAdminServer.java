@@ -29,14 +29,16 @@ final class MobileAdminServer extends NanoWSD {
     private final Context context;
     private final PabloTabletDatabase database;
     private final MobileAdminRepository repository;
+    private final MobilePairingRateLimiter pairingRateLimiter;
     private final FeedbackRelayClient feedbackRelay;
     private final Set<AdminSocket> sockets = new CopyOnWriteArraySet<>();
 
-    MobileAdminServer(Context context, PabloTabletDatabase database, MobileAdminRepository repository, String bindAddress) {
+    MobileAdminServer(Context context, PabloTabletDatabase database, MobileAdminRepository repository, MobilePairingRateLimiter pairingRateLimiter, String bindAddress) {
         super(bindAddress, PORT);
         this.context = context.getApplicationContext();
         this.database = database;
         this.repository = repository;
+        this.pairingRateLimiter = pairingRateLimiter;
         this.feedbackRelay = new FeedbackRelayClient(BuildConfig.FEEDBACK_RELAY_URL, BuildConfig.FEEDBACK_RELAY_KEY);
     }
 
@@ -64,6 +66,8 @@ final class MobileAdminServer extends NanoWSD {
                 return error(Response.Status.NOT_FOUND, "La operación solicitada no existe.");
             }
             return serveAsset(path);
+        } catch (MobileAdminRepository.PairingCapacityException error) {
+            return tooManyRequests(error.retryAfterSeconds);
         } catch (SecurityException error) {
             return error(Response.Status.FORBIDDEN, error.getMessage());
         } catch (IllegalArgumentException error) {
@@ -101,17 +105,28 @@ final class MobileAdminServer extends NanoWSD {
     }
 
     private Response createPairingRequest(IHTTPSession session) throws Exception {
-        JSONObject body = readJsonBody(session);
-        MobileAdminRepository.PairingRequest request = repository.requestPairing(
-            body.optString("pairingToken"),
-            body.optString("deviceName"),
-            body.optString("userAgent", session.getHeaders().get("user-agent"))
-        );
-        JSONObject result = new JSONObject();
-        result.put("requestId", request.id);
-        result.put("status", request.status);
-        result.put("expiresAt", request.expiresAt);
-        return json(Response.Status.CREATED, result);
+        String remoteAddress = session.getRemoteIpAddress();
+        MobilePairingRateLimiter.Decision decision = pairingRateLimiter.acquire(remoteAddress);
+        if (!decision.allowed) return tooManyRequests(decision.retryAfterSeconds);
+        try {
+            JSONObject body = readJsonBody(session);
+            MobileAdminRepository.PairingRequest request = repository.requestPairing(
+                body.optString("pairingToken"),
+                body.optString("deviceName"),
+                body.optString("userAgent", session.getHeaders().get("user-agent"))
+            );
+            pairingRateLimiter.recordSuccess(remoteAddress);
+            JSONObject result = new JSONObject();
+            result.put("requestId", request.id);
+            result.put("status", request.status);
+            result.put("expiresAt", request.expiresAt);
+            return json(Response.Status.CREATED, result);
+        } catch (MobileAdminRepository.PairingCapacityException error) {
+            throw error;
+        } catch (Exception error) {
+            pairingRateLimiter.recordFailure(remoteAddress);
+            throw error;
+        }
     }
 
     private Response readPairingRequest(IHTTPSession session, String path) throws Exception {
@@ -345,6 +360,18 @@ final class MobileAdminServer extends NanoWSD {
         JSONObject body = new JSONObject();
         try { body.put("error", message == null ? "Error desconocido." : message); } catch (Exception ignored) { }
         return json(status, body);
+    }
+
+    private static Response tooManyRequests(int retryAfterSeconds) {
+        int retry = Math.max(1, retryAfterSeconds);
+        JSONObject body = new JSONObject();
+        try {
+            body.put("error", "Demasiados intentos de vinculación. Inténtalo de nuevo en " + retry + " segundos.");
+            body.put("retryAfterSeconds", retry);
+        } catch (Exception ignored) { }
+        Response result = json(Response.Status.TOO_MANY_REQUESTS, body);
+        result.addHeader("Retry-After", Integer.toString(retry));
+        return result;
     }
 
     private static Response response(Response.Status status, String mime, String body) {

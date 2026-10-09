@@ -28,6 +28,8 @@ El borrado de fotografías continúa realizándose desde la tablet. Los dibujos 
 
 El QR y la solicitud caducan a los cinco minutos. El QR también se invalida al cerrar su panel. Una autorización aceptada crea una credencial larga, individual y revocable. La credencial en claro solo queda en el navegador móvil; la tablet persiste su hash SHA-256 y los datos básicos del dispositivo.
 
+El endpoint de solicitud admite un máximo de 5 intentos por dirección IP y 30 intentos globales por minuto. Tras 3 fallos consecutivos de una misma IP aplica esperas progresivas de 30, 60, 120 segundos, hasta un máximo de 5 minutos. Los límites usan la dirección remota del socket, nunca cabeceras aportadas por el navegador, y responden con HTTP `429`, `Retry-After` y un mensaje con el tiempo restante. Hay como máximo 8 solicitudes simultáneas pendientes. El gestor nativo conserva estos contadores aunque se cierre la pantalla o se reinicie el servidor local por un cambio de red.
+
 ## Contrato local
 
 | Operación | Método y ruta | Autenticación |
@@ -46,6 +48,8 @@ La sincronización normal usa **Last Write Wins**. No hay cola de cambios offlin
 ## Persistencia
 
 Las tablas `mobile_devices`, `pairing_sessions` y `pairing_requests` viven en `pablo_tablet.db`. El estado funcional permanece en `app_storage` y los archivos de galería en `files/gallery`. La API móvil escribe sobre esa misma base, y la interfaz de la tablet detecta los cambios externos una vez por segundo.
+
+Cada minuto se marcan las solicitudes caducadas, se borran sus credenciales temporales y se purga el historial de vinculación con más de 24 horas. El limitador conserva como máximo 256 direcciones de origen y elimina entradas inactivas, por lo que ni SQLite ni la memoria crecen indefinidamente por este flujo.
 
 ## Validación pendiente en hardware
 
