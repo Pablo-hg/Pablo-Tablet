@@ -44,6 +44,12 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            jvmArgs '--add-exports=java.base/jdk.internal.access=ALL-UNNAMED'
+        }
+    }
 }
 
 repositories {
@@ -60,6 +66,7 @@ dependencies {
     implementation project(':capacitor-android')
     implementation 'org.nanohttpd:nanohttpd-websocket:2.3.1'
     testImplementation "junit:junit:$junitVersion"
+    testImplementation 'org.robolectric:robolectric:4.17'
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
