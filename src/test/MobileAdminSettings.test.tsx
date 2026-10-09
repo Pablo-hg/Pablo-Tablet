@@ -9,6 +9,7 @@ const mobileAdmin = vi.hoisted(() => ({
   listDevices: vi.fn(),
   createPairing: vi.fn(),
   cancelPairing: vi.fn(),
+  revokeAll: vi.fn(),
   addStatusListener: vi.fn(),
   removeStatusListener: vi.fn(),
   statusListener: null as null | ((status: Record<string, unknown>) => void),
@@ -25,6 +26,7 @@ vi.mock('../mobileAdmin', () => ({
   listPendingPairingRequests: vi.fn().mockResolvedValue([]),
   renameAuthorizedDevice: vi.fn(),
   revokeAuthorizedDevice: vi.fn(),
+  revokeAllAuthorizedDevices: mobileAdmin.revokeAll,
 }))
 
 describe('MobileAdminSettings', () => {
@@ -56,6 +58,7 @@ describe('MobileAdminSettings', () => {
     mobileAdmin.listDevices.mockResolvedValue([])
     mobileAdmin.createPairing.mockResolvedValue({ id: 'pair-1', url: 'http://192.168.1.50:8765/?pair=token', expiresAt: Date.now() + 300_000, networkGeneration: 1 })
     mobileAdmin.cancelPairing.mockResolvedValue(undefined)
+    mobileAdmin.revokeAll.mockResolvedValue(0)
   })
 
   it('mantiene el acceso LAN desactivado hasta que el usuario lo permite', async () => {
@@ -65,6 +68,7 @@ describe('MobileAdminSettings', () => {
     const toggle = await screen.findByRole('switch', { name: /permitir administración/i })
     expect(toggle).toHaveAttribute('aria-checked', 'false')
     expect(screen.getByRole('button', { name: /vincular un móvil/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /revocar todos/i })).not.toBeInTheDocument()
 
     await user.click(toggle)
 
@@ -155,5 +159,38 @@ describe('MobileAdminSettings', () => {
     expect(screen.queryByText('Escanea este QR')).not.toBeInTheDocument()
     expect(screen.getByText(/el QR anterior ya no es válido/i)).toBeInTheDocument()
     await waitFor(() => expect(mobileAdmin.cancelPairing).toHaveBeenCalledWith('pair-1'))
+  })
+
+  it('cancela la revocación global sin hacer cambios', async () => {
+    mobileAdmin.listDevices.mockResolvedValue([{ id: 'device-1', name: 'Móvil personal', userAgent: 'Chrome', createdAt: 1, lastSeenAt: 2, revokedAt: null }])
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const user = userEvent.setup()
+    render(<MobileAdminSettings />)
+
+    await user.click(await screen.findByRole('button', { name: /revocar todos los dispositivos/i }))
+
+    expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/todos los móviles tendrán que volver a vincularse/i))
+    expect(mobileAdmin.revokeAll).not.toHaveBeenCalled()
+    confirm.mockRestore()
+  })
+
+  it('revoca todos los móviles en una sola operación y actualiza la lista', async () => {
+    mobileAdmin.listDevices
+      .mockResolvedValueOnce([
+        { id: 'device-1', name: 'Móvil personal', userAgent: 'Chrome', createdAt: 1, lastSeenAt: 2, revokedAt: null },
+        { id: 'device-2', name: 'Móvil familiar', userAgent: 'Safari', createdAt: 1, lastSeenAt: 2, revokedAt: null },
+      ])
+      .mockResolvedValueOnce([])
+    mobileAdmin.revokeAll.mockResolvedValue(2)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    render(<MobileAdminSettings />)
+
+    await user.click(await screen.findByRole('button', { name: /revocar todos los dispositivos/i }))
+
+    await waitFor(() => expect(mobileAdmin.revokeAll).toHaveBeenCalledTimes(1))
+    expect(await screen.findByText('Se han revocado 2 dispositivos. Tendrán que volver a vincularse.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /revocar todos los dispositivos/i })).not.toBeInTheDocument()
+    confirm.mockRestore()
   })
 })

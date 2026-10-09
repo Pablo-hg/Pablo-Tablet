@@ -10,6 +10,7 @@ import {
   listAuthorizedDevices,
   listPendingPairingRequests,
   renameAuthorizedDevice,
+  revokeAllAuthorizedDevices,
   revokeAuthorizedDevice,
   setMobileAdminEnabled,
   type AuthorizedDevice,
@@ -190,6 +191,25 @@ export function MobileAdminSettings() {
     await refresh()
   }
 
+  const revokeAll = async () => {
+    if (!window.confirm('¿Revocar todos los dispositivos autorizados? Todos los móviles tendrán que volver a vincularse mediante un QR nuevo.')) return
+    setBusy(true)
+    setMessage(null)
+    try {
+      const revokedCount = await revokeAllAuthorizedDevices()
+      storePairing(null)
+      setPairingQr(null)
+      setRequests([])
+      setEditingId(null)
+      await refresh()
+      setMessage(revokedCount === 1 ? 'Se ha revocado 1 dispositivo. Tendrá que volver a vincularse.' : `Se han revocado ${revokedCount} dispositivos. Tendrán que volver a vincularse.`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudieron revocar los dispositivos autorizados.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const activeDevices = devices.filter((device) => device.revokedAt === null)
 
   return (
@@ -246,6 +266,11 @@ export function MobileAdminSettings() {
           <button type="button" className="icon-button is-danger" onClick={() => void revoke(device)} aria-label="Revocar acceso"><Unlink size={17} /></button>
         </div>
       ))}
+      {activeDevices.length > 0 ? (
+        <button type="button" className="revoke-all-devices" disabled={busy} onClick={() => void revokeAll()}>
+          <Unlink size={17} />Revocar todos los dispositivos
+        </button>
+      ) : null}
     </section>
   )
 }

@@ -115,8 +115,20 @@ public class MobileAdminPlugin extends Plugin {
     public void revokeDevice(PluginCall call) {
         String id = required(call, "id");
         if (id == null) return;
-        manager.repository().revokeDevice(id);
+        manager.revokeDevice(id);
         call.resolve();
+    }
+
+    @PluginMethod
+    public void revokeAllDevices(PluginCall call) {
+        try {
+            int revokedCount = manager.revokeAllDevices();
+            JSObject result = new JSObject();
+            result.put("revokedCount", revokedCount);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("No se pudieron revocar los dispositivos autorizados.", error);
+        }
     }
 
     private void emitStatusChanged() {

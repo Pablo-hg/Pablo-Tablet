@@ -28,6 +28,8 @@ El borrado de fotografías continúa realizándose desde la tablet. Los dibujos 
 
 El QR y la solicitud caducan a los cinco minutos. El QR también se invalida al cerrar su panel. Una autorización aceptada crea una credencial larga, individual y revocable. La credencial en claro solo queda en el navegador móvil; la tablet persiste su hash SHA-256 y los datos básicos del dispositivo.
 
+La acción **Revocar todos los dispositivos** solo aparece si existe al menos un móvil autorizado y requiere confirmación explícita. La operación revoca todas las credenciales activas, cancela QR y solicitudes pendientes y elimina credenciales temporales en una única transacción. Después cierra los WebSockets asociados; los clientes abiertos eliminan su credencial local y muestran que deben volver a vincularse. Es posible generar un QR nuevo inmediatamente después.
+
 El endpoint de solicitud admite un máximo de 5 intentos por dirección IP y 30 intentos globales por minuto. Tras 3 fallos consecutivos de una misma IP aplica esperas progresivas de 30, 60, 120 segundos, hasta un máximo de 5 minutos. Los límites usan la dirección remota del socket, nunca cabeceras aportadas por el navegador, y responden con HTTP `429`, `Retry-After` y un mensaje con el tiempo restante. Hay como máximo 8 solicitudes simultáneas pendientes. El gestor nativo conserva estos contadores aunque se cierre la pantalla o se reinicie el servidor local por un cambio de red.
 
 ## Contrato local

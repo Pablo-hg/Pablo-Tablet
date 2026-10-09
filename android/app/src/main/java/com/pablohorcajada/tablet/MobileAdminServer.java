@@ -32,6 +32,7 @@ final class MobileAdminServer extends NanoWSD {
     private final MobilePairingRateLimiter pairingRateLimiter;
     private final FeedbackRelayClient feedbackRelay;
     private final Set<AdminSocket> sockets = new CopyOnWriteArraySet<>();
+    private final Object socketAuthorizationLock = new Object();
 
     MobileAdminServer(Context context, PabloTabletDatabase database, MobileAdminRepository repository, MobilePairingRateLimiter pairingRateLimiter, String bindAddress) {
         super(bindAddress, PORT);
@@ -79,12 +80,12 @@ final class MobileAdminServer extends NanoWSD {
 
     @Override
     protected WebSocket openWebSocket(IHTTPSession handshake) {
-        boolean authorized = false;
+        MobileAdminRepository.Device device = null;
         try {
             String token = handshake.getParms().get("token");
-            authorized = repository.authenticate(token) != null;
+            device = repository.authenticate(token);
         } catch (Exception ignored) { }
-        return new AdminSocket(handshake, authorized);
+        return new AdminSocket(handshake, device == null ? null : device.id);
     }
 
     void broadcastStateChanged(long updatedAt) {
@@ -100,6 +101,15 @@ final class MobileAdminServer extends NanoWSD {
                 else sockets.remove(socket);
             } catch (IOException error) {
                 sockets.remove(socket);
+            }
+        }
+    }
+
+    void disconnectDevices(Set<String> deviceIds) {
+        if (deviceIds == null || deviceIds.isEmpty()) return;
+        synchronized (socketAuthorizationLock) {
+            for (AdminSocket socket : sockets) {
+                if (deviceIds.contains(socket.deviceId)) socket.revokeAuthorization();
             }
         }
     }
@@ -391,20 +401,28 @@ final class MobileAdminServer extends NanoWSD {
     }
 
     private final class AdminSocket extends WebSocket {
-        private final boolean authorized;
+        private final String deviceId;
 
-        AdminSocket(IHTTPSession handshake, boolean authorized) {
+        AdminSocket(IHTTPSession handshake, String deviceId) {
             super(handshake);
-            this.authorized = authorized;
+            this.deviceId = deviceId;
         }
 
         @Override protected void onOpen() {
-            if (!authorized) {
-                try { close(WebSocketFrame.CloseCode.PolicyViolation, "Credencial no válida", false); } catch (IOException ignored) { }
-                return;
+            synchronized (socketAuthorizationLock) {
+                if (!repository.isDeviceActive(deviceId)) {
+                    try { close(WebSocketFrame.CloseCode.PolicyViolation, "Credencial no válida", false); } catch (IOException ignored) { }
+                    return;
+                }
+                sockets.add(this);
             }
-            sockets.add(this);
             try { send(new JSONObject().put("type", "connected").toString()); } catch (Exception ignored) { }
+        }
+
+        void revokeAuthorization() {
+            try { send(new JSONObject().put("type", "authorization-revoked").toString()); } catch (Exception ignored) { }
+            try { close(WebSocketFrame.CloseCode.PolicyViolation, "Acceso revocado desde la tablet", false); } catch (IOException ignored) { }
+            sockets.remove(this);
         }
 
         @Override protected void onClose(WebSocketFrame.CloseCode code, String reason, boolean initiatedByRemote) { sockets.remove(this); }
