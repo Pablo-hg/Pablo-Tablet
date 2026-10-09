@@ -7,6 +7,9 @@ import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.nsd.NsdManager;
+import android.net.nsd.NsdServiceInfo;
+import android.os.Build;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -19,10 +22,14 @@ final class MobileAdminManager {
     private final MobileAdminRepository repository;
     private final SharedPreferences preferences;
     private final ConnectivityManager connectivityManager;
+    private final NsdManager nsdManager;
     private boolean networkCallbackRegistered;
     private MobileAdminServer server;
     private String boundAddress;
+    private Network boundNetwork;
     private String lastError;
+    private String discoveryError;
+    private NsdManager.RegistrationListener registrationListener;
 
     static synchronized MobileAdminManager get(Context context) {
         if (instance == null) instance = new MobileAdminManager(context.getApplicationContext());
@@ -35,23 +42,35 @@ final class MobileAdminManager {
         repository = new MobileAdminRepository(database);
         preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        nsdManager = (NsdManager) context.getSystemService(Context.NSD_SERVICE);
         registerNetworkCallback();
-        start();
     }
 
     synchronized void start() {
+        if (!isEnabled()) repository.cancelPendingPairings();
         reconcileServer();
     }
 
     synchronized void setEnabled(boolean enabled) {
         preferences.edit().putBoolean(ENABLED_KEY, enabled).apply();
-        reconcileServer();
+        if (enabled) {
+            reconcileServer();
+        } else {
+            repository.cancelPendingPairings();
+            stop();
+        }
+    }
+
+    synchronized void stop() {
+        stopServer();
+        lastError = null;
+        discoveryError = null;
     }
 
     boolean isEnabled() { return preferences.getBoolean(ENABLED_KEY, false); }
     synchronized boolean isRunning() { return server != null && server.isAlive(); }
     int port() { return MobileAdminServer.PORT; }
-    synchronized String error() { return lastError; }
+    synchronized String error() { return lastError == null ? discoveryError : lastError; }
     MobileAdminRepository repository() { return repository; }
 
     synchronized String localAddress() {
@@ -99,23 +118,26 @@ final class MobileAdminManager {
             return;
         }
 
-        String privateWifiAddress = activePrivateWifiAddress();
-        if (privateWifiAddress == null) {
+        WifiBinding binding = activePrivateWifiBinding();
+        if (binding == null) {
             stopServer();
             lastError = "Conecta la tablet a una red Wi-Fi privada para permitir el acceso móvil.";
             return;
         }
-        if (privateWifiAddress.equals(boundAddress) && server != null && server.isAlive()) {
+        if (binding.address.equals(boundAddress) && binding.network.equals(boundNetwork) && server != null && server.isAlive()) {
             lastError = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && registrationListener == null) registerMdns(binding.network);
             return;
         }
 
         stopServer();
         try {
-            server = new MobileAdminServer(context, PabloTabletDatabase.get(context), repository, privateWifiAddress);
+            server = new MobileAdminServer(context, PabloTabletDatabase.get(context), repository, binding.address);
             server.start(10_000, false);
-            boundAddress = privateWifiAddress;
+            boundAddress = binding.address;
+            boundNetwork = binding.network;
             lastError = null;
+            registerMdns(binding.network);
         } catch (IOException | RuntimeException error) {
             stopServer();
             lastError = "No se pudo limitar el servidor a la Wi-Fi privada: " + safeMessage(error);
@@ -123,12 +145,14 @@ final class MobileAdminManager {
     }
 
     private void stopServer() {
+        unregisterMdns();
         if (server != null) server.stop();
         server = null;
         boundAddress = null;
+        boundNetwork = null;
     }
 
-    private String activePrivateWifiAddress() {
+    private WifiBinding activePrivateWifiBinding() {
         if (connectivityManager == null) return null;
         Network network = connectivityManager.getActiveNetwork();
         if (network == null) return null;
@@ -138,13 +162,75 @@ final class MobileAdminManager {
         if (properties == null) return null;
         for (LinkAddress linkAddress : properties.getLinkAddresses()) {
             InetAddress address = linkAddress.getAddress();
-            if (MobileAdminNetworkPolicy.isAllowedPrivateIpv4(address)) return address.getHostAddress();
+            if (MobileAdminNetworkPolicy.isAllowedPrivateIpv4(address)) return new WifiBinding(network, address.getHostAddress());
         }
         return null;
+    }
+
+    private void registerMdns(Network network) {
+        discoveryError = null;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
+        if (nsdManager == null) {
+            discoveryError = "El servidor está activo por IP, pero Android no permite publicar el servicio local.";
+            return;
+        }
+
+        NsdServiceInfo serviceInfo = new NsdServiceInfo();
+        serviceInfo.setServiceName("pablotablet");
+        serviceInfo.setServiceType("_http._tcp.");
+        serviceInfo.setPort(port());
+        serviceInfo.setNetwork(network);
+
+        NsdManager.RegistrationListener listener = new NsdManager.RegistrationListener() {
+            @Override public void onServiceRegistered(NsdServiceInfo registered) {
+                synchronized (MobileAdminManager.this) {
+                    if (registrationListener == this) discoveryError = null;
+                }
+            }
+
+            @Override public void onRegistrationFailed(NsdServiceInfo service, int errorCode) {
+                synchronized (MobileAdminManager.this) {
+                    if (registrationListener != this) return;
+                    registrationListener = null;
+                    discoveryError = "El servidor está activo por IP, pero no se pudo publicar mediante mDNS (" + errorCode + ").";
+                }
+            }
+
+            @Override public void onServiceUnregistered(NsdServiceInfo service) { }
+            @Override public void onUnregistrationFailed(NsdServiceInfo service, int errorCode) { }
+        };
+
+        registrationListener = listener;
+        try {
+            nsdManager.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, context.getMainExecutor(), listener);
+        } catch (RuntimeException error) {
+            registrationListener = null;
+            discoveryError = "El servidor está activo por IP, pero no se pudo publicar mediante mDNS.";
+        }
+    }
+
+    private void unregisterMdns() {
+        NsdManager.RegistrationListener listener = registrationListener;
+        registrationListener = null;
+        discoveryError = null;
+        if (listener == null || nsdManager == null) return;
+        try {
+            nsdManager.unregisterService(listener);
+        } catch (IllegalArgumentException ignored) { }
     }
 
     private static String safeMessage(Exception error) {
         String message = error.getMessage();
         return message == null || message.trim().isEmpty() ? "error de red desconocido" : message;
+    }
+
+    private static final class WifiBinding {
+        final Network network;
+        final String address;
+
+        WifiBinding(Network network, String address) {
+            this.network = network;
+            this.address = address;
+        }
     }
 }

@@ -63,6 +63,36 @@ final class MobileAdminRepository {
         );
     }
 
+    void cancelPendingPairings() {
+        long now = System.currentTimeMillis();
+        SQLiteDatabase writable = database.getWritableDatabase();
+        writable.beginTransaction();
+        try {
+            ContentValues requests = new ContentValues();
+            requests.put("status", "cancelled");
+            requests.put("decided_at", now);
+            requests.putNull("issued_token");
+            writable.update(
+                "pairing_requests",
+                requests,
+                "status = ?",
+                new String[] { "pending" }
+            );
+
+            ContentValues sessions = new ContentValues();
+            sessions.put("consumed_at", now);
+            writable.update(
+                "pairing_sessions",
+                sessions,
+                "consumed_at IS NULL",
+                null
+            );
+            writable.setTransactionSuccessful();
+        } finally {
+            writable.endTransaction();
+        }
+    }
+
     PairingRequest requestPairing(String pairingToken, String requestedName, String userAgent) throws Exception {
         cleanupExpired();
         long now = System.currentTimeMillis();
