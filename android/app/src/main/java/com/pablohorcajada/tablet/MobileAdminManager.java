@@ -129,6 +129,17 @@ final class MobileAdminManager {
         if (server != null) server.broadcastStateChanged(updatedAt);
     }
 
+    synchronized void revokeDevice(String deviceId) {
+        repository.revokeDevice(deviceId);
+        if (server != null) server.disconnectDevices(java.util.Collections.singleton(deviceId));
+    }
+
+    synchronized int revokeAllDevices() {
+        MobileAdminRepository.RevocationResult result = repository.revokeAllDevices();
+        if (server != null) server.disconnectDevices(result.deviceIds);
+        return result.count();
+    }
+
     private void registerNetworkCallback() {
         if (connectivityManager == null) return;
         try {

@@ -9,6 +9,7 @@ const connectionLabel = document.querySelector('#connection-label')
 const refreshButton = document.querySelector('#refresh-button')
 const pairScreen = document.querySelector('#pair-screen')
 const lockedScreen = document.querySelector('#locked-screen')
+const lockedMessage = document.querySelector('#locked-message')
 const appScreen = document.querySelector('#app-screen')
 const offlineBanner = document.querySelector('#offline-banner')
 const editorContent = document.querySelector('#editor-content')
@@ -59,16 +60,22 @@ function setConnection(isOnline, label) {
   editorContent.querySelectorAll('button,input,textarea,select').forEach((control) => { control.disabled = !isOnline })
 }
 
+function revokeLocalAuthorization(message = 'Este móvil ya no está autorizado. Vuelve a vincularlo desde la tablet.') {
+  localStorage.removeItem(STORAGE_TOKEN)
+  credential = null
+  disconnectSocket()
+  lockedMessage.textContent = message
+  showOnly('locked')
+  setConnection(false, 'No autorizado')
+}
+
 async function api(path, options = {}) {
   const headers = new Headers(options.headers ?? {})
   if (credential) headers.set('Authorization', `Bearer ${credential}`)
   if (options.body && typeof options.body === 'string') headers.set('Content-Type', 'application/json; charset=utf-8')
   const response = await fetch(path, { ...options, headers })
   if (response.status === 401) {
-    localStorage.removeItem(STORAGE_TOKEN)
-    credential = null
-    disconnectSocket()
-    showOnly('locked')
+    revokeLocalAuthorization()
     throw new Error('Este móvil ya no está autorizado.')
   }
   const type = response.headers.get('content-type') ?? ''
@@ -143,8 +150,9 @@ function disconnectSocket() {
   window.clearTimeout(reconnectTimer)
   window.clearTimeout(offlineTimer)
   stopHeartbeat()
-  if (socket) socket.close()
+  const activeSocket = socket
   socket = null
+  if (activeSocket) activeSocket.close()
 }
 
 function stopHeartbeat() {
@@ -186,6 +194,8 @@ function connectSocket() {
       if (message.type === 'state-changed') {
         window.clearTimeout(reloadTimer)
         reloadTimer = window.setTimeout(() => void loadState(true), 180)
+      } else if (message.type === 'authorization-revoked') {
+        revokeLocalAuthorization('El acceso de este móvil se ha revocado desde la tablet. Escanea un QR nuevo para volver a vincularlo.')
       }
     } catch { }
   })
@@ -569,7 +579,7 @@ refreshButton.addEventListener('click', () => {
 document.querySelector('#pair-button').addEventListener('click', () => void beginPairing())
 
 async function boot() {
-  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=10').catch(() => {})
+  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=11').catch(() => {})
   if (!credential && pairingToken) {
     const platform = /Android/i.test(navigator.userAgent) ? 'Android' : /iPhone|iPad/i.test(navigator.userAgent) ? 'iPhone/iPad' : 'Móvil'
     document.querySelector('#device-name').value = `${navigator.userAgent.includes('Chrome') ? 'Chrome' : navigator.userAgent.includes('Safari') ? 'Safari' : 'Navegador'} en ${platform}`

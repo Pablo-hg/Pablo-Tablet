@@ -70,25 +70,7 @@ final class MobileAdminRepository {
         SQLiteDatabase writable = database.getWritableDatabase();
         writable.beginTransaction();
         try {
-            ContentValues requests = new ContentValues();
-            requests.put("status", "cancelled");
-            requests.put("decided_at", now);
-            requests.putNull("issued_token");
-            writable.update(
-                "pairing_requests",
-                requests,
-                "status = ?",
-                new String[] { "pending" }
-            );
-
-            ContentValues sessions = new ContentValues();
-            sessions.put("consumed_at", now);
-            writable.update(
-                "pairing_sessions",
-                sessions,
-                "consumed_at IS NULL",
-                null
-            );
+            cancelPendingPairings(writable, now);
             writable.setTransactionSuccessful();
         } finally {
             writable.endTransaction();
@@ -286,6 +268,55 @@ final class MobileAdminRepository {
         database.getWritableDatabase().update("mobile_devices", row, "device_id = ?", new String[] { deviceId });
     }
 
+    RevocationResult revokeAllDevices() {
+        long now = System.currentTimeMillis();
+        SQLiteDatabase writable = database.getWritableDatabase();
+        Set<String> revokedDeviceIds = new HashSet<>();
+        writable.beginTransaction();
+        try {
+            try (Cursor cursor = writable.query(
+                "mobile_devices",
+                new String[] { "device_id" },
+                "revoked_at IS NULL",
+                null,
+                null,
+                null,
+                null
+            )) {
+                while (cursor.moveToNext()) revokedDeviceIds.add(cursor.getString(0));
+            }
+
+            ContentValues devices = new ContentValues();
+            devices.put("revoked_at", now);
+            writable.update("mobile_devices", devices, "revoked_at IS NULL", null);
+            cancelPendingPairings(writable, now);
+
+            ContentValues clearCredentials = new ContentValues();
+            clearCredentials.putNull("issued_token");
+            writable.update("pairing_requests", clearCredentials, "issued_token IS NOT NULL", null);
+            writable.setTransactionSuccessful();
+        } finally {
+            writable.endTransaction();
+        }
+        return new RevocationResult(revokedDeviceIds);
+    }
+
+    boolean isDeviceActive(String deviceId) {
+        if (deviceId == null) return false;
+        try (Cursor cursor = database.getReadableDatabase().query(
+            "mobile_devices",
+            new String[] { "device_id" },
+            "device_id = ? AND revoked_at IS NULL",
+            new String[] { deviceId },
+            null,
+            null,
+            null,
+            "1"
+        )) {
+            return cursor.moveToFirst();
+        }
+    }
+
     JSONObject createFeedback(Device device, JSONObject input, String appVersion, String tabletModel) throws Exception {
         String type = requiredChoice(input, "type", FEEDBACK_TYPES, "El tipo de reporte no es válido.");
         String priority = requiredChoice(input, "priority", FEEDBACK_PRIORITIES, "La importancia no es válida.");
@@ -455,6 +486,23 @@ final class MobileAdminRepository {
         }
     }
 
+    private static void cancelPendingPairings(SQLiteDatabase writable, long now) {
+        ContentValues requests = new ContentValues();
+        requests.put("status", "cancelled");
+        requests.put("decided_at", now);
+        requests.putNull("issued_token");
+        writable.update(
+            "pairing_requests",
+            requests,
+            "status = ?",
+            new String[] { "pending" }
+        );
+
+        ContentValues sessions = new ContentValues();
+        sessions.put("consumed_at", now);
+        writable.update("pairing_sessions", sessions, "consumed_at IS NULL", null);
+    }
+
     private static long earliestPendingExpiry(SQLiteDatabase readable, long now) {
         try (Cursor cursor = readable.rawQuery(
             "SELECT MIN(expires_at) FROM pairing_requests WHERE status = ? AND expires_at > ?",
@@ -555,6 +603,16 @@ final class MobileAdminRepository {
             super("Se ha alcanzado el máximo de solicitudes de vinculación pendientes.");
             this.retryAfterSeconds = retryAfterSeconds;
         }
+    }
+
+    static final class RevocationResult {
+        final Set<String> deviceIds;
+
+        RevocationResult(Set<String> deviceIds) {
+            this.deviceIds = deviceIds;
+        }
+
+        int count() { return deviceIds.size(); }
     }
 
     static final class PairingRequest {

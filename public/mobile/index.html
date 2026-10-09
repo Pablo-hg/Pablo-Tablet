@@ -7,7 +7,7 @@
     <meta name="description" content="Administración local de Pablo Tablet" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css?v=10" />
+    <link rel="stylesheet" href="/styles.css?v=11" />
     <title>Pablo Tablet</title>
   </head>
   <body>
@@ -29,7 +29,7 @@
       <section id="locked-screen" class="auth-card hidden">
         <p class="eyebrow">Acceso protegido</p>
         <h1>Móvil no autorizado</h1>
-        <p>Abre <strong>Ajustes → Administración móvil</strong> en la tablet y escanea el QR temporal.</p>
+        <p id="locked-message">Abre <strong>Ajustes → Administración móvil</strong> en la tablet y escanea el QR temporal.</p>
       </section>
 
       <section id="app-screen" class="hidden">
@@ -50,6 +50,6 @@
     </main>
 
     <div id="toast" class="toast hidden" role="status"></div>
-    <script src="/app.js?v=10" type="module"></script>
+    <script src="/app.js?v=11" type="module"></script>
   </body>
 </html>

@@ -46,6 +46,7 @@ interface MobileAdminPlugin {
   listDevices(): Promise<{ devices: AuthorizedDevice[] }>
   renameDevice(options: { id: string; name: string }): Promise<void>
   revokeDevice(options: { id: string }): Promise<void>
+  revokeAllDevices(): Promise<{ revokedCount: number }>
   addListener(eventName: 'statusChanged', listener: (status: MobileAdminStatus) => void): Promise<PluginListenerHandle>
 }
 
@@ -101,4 +102,9 @@ export async function renameAuthorizedDevice(id: string, name: string) {
 
 export async function revokeAuthorizedDevice(id: string) {
   await NativeMobileAdmin.revokeDevice({ id })
+}
+
+export async function revokeAllAuthorizedDevices() {
+  if (!supportsMobileAdmin()) return 0
+  return (await NativeMobileAdmin.revokeAllDevices()).revokedCount
 }

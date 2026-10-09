@@ -208,4 +208,53 @@ describe('administración móvil', () => {
     expect(view.getByText('Sin conexión con la tablet. La edición está bloqueada hasta reconectar.')).toHaveClass('hidden')
     expect(view.getByText('Sincronización activa')).toBeInTheDocument()
   })
+
+  it('elimina la credencial y pide volver a vincular tras una revocación por WebSocket', async () => {
+    const html = readFileSync(resolve(process.cwd(), 'public/mobile/index.html'), 'utf8')
+    const script = readFileSync(resolve(process.cwd(), 'public/mobile/app.js'), 'utf8')
+    document.open()
+    document.write(html)
+    document.close()
+    const view = within(document.body)
+    window.localStorage.setItem('pablo-tablet.mobile-token.v1', 'credencial-revocada')
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ state: { preferences: {} }, device: { name: 'Móvil revocado' } }),
+    }))
+    const sockets: WebSocketStub[] = []
+    class WebSocketStub {
+      readyState = 1
+      private handlers = new Map<string, Array<(event: { data?: string }) => void>>()
+
+      constructor() { sockets.push(this) }
+      addEventListener(type: string, handler: (event: { data?: string }) => void) {
+        this.handlers.set(type, [...(this.handlers.get(type) ?? []), handler])
+      }
+      emit(type: string, event: { data?: string } = {}) {
+        this.handlers.get(type)?.forEach((handler) => handler(event))
+      }
+      close() {
+        this.readyState = 3
+        this.emit('close')
+      }
+    }
+    Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock })
+    Object.defineProperty(window, 'WebSocket', { configurable: true, value: WebSocketStub })
+
+    Object.assign(window, { calendarEventTiming })
+    window.eval(script.replace("import { calendarEventTiming } from './calendarTiming.js'", ''))
+    await waitFor(() => expect(sockets).toHaveLength(1))
+
+    vi.useFakeTimers()
+    sockets[0].emit('message', { data: '{"type":"authorization-revoked"}' })
+    vi.advanceTimersByTime(2_000)
+
+    expect(window.localStorage.getItem('pablo-tablet.mobile-token.v1')).toBeNull()
+    expect(view.getByText(/el acceso de este móvil se ha revocado desde la tablet/i)).toBeInTheDocument()
+    expect(view.getByText('No autorizado')).toBeInTheDocument()
+    expect(sockets).toHaveLength(1)
+  })
 })

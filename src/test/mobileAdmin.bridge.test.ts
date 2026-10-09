@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const nativeMobileAdmin = vi.hoisted(() => ({
   getStatus: vi.fn(),
   setEnabled: vi.fn(),
+  revokeAllDevices: vi.fn(),
   addListener: vi.fn(),
 }))
 
@@ -11,7 +12,7 @@ vi.mock('@capacitor/core', () => ({
   registerPlugin: () => nativeMobileAdmin,
 }))
 
-import { addMobileAdminStatusListener, getMobileAdminStatus, setMobileAdminEnabled } from '../mobileAdmin'
+import { addMobileAdminStatusListener, getMobileAdminStatus, revokeAllAuthorizedDevices, setMobileAdminEnabled } from '../mobileAdmin'
 
 describe('puente nativo de administración móvil', () => {
   beforeEach(() => {
@@ -36,5 +37,12 @@ describe('puente nativo de administración móvil', () => {
 
     await expect(addMobileAdminStatusListener(listener)).resolves.toBe(handle)
     expect(nativeMobileAdmin.addListener).toHaveBeenCalledWith('statusChanged', listener)
+  })
+
+  it('revoca todos los dispositivos mediante una única llamada nativa', async () => {
+    nativeMobileAdmin.revokeAllDevices.mockResolvedValue({ revokedCount: 3 })
+
+    await expect(revokeAllAuthorizedDevices()).resolves.toBe(3)
+    expect(nativeMobileAdmin.revokeAllDevices).toHaveBeenCalledTimes(1)
   })
 })

@@ -656,6 +656,11 @@
   background: color-mix(in srgb, var(--theme-danger) 14%, var(--theme-surface-solid));
   color: var(--theme-danger);
 }
+.tablet-shell[data-theme] .revoke-all-devices {
+  background: color-mix(in srgb, var(--theme-danger) 10%, var(--theme-surface-solid));
+  border-color: color-mix(in srgb, var(--theme-danger) 36%, var(--theme-border));
+  color: var(--theme-danger);
+}
 
 .tablet-shell[data-theme] .app-update-settings { border-color: var(--theme-border); }
 .tablet-shell[data-theme] .app-update-card {
