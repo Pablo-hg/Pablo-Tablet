@@ -2,7 +2,7 @@
 
 Pablo Tablet es un panel doméstico local para una Teclast T65. La tablet actúa como nodo central del hogar y la interfaz de control principal. El proyecto combina una app web React con Capacitor + Android para ofrecer un dashboard minimalista, útil sin Internet, pensado para uso continuo en una sala, cocina o escritorio.
 
-Este documento recoge el estado real del repositorio a 06/10/2026. La versión actual es `0.1.0` y solo cambiará por indicación expresa de Pablo. La base funcional y las decisiones de producto quedan en la [especificación funcional](ESPECIFICACION-FUNCIONAL.md). La operación fuera de la vivienda se resume en [OPERACION-REMOTA.md](OPERACION-REMOTA.md) y su preparación reproducible en [CONFIGURACION-REMOTA.md](CONFIGURACION-REMOTA.md). El trabajo con `feature/*`, `fix/*`, `dev`, `release/*`, `main`, tags y Releases se define en [FLUJO-DE-RAMAS-Y-VERSIONES.md](FLUJO-DE-RAMAS-Y-VERSIONES.md). El histórico de conversaciones y decisiones previas sigue en el [índice de chats](chats/INDICE-CHATS.md).
+Este documento recoge el estado real del repositorio a 10/10/2026. La última versión publicada e instalada es `0.2.1`; la siguiente versión solo se elegirá por indicación expresa de Pablo. La base funcional y las decisiones de producto quedan en la [especificación funcional](ESPECIFICACION-FUNCIONAL.md). La operación fuera de la vivienda se resume en [OPERACION-REMOTA.md](OPERACION-REMOTA.md) y su preparación reproducible en [CONFIGURACION-REMOTA.md](CONFIGURACION-REMOTA.md). El trabajo con `feature/*`, `fix/*`, `dev`, `release/*`, `main`, tags y Releases se define en [FLUJO-DE-RAMAS-Y-VERSIONES.md](FLUJO-DE-RAMAS-Y-VERSIONES.md). El histórico de conversaciones y decisiones previas sigue en el [índice de chats](chats/INDICE-CHATS.md).
 
 ## Resumen ejecutivo
 
@@ -17,7 +17,7 @@ La versión actual del repositorio ya no es solo un mockup ni una base técnica 
 - pantalla de ajustes con brillo, volumen, rotación, inactividad y modo salvapantallas;
 - persistencia privada de la aplicación en SQLite, con migración automática de los datos anteriores de `localStorage`.
 - primera versión funcional de la administración móvil local, con servidor Android, API autenticada, WebSocket, QR y editor web.
-- comprobación y descarga segura de actualizaciones desde GitHub Releases, pendiente de la primera publicación firmada de producción.
+- comprobación y descarga segura de actualizaciones desde GitHub Releases; `v0.2.1` está instalada con la firma oficial.
 
 La arquitectura final sigue planteada como híbrida y local, pero la parte ya implementada en este código es la capa funcional principal del prototipo realista del MVP.
 
@@ -37,7 +37,7 @@ La arquitectura final sigue planteada como híbrida y local, pero la parte ya im
 | Gestión desde móvil                            | Implementado parcialmente | editor web local para notas, calendario, reloj, tiempo, fotos y visibilidad del panel      |
 | Persistencia local de la aplicación            | Implementado              | SQLite privado en Android, migración del estado anterior y fallback web para desarrollo   |
 | Servidor local para el móvil                   | Implementado parcialmente | HTTP en LAN, API REST, WebSocket, tokens por dispositivo y archivos privados               |
-| Actualizaciones remotas                        | Implementado parcialmente | consulta, descarga, SHA-256, instalador y workflow; falta la primera Release firmada       |
+| Actualizaciones remotas                        | Implementado              | consulta, descarga, SHA-256, instalador y releases firmadas hasta `v0.2.1`                 |
 | Comentarios y mejoras desde móvil              | Implementado              | formulario, cola, Worker, Issues y cuatro estados; creación real validada con el Issue #1 |
 | Copias y restauración                          | Pendiente                 | no está desarrollada en esta rama                                                         |
 | Integración con Google Calendar / datos reales | Pendiente                 | queda fuera del MVP actual                                                                |
@@ -130,7 +130,7 @@ El contrato técnico y los pasos de validación están documentados en [ADMINIST
 - Descarga restringida al repositorio oficial y verificación SHA-256 antes de abrir el instalador.
 - Validación adicional de identificador, `versionCode` y firma realizada por Android.
 - Workflow de GitHub Actions preparado para lint, tests, build, firma y publicación desde `release/*` o `hotfix/*`.
-- Pendiente completar el repositorio de distribución y publicar la primera instalación firmada.
+- Releases `v0.2.0` y `v0.2.1` firmadas con el mismo certificado; `v0.2.1` instalada conservando los datos.
 
 El funcionamiento, la seguridad y la preparación operativa están en [ACTUALIZACIONES.md](ACTUALIZACIONES.md). La visión conjunta de administración, actualizaciones y feedback está en [OPERACION-REMOTA.md](OPERACION-REMOTA.md).
 
@@ -183,7 +183,7 @@ La administración móvil ya dispone de un recorrido funcional completo en códi
 | 8. Copias y recuperación           | Backup / restore                      | Pendiente                                       |
 | 9. Seguridad y cierre              | Tokens, logs, recuperación            | Pendiente                                       |
 
-Estas son áreas de trabajo del MVP y no representan el número de versión. El producto continúa en `0.1.0` hasta que Pablo indique otro número.
+Estas son áreas de trabajo del MVP y no representan el número de la siguiente versión. La última publicación continúa siendo `0.2.1` hasta que Pablo apruebe otro número.
 
 ## Desarrollo
 
