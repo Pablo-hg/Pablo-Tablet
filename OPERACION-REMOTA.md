@@ -62,7 +62,7 @@ La instalación completamente silenciosa no forma parte de `0.1.0`. Exigiría ad
 ## Flujo de administración móvil local
 
 1. La opción **Permitir administración desde otros dispositivos** está desactivada por defecto, tanto en instalaciones nuevas como al actualizar desde una versión que no guardaba esta preferencia. Los dispositivos ya vinculados se conservan, pero Pablo debe volver a activar expresamente el acceso LAN.
-2. Al activarla, Android mantiene un servicio en primer plano de tipo `connectedDevice`, con una notificación persistente, que inicia el servidor en la IPv4 privada de la Wi‑Fi activa. Desde Android 13, anuncia el servicio mDNS únicamente en esa red; en versiones anteriores se mantiene la URL por IP y se omite el anuncio global por seguridad.
+2. Al activarla, Android solicita en Android 13 o posterior el permiso de notificaciones. Solo después de concederlo mantiene un servicio en primer plano de tipo `connectedDevice`, con una notificación persistente, que inicia el servidor en la IPv4 privada de la Wi‑Fi activa. Desde Android 13, anuncia el servicio mDNS únicamente en esa red; en versiones anteriores se mantiene la URL por IP y se omite el anuncio global por seguridad.
 3. La dirección se actualiza automáticamente al conectar, desconectar o cambiar de Wi‑Fi y al recibir otra IP. Ese cambio invalida cualquier QR o solicitud pendiente y vuelve a registrar mDNS en la red nueva.
 4. La tablet muestra un QR temporal desde **Ajustes → Administración móvil**.
 5. Un móvil conectado a la misma Wi‑Fi escanea el QR y solicita acceso.
@@ -77,7 +77,7 @@ Este flujo no permite administrar la tablet desde otra red. Su validación compl
 
 ### Validación del servicio recuperable
 
-La automatización cubre que el servicio sea `START_STICKY`, publique su notificación foreground, no se mantenga cuando el acceso LAN está desactivado y solo se restaure desde `BOOT_COMPLETED` cuando la preferencia continúa activa. La validación física pendiente debe comprobar:
+La automatización cubre que el servicio sea `START_STICKY`, publique una sola notificación foreground incluso ante arranques repetidos, no se mantenga cuando el acceso LAN está desactivado y solo se restaure desde `BOOT_COMPLETED` cuando la preferencia continúa activa. Si el permiso de notificaciones se rechaza al activar el acceso, la operación se cancela y se explica el motivo. La validación física pendiente debe comprobar:
 
 1. cerrar o apartar la interfaz de Pablo Tablet y confirmar que la URL sigue respondiendo;
 2. terminar el proceso sin aplicar **Forzar detención** y comprobar que Android recupera una única instancia del servicio;

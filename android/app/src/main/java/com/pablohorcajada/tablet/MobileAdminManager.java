@@ -85,10 +85,18 @@ final class MobileAdminManager {
     }
 
     synchronized void stop() {
+        stop(false);
+    }
+
+    synchronized void stopPreservingLifecycleError() {
+        stop(true);
+    }
+
+    private void stop(boolean preserveLifecycleError) {
         stopServer();
         lastError = null;
         discoveryError = null;
-        lifecycleError = null;
+        if (!preserveLifecycleError) lifecycleError = null;
         notifyStatusChanged();
     }
 
@@ -131,11 +139,9 @@ final class MobileAdminManager {
         String currentError = error();
         String serviceState = !enabled
             ? "disabled"
-            : lifecycleError != null
-                ? "error"
-                : running
-                    ? "available"
-                    : currentError == null ? "starting" : "error";
+            : running
+                ? "available"
+                : currentError == null ? "starting" : "error";
         return new StatusSnapshot(enabled, running, port(), localAddress(), networkGeneration, currentError, serviceState);
     }
 

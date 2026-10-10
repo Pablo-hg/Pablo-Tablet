@@ -43,8 +43,20 @@ public final class MobileAdminService extends Service {
         int foregroundType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
             ? ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
             : 0;
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(manager.statusSnapshot()), foregroundType);
-        manager.clearLifecycleError();
+        try {
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(manager.statusSnapshot()), foregroundType);
+        } catch (RuntimeException error) {
+            manager.reportLifecycleError("Android no pudo mostrar la notificación del servicio de administración móvil.");
+            stopSelf(startId);
+            return START_NOT_STICKY;
+        }
+        if (notificationManager != null
+            && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+            && !notificationManager.areNotificationsEnabled()) {
+            manager.reportLifecycleError("El servicio está activo, pero Android oculta su notificación. Permítela en los ajustes de la aplicación.");
+        } else {
+            manager.clearLifecycleError();
+        }
         manager.start();
         updateNotification();
         return START_STICKY;
@@ -53,7 +65,7 @@ public final class MobileAdminService extends Service {
     @Override
     public void onDestroy() {
         manager.removeStatusListener(statusListener);
-        manager.stop();
+        manager.stopPreservingLifecycleError();
         stopForeground(STOP_FOREGROUND_REMOVE);
         super.onDestroy();
     }

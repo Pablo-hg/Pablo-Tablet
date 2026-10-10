@@ -64,4 +64,33 @@ public class MobileAdminServiceTest {
         assertNotNull(notifications.getNotificationChannel(MobileAdminService.CHANNEL_ID));
         controller.destroy();
     }
+
+    @Test
+    public void repeatedStartKeepsOneForegroundNotification() {
+        new MobileAdminAccessPreference(context).setEnabled(true);
+        ServiceController<MobileAdminService> controller = Robolectric.buildService(MobileAdminService.class).create();
+        MobileAdminService service = controller.get();
+        NotificationManager notifications = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+
+        assertEquals(Service.START_STICKY, service.onStartCommand(new Intent(context, MobileAdminService.class), 0, 9));
+        assertEquals(Service.START_STICKY, service.onStartCommand(new Intent(context, MobileAdminService.class), 0, 10));
+
+        assertEquals(1, notifications.getActiveNotifications().length);
+        assertEquals(MobileAdminService.NOTIFICATION_ID, notifications.getActiveNotifications()[0].getId());
+        controller.destroy();
+    }
+
+    @Test
+    public void destructionPreservesAServiceLifecycleErrorForSettings() {
+        ServiceController<MobileAdminService> controller = Robolectric.buildService(MobileAdminService.class).create();
+        MobileAdminManager manager = MobileAdminManager.get(context);
+        manager.setEnabled(true);
+        manager.reportLifecycleError("No se pudo mantener el servicio.");
+
+        controller.destroy();
+
+        assertEquals("error", manager.statusSnapshot().serviceState);
+        assertEquals("No se pudo mantener el servicio.", manager.statusSnapshot().error);
+        manager.setEnabled(false);
+    }
 }

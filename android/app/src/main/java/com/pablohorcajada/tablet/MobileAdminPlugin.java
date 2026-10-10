@@ -1,13 +1,25 @@
 package com.pablohorcajada.tablet;
 
+import android.Manifest;
+import android.os.Build;
+
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
-@CapacitorPlugin(name = "MobileAdmin")
+@CapacitorPlugin(
+    name = "MobileAdmin",
+    permissions = {
+        @Permission(alias = MobileAdminPlugin.NOTIFICATIONS_PERMISSION, strings = { Manifest.permission.POST_NOTIFICATIONS })
+    }
+)
 public class MobileAdminPlugin extends Plugin {
+    static final String NOTIFICATIONS_PERMISSION = "notifications";
     private MobileAdminManager manager;
     private final Runnable statusListener = this::emitStatusChanged;
 
@@ -39,6 +51,28 @@ public class MobileAdminPlugin extends Plugin {
             call.reject("Falta indicar si el acceso móvil debe estar activado.");
             return;
         }
+        if (enabled && shouldRequestNotificationPermission()) {
+            requestPermissionForAlias(NOTIFICATIONS_PERMISSION, call, "enableAfterNotificationPermission");
+            return;
+        }
+        applyEnabled(call, enabled);
+    }
+
+    @PermissionCallback
+    private void enableAfterNotificationPermission(PluginCall call) {
+        if (getPermissionState(NOTIFICATIONS_PERMISSION) != PermissionState.GRANTED) {
+            call.reject("Permite las notificaciones para mantener visible el servicio de administración móvil.");
+            return;
+        }
+        applyEnabled(call, true);
+    }
+
+    private boolean shouldRequestNotificationPermission() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && getPermissionState(NOTIFICATIONS_PERMISSION) != PermissionState.GRANTED;
+    }
+
+    private void applyEnabled(PluginCall call, boolean enabled) {
         MobileAdminServiceController.setEnabled(getContext(), enabled);
         getStatus(call);
     }
