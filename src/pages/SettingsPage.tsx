@@ -6,6 +6,7 @@ import { MobileAdminSettings } from '../MobileAdminSettings'
 import { ScreensaverDelaySelect, ScreenTimeoutSelect, SettingsRange, SettingsSelect, SettingToggle, TimeSetting } from '../components/settings/SettingsControls'
 import { ThemePicker } from '../components/settings/ThemePicker'
 import { AppUpdateSettings } from '../components/settings/AppUpdateSettings'
+import { NotificationSettings } from '../components/settings/NotificationSettings'
 
 export interface SettingsPageProps {
   preferences: DashboardPreferences
@@ -73,6 +74,7 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
         <SettingsRange icon={<Volume2 size={20} />} label="Volumen de alarmas" value={preferences.alarmVolume} minimum={0} onChange={(alarmVolume) => { onPreferencesChange({ alarmVolume }); void previewDeviceVolume('alarm', alarmVolume) }} />
         <SettingsRange icon={<Volume2 size={20} />} label="Volumen general" value={preferences.mediaVolume} minimum={0} onChange={(mediaVolume) => { onPreferencesChange({ mediaVolume }); void playInteractionSound(mediaVolume) }} />
         <SettingToggle icon={<Volume2 size={20} />} title="Sonido al interactuar" detail="Reproduce un toque breve al pulsar controles." checked={preferences.interactionSoundsEnabled} onChange={(interactionSoundsEnabled) => { onPreferencesChange({ interactionSoundsEnabled }); if (interactionSoundsEnabled) void playInteractionSound(preferences.mediaVolume) }} />
+        <NotificationSettings />
         <SettingToggle icon={<Images size={20} />} title="Salvapantallas de fotos" detail="Muestra las fotos elegidas cuando la tablet queda inactiva." checked={preferences.screensaverEnabled} onChange={(screensaverEnabled) => onPreferencesChange({ screensaverEnabled })} />
         {preferences.screensaverEnabled ? <ScreensaverDelaySelect value={preferences.screensaverDelaySeconds} onChange={(screensaverDelaySeconds) => onPreferencesChange({ screensaverDelaySeconds })} /> : null}
         <SettingToggle icon={<SunMedium size={20} />} title="Pantalla siempre encendida" detail="Evita que la tablet se suspenda mientras Pablo Tablet está abierta." checked={preferences.keepScreenAwake} onChange={(keepScreenAwake) => onPreferencesChange({ keepScreenAwake })} />
