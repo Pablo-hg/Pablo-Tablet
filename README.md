@@ -123,6 +123,8 @@ La arquitectura final sigue planteada como híbrida y local, pero la parte ya im
 
 El contrato técnico y los pasos de validación están documentados en [ADMINISTRACION-MOVIL.md](ADMINISTRACION-MOVIL.md).
 
+La definición funcional independiente de proveedor para el futuro asistente transversal está en [ASISTENTE-IA.md](ASISTENTE-IA.md). Incluye los casos de uso prioritarios, confirmaciones, privacidad, modo sin conexión y alcance aplazado; su arquitectura e implementación siguen pendientes.
+
 ### 8. Actualizaciones remotas
 
 - Sección **Ajustes → Sistema → Actualizaciones** con versión instalada y búsqueda manual.
