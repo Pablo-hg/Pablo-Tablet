@@ -123,7 +123,7 @@ La arquitectura final sigue planteada como híbrida y local, pero la parte ya im
 
 El contrato técnico y los pasos de validación están documentados en [ADMINISTRACION-MOVIL.md](ADMINISTRACION-MOVIL.md).
 
-La definición funcional independiente de proveedor para el futuro asistente transversal está en [ASISTENTE-IA.md](ASISTENTE-IA.md). La decisión técnica, límites de confianza, contrato de comandos, proveedores, voz, costes y plan de validación se documentan en [ARQUITECTURA-ASISTENTE-IA.md](ARQUITECTURA-ASISTENTE-IA.md). La implementación de producto sigue pendiente.
+La definición funcional independiente de proveedor del asistente transversal está en [ASISTENTE-IA.md](ASISTENTE-IA.md). La decisión técnica, límites de confianza, contrato de comandos, proveedores, voz, costes y plan de validación se documentan en [ARQUITECTURA-ASISTENTE-IA.md](ARQUITECTURA-ASISTENTE-IA.md). El MVP funciona con un proveedor local seguro: consulta el resumen diario, tiempo, agenda, notas y ayuda; propone notas, alarmas y temporizadores con confirmación explícita; admite texto, dictado y lectura de respuestas; no envía datos ni conserva el historial de conversación.
 
 ### 8. Actualizaciones remotas
 

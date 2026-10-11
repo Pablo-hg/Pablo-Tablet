@@ -35,6 +35,7 @@ import {
   RotateCw,
   RefreshCw,
   Search,
+  Sparkles,
   Snowflake,
   Star,
   SunMedium,
@@ -70,6 +71,8 @@ import {
   type GalleryPhoto,
   EVERY_ALARM_WEEKDAY,
 } from './dashboardState'
+import type { AssistantCommand } from './assistant/contracts'
+import { executeAssistantCommand } from './assistant/executor'
 import { DEFAULT_ALARM_SOUND, getDeviceAlarmSounds, previewAlarmSound, stopAlarmSoundPreview, type DeviceAlarmSound } from './alarmSounds'
 import { snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
 import { arrangeWidgets, DASHBOARD_COLUMNS, DASHBOARD_ROWS, placeWidgets, resizeWidgets, type DashboardOrientation, type DashboardWidgetId, type PlacedWidget, type WidgetPosition } from './widgetLayout'
@@ -85,6 +88,7 @@ import { useWeatherForecasts } from './hooks/useWeatherForecasts'
 import { AppNavigation, type AppScreen } from './app/AppNavigation'
 import { AppShell } from './app/AppShell'
 import { SettingsPage } from './pages/SettingsPage'
+import { AssistantPage } from './pages/AssistantPage'
 import { PageHeader } from './components/PageHeader'
 import './App.css'
 import './themes.css'
@@ -664,6 +668,67 @@ function App() {
     registerInteraction()
   }
 
+  const openAssistant = () => {
+    if (!dashboardState.preferences.enabledPageIds.includes('assistant')) {
+      updatePreferences({
+        enabledPageIds: DASHBOARD_PAGES
+          .map((page) => page.id)
+          .filter((id) => dashboardState.preferences.enabledPageIds.includes(id) || id === 'assistant'),
+      })
+    }
+    setActivePageId('assistant')
+    registerInteraction()
+  }
+
+  const openDashboardPage = (pageId: DashboardPageId) => {
+    if (!dashboardState.preferences.enabledPageIds.includes(pageId)) {
+      updatePreferences({
+        enabledPageIds: DASHBOARD_PAGES
+          .map((page) => page.id)
+          .filter((id) => dashboardState.preferences.enabledPageIds.includes(id) || id === pageId),
+      })
+    }
+    setActivePageId(pageId)
+    registerInteraction()
+  }
+
+  const setAssistantWidgetVisible = (visible: boolean) => {
+    setDashboardState((current) => {
+      let widgets = current.widgets.map((widget) => widget.id === 'assistant' ? { ...widget, visible } : widget)
+      if (!visible) return { ...current, widgets }
+
+      const assistant = widgets.find((widget) => widget.id === 'assistant')
+      if (!assistant) return current
+      const landscape = arrangeWidgets(widgets, 'landscape', 'assistant', assistant.layouts.landscape)
+      if (landscape) widgets = landscape
+
+      let portrait = arrangeWidgets(widgets, 'portrait', 'assistant', assistant.layouts.portrait)
+      if (!portrait) {
+        widgets = widgets.map((widget) => widget.id === 'agenda'
+          ? { ...widget, layouts: { ...widget.layouts, portrait: { ...widget.layouts.portrait, x: 0, y: 0, width: 3, height: 2 } } }
+          : widget)
+        portrait = arrangeWidgets(widgets, 'portrait', 'assistant', assistant.layouts.portrait)
+      }
+      return { ...current, widgets: portrait ?? widgets }
+    })
+  }
+
+  const executeAssistant = async (command: AssistantCommand) => {
+    const current = dashboardStateRef.current
+    const homeLocation = current.weatherLocations.find((location) => location.id === current.homeWeatherLocationId) ?? current.weatherLocations[0] ?? null
+    const result = executeAssistantCommand(current, command, {
+      now: new Date(),
+      homeWeatherLocation: homeLocation,
+      homeWeatherForecast: homeLocation ? weatherForecasts[homeLocation.id] ?? null : null,
+      createId: createLocalId,
+    })
+    if (result.state !== current) {
+      dashboardStateRef.current = result.state
+      setDashboardState(result.state)
+    }
+    return result
+  }
+
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return
     const target = event.target as HTMLElement
@@ -765,7 +830,17 @@ function App() {
       onClick={handleClick}
     >
       <section className="tablet-content" aria-label="Pablo Tablet">
-        {screen === 'home' && activePage ? (
+        {screen === 'home' && activePage?.id === 'assistant' ? (
+          <AssistantPage
+            enabled={dashboardState.preferences.assistantEnabled}
+            voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
+            readAloud={dashboardState.preferences.assistantReadAloud}
+            now={now}
+            onExecute={executeAssistant}
+            onOpenPage={openDashboardPage}
+            onEditingChange={setInteractionLocked}
+          />
+        ) : screen === 'home' && activePage ? (
           <DashboardPage
             key={activePage.id}
             page={activePage}
@@ -817,6 +892,7 @@ function App() {
             onOpenNotes={openNotes}
             onOpenWeather={openWeather}
             onOpenCalendar={openCalendar}
+            onOpenAssistant={openAssistant}
             onChangeWidgetLayout={updateWidgetLayout}
             onEditingChange={setInteractionLocked}
           />
@@ -826,6 +902,8 @@ function App() {
             onBack={() => goTo('home')}
             onPreferencesChange={updatePreferences}
             onTogglePage={togglePage}
+            assistantWidgetVisible={dashboardState.widgets.find((widget) => widget.id === 'assistant')?.visible ?? false}
+            onAssistantWidgetVisibilityChange={setAssistantWidgetVisible}
             nightModeActive={nightModeActive}
           />
         )}
@@ -902,6 +980,7 @@ function DashboardPage({
   onOpenNotes,
   onOpenWeather,
   onOpenCalendar,
+  onOpenAssistant,
   onChangeWidgetLayout,
   onEditingChange,
 }: {
@@ -954,6 +1033,7 @@ function DashboardPage({
   onOpenNotes: (noteId?: string) => void
   onOpenWeather: () => void
   onOpenCalendar: () => void
+  onOpenAssistant: () => void
   onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void
   onEditingChange: (isEditing: boolean) => void
 }) {
@@ -962,7 +1042,7 @@ function DashboardPage({
   if (page.id === 'gallery') return <GalleryPage photos={galleryPhotos} onAddPhotos={onAddGalleryPhotos} onMoveToTrash={onMoveGalleryPhotoToTrash} onMoveSelectionToTrash={onMoveGalleryPhotosToTrash} onRestore={onRestoreGalleryPhoto} onPermanentlyDelete={onPermanentlyDeleteGalleryPhoto} onEditingChange={onEditingChange} />
   if (page.id === 'weather') return <WeatherPage locations={weatherLocations} homeLocationId={homeWeatherLocationId} selectedLocationId={selectedWeatherLocationId} forecasts={weatherForecasts} loading={weatherLoading} errors={weatherErrors} onAddLocation={onAddWeatherLocation} onRemoveLocation={onRemoveWeatherLocation} onSetHomeLocation={onSetHomeWeatherLocation} onSelectLocation={onSelectWeatherLocation} onRefresh={onRefreshWeather} onEditingChange={onEditingChange} />
   if (page.id === 'notes') return <NotesPage notes={notes} onCreateNote={onCreateNote} onUpdateNote={onUpdateNote} onArchiveNote={onArchiveNote} onRestoreNote={onRestoreNote} onDeleteNote={onDeleteNote} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} />
-  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} calendarEvents={calendarEvents} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
+  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} calendarEvents={calendarEvents} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
 }
 
 function GalleryScreensaver({ photo, now, time, date, calendarEvents, onDismiss }: { photo: GalleryPhoto | undefined; now: Date; time: string; date: string; calendarEvents: CalendarEvent[]; onDismiss: () => void }) {
@@ -1167,7 +1247,7 @@ function resizeWidgetFromEdge(initial: WidgetPosition, direction: WidgetResizeDi
   return { ...initial, height: initial.height + delta }
 }
 
-function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
+function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: () => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
   const orientation = useDashboardOrientation()
   const [isEditing, setIsEditing] = useState(false)
   const [selectedWidgetId, setSelectedWidgetId] = useState<DashboardWidgetId | null>(null)
@@ -1401,7 +1481,7 @@ function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWe
       {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>Arrastra para mover · arrastra los bordes para ajustar</span><button type="button" onClick={finishEditing}><Check size={17} />Listo</button></div> : null}
       <div ref={gridRef} className={`dashboard-grid is-${orientation}`}>
         {displayedWidgets.length > 0
-          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} />)
+          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
           : <DashboardEmptyState time={time} date={date} />}
       </div>
     </div>
@@ -1418,7 +1498,7 @@ function DashboardEmptyState({ time, date }: { time: string; date: string }) {
 }
 
 function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, children }: { widget: PlacedWidget; style: CSSProperties; isEditing: boolean; showResizeHandles: boolean; isHolding: boolean; dragOffset: { x: number; y: number } | null; onHoldStart: (widgetId: DashboardWidgetId, event: ReactPointerEvent<HTMLDivElement>) => void; onDragStart: (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => void; onDragMove: (event: ReactPointerEvent<HTMLDivElement>) => void; onDragEnd: (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => void; onResizeStart: (widget: PlacedWidget, direction: WidgetResizeDirection, event: ReactPointerEvent<HTMLButtonElement>) => void; onResizeMove: (event: ReactPointerEvent<HTMLButtonElement>) => void; onResizeEnd: (event: ReactPointerEvent<HTMLButtonElement>) => void; canExpand: (direction: WidgetResizeDirection) => boolean; canShrink: (direction: WidgetResizeDirection) => boolean; children: ReactNode }) {
-  const widgetNames: Record<DashboardWidgetId, string> = { clock: 'Reloj', weather: 'Tiempo', notes: 'Notas', agenda: 'Calendario' }
+  const widgetNames: Record<DashboardWidgetId, string> = { clock: 'Reloj', weather: 'Tiempo', notes: 'Notas', agenda: 'Calendario', assistant: 'Asistente' }
   const resizeDirections: WidgetResizeDirection[] = ['left', 'right', 'top', 'bottom']
   const arrows: Record<WidgetResizeDirection, string> = { left: '←', right: '→', top: '↑', bottom: '↓' }
   const directionNames: Record<WidgetResizeDirection, string> = { left: 'izquierdo', right: 'derecho', top: 'superior', bottom: 'inferior' }
@@ -1456,7 +1536,7 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
   </div>
 }
 
-function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, upcomingEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar }: {
+function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, upcomingEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
   widget: PlacedWidget
   now: Date
   time: string
@@ -1484,6 +1564,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   onOpenNotes: (noteId?: string) => void
   onOpenWeather: () => void
   onOpenCalendar: () => void
+  onOpenAssistant: () => void
 }) {
   const style = {
     gridColumn: `${widget.layout.x + 1} / span ${widget.layout.width}`,
@@ -1492,6 +1573,12 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   const sizeKey = `${widget.layout.width}x${widget.layout.height}`
   const area = widget.layout.width * widget.layout.height
   const frameProps = { widget, style, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink }
+
+  if (widget.id === 'assistant') return <DashboardWidgetFrame {...frameProps}><button type="button" className="assistant-widget widget-card interactive-card" onClick={() => onActivate(onOpenAssistant)}>
+    <span className="assistant-widget-icon"><Sparkles size={area >= 3 ? 34 : 25} /></span>
+    <span><strong>Asistente</strong><small>{area >= 2 ? 'Consulta tu día o prepara una acción con voz o texto.' : 'Voz y texto'}</small></span>
+    <ChevronRight size={18} />
+  </button></DashboardWidgetFrame>
 
   if (widget.id === 'clock') return <DashboardWidgetFrame {...frameProps}><article className="clock-card responsive-clock-widget widget-card">
     <div className="widget-label"><span>Ahora</span><span className="live-dot">En directo</span></div>

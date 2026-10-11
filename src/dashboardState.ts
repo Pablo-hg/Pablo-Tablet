@@ -1,7 +1,7 @@
 import { DEFAULT_WIDGETS, readWidgets, type DashboardWidget } from './widgetLayout'
 import type { WeatherLocation } from './weather'
 
-export type DashboardPageId = 'dashboard' | 'calendar' | 'clock' | 'weather' | 'notes' | 'gallery'
+export type DashboardPageId = 'dashboard' | 'assistant' | 'calendar' | 'clock' | 'weather' | 'notes' | 'gallery'
 
 export type DashboardPageKind = 'grid' | 'fullscreen'
 
@@ -40,6 +40,9 @@ export interface DashboardPreferences {
   nightBrightness: number
   nightAlarmVolume: number
   nightMediaVolume: number
+  assistantEnabled: boolean
+  assistantVoiceEnabled: boolean
+  assistantReadAloud: boolean
 }
 
 export type NoteColor = 'coral' | 'violet' | 'mint' | 'sun'
@@ -152,6 +155,7 @@ export interface DashboardState {
 
 export const DASHBOARD_PAGES: DashboardPageDefinition[] = [
   { id: 'dashboard', kind: 'grid', label: 'Inicio' },
+  { id: 'assistant', kind: 'fullscreen', label: 'Asistente' },
   { id: 'calendar', kind: 'fullscreen', label: 'Calendario' },
   { id: 'clock', kind: 'fullscreen', label: 'Reloj' },
   { id: 'weather', kind: 'fullscreen', label: 'Tiempo' },
@@ -204,6 +208,9 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
     nightBrightness: 5,
     nightAlarmVolume: 30,
     nightMediaVolume: 12,
+    assistantEnabled: true,
+    assistantVoiceEnabled: true,
+    assistantReadAloud: false,
   },
 }
 
@@ -484,9 +491,12 @@ export function loadDashboardState(serializedState?: string): DashboardState {
     const pageIdsWithCalendar = storedState?.key !== STORAGE_KEY && !pageIdsWithWeather.includes('calendar')
       ? [...pageIdsWithWeather, 'calendar' as const]
       : pageIdsWithWeather
-    const enabledPageIds = storedState?.key !== STORAGE_KEY && !pageIdsWithCalendar.includes('gallery')
+    const pageIdsWithGallery = storedState?.key !== STORAGE_KEY && !pageIdsWithCalendar.includes('gallery')
       ? [...pageIdsWithCalendar, 'gallery' as const]
       : pageIdsWithCalendar
+    const enabledPageIds = pageIdsWithGallery.includes('assistant')
+      ? pageIdsWithGallery
+      : [...pageIdsWithGallery, 'assistant' as const]
 
     return {
       notes: notes.length > 0
@@ -571,6 +581,15 @@ export function loadDashboardState(serializedState?: string): DashboardState {
         nightMediaVolume: typeof parsedPreferences.nightMediaVolume === 'number' && Number.isFinite(parsedPreferences.nightMediaVolume)
           ? Math.min(100, Math.max(0, Math.round(parsedPreferences.nightMediaVolume)))
           : DEFAULT_DASHBOARD_STATE.preferences.nightMediaVolume,
+        assistantEnabled: typeof parsedPreferences.assistantEnabled === 'boolean'
+          ? parsedPreferences.assistantEnabled
+          : DEFAULT_DASHBOARD_STATE.preferences.assistantEnabled,
+        assistantVoiceEnabled: typeof parsedPreferences.assistantVoiceEnabled === 'boolean'
+          ? parsedPreferences.assistantVoiceEnabled
+          : DEFAULT_DASHBOARD_STATE.preferences.assistantVoiceEnabled,
+        assistantReadAloud: typeof parsedPreferences.assistantReadAloud === 'boolean'
+          ? parsedPreferences.assistantReadAloud
+          : DEFAULT_DASHBOARD_STATE.preferences.assistantReadAloud,
         enabledPageIds: enabledPageIds.includes('dashboard')
           ? enabledPageIds
           : ['dashboard', ...enabledPageIds],

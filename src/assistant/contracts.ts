@@ -2,6 +2,7 @@ export type AssistantCommand =
   | { type: 'get_daily_summary'; args: { date: string } }
   | { type: 'get_weather'; args: { period: 'now' | 'today' | 'tomorrow' } }
   | { type: 'get_calendar'; args: { from: string; to: string } }
+  | { type: 'get_notes'; args: { limit: number } }
   | { type: 'create_note'; args: { title: string; content: string; reminderAt: string | null } }
   | { type: 'create_alarm'; args: { label: string; at: string; repeatDays: number[] } }
   | { type: 'start_timer'; args: { label: string; durationSeconds: number } }
@@ -58,9 +59,10 @@ const isDateOnly = (value: unknown): value is string =>
 
 const isRepeatDays = (value: unknown): value is number[] =>
   Array.isArray(value) &&
+  value.length > 0 &&
   value.length <= 7 &&
   new Set(value).size === value.length &&
-  value.every((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+  value.every((day) => Number.isInteger(day) && day >= 1 && day <= 7)
 
 export const requiresAssistantConfirmation = (command: AssistantCommand): boolean => WRITE_COMMANDS.has(command.type)
 
@@ -81,6 +83,9 @@ export function validateAssistantCommand(value: unknown): AssistantCommand {
       if (!hasOnlyKeys(args, ['from', 'to']) || !isIsoDateTime(args.from) || !isIsoDateTime(args.to)) break
       if (Date.parse(args.from) > Date.parse(args.to)) break
       return { type, args: { from: args.from, to: args.to } }
+    case 'get_notes':
+      if (!hasOnlyKeys(args, ['limit']) || !Number.isInteger(args.limit) || (args.limit as number) < 1 || (args.limit as number) > 10) break
+      return { type, args: { limit: args.limit as number } }
     case 'create_note':
       if (
         !hasOnlyKeys(args, ['title', 'content', 'reminderAt']) ||
