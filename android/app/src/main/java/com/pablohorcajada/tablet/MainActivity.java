@@ -24,6 +24,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppStoragePlugin.class);
         registerPlugin(MobileAdminPlugin.class);
         registerPlugin(AppUpdaterPlugin.class);
+        registerPlugin(CalendarSecretsPlugin.class);
         super.onCreate(savedInstanceState);
         MobileAdminManager.get(this).start();
         getWindow().getDecorView().setOnSystemUiVisibilityChangeListener((visibility) -> {

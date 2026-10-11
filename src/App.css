@@ -374,7 +374,35 @@
 .calendar-recurrence-mark { color: #aebbd4; flex: 0 0 auto; }
 .calendar-event-dots { display: flex; gap: 3px; height: 4px; }
 .calendar-event-dots i { background: #7899ff; border-radius: 50%; height: 4px; width: 4px; }.calendar-event-dots i.event-mint { background: #55d8b0; }.calendar-event-dots i.event-coral { background: #ff9e82; }.calendar-event-dots i.event-sun { background: #f7c76e; }
-.calendar-side-column { display: grid; gap: clamp(10px, 1.5vw, 16px); grid-template-rows: minmax(0, .9fr) minmax(0, 1.1fr); min-height: 0; }
+.calendar-side-column { display: grid; gap: clamp(10px, 1.5vw, 16px); grid-template-rows: auto minmax(0, .9fr) minmax(0, 1.1fr); min-height: 0; overflow-y: auto; }
+.calendar-connections { background: linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.065)); border: 1px solid rgba(255,255,255,.15); border-radius: 24px; box-shadow: 0 18px 40px rgba(0,8,27,.15); padding: 16px; }
+.calendar-connections > header { align-items: center; display: flex; justify-content: space-between; }
+.calendar-connections h2 { font-size: 1rem; margin: 0; }
+.calendar-local-status { align-items: center; background: rgba(71,210,155,.15); border: 1px solid rgba(71,210,155,.3); border-radius: 999px; color: #9ff0ca; display: flex; font-size: .68rem; font-weight: 800; gap: 5px; padding: 6px 9px; }
+.calendar-connections-help { color: rgba(239,245,255,.66); font-size: .68rem; line-height: 1.35; margin: 8px 0 12px; }
+.calendar-provider-list { display: grid; gap: 7px; }
+.calendar-provider { align-items: center; background: rgba(4,15,38,.28); border: 1px solid rgba(255,255,255,.1); border-radius: 15px; display: flex; gap: 8px; padding: 8px; }
+.calendar-provider-logo { align-items: center; background: #fff; border-radius: 9px; color: #2967d7; display: flex; font-weight: 900; height: 30px; justify-content: center; width: 30px; }
+.calendar-provider-logo.is-outlook { background: #1676d2; color: #fff; }
+.calendar-provider > div { display: grid; flex: 1; min-width: 0; }
+.calendar-provider small { color: rgba(239,245,255,.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-provider em { color: #ffadad; font-size: .62rem; font-style: normal; }
+.calendar-provider button { align-items: center; background: rgba(87,131,239,.18); border: 1px solid rgba(139,171,255,.24); border-radius: 10px; color: inherit; cursor: pointer; display: flex; font: inherit; font-size: .68rem; gap: 5px; min-height: 34px; padding: 6px 9px; }
+.calendar-provider button.is-danger { color: #ffb0b7; padding: 7px; }
+.calendar-provider button:disabled { opacity: .55; }
+.calendar-visibility-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.calendar-visibility-list label { align-items: center; background: rgba(255,255,255,.06); border-radius: 10px; cursor: pointer; display: flex; font-size: .68rem; gap: 6px; padding: 5px 8px; }
+.calendar-visibility-list label > i { border-radius: 50%; height: 8px; width: 8px; }
+.calendar-visibility-list label > span { display: flex; gap: 4px; }
+.calendar-visibility-list small { opacity: .55; }
+.calendar-connection-error { align-items: center; color: #ffb0b7; display: flex; font-size: .68rem; gap: 6px; margin: 9px 2px 0; }
+.calendar-pairing { align-items: center; background: rgba(0,5,18,.82); display: flex; inset: 0; justify-content: center; position: fixed; z-index: 120; }
+.calendar-pairing > section { align-items: center; background: #10244a; border: 1px solid rgba(255,255,255,.18); border-radius: 26px; display: flex; flex-direction: column; max-width: 390px; padding: 28px; position: relative; text-align: center; }
+.calendar-pairing > section > button { background: transparent; border: 0; color: inherit; cursor: pointer; position: absolute; right: 14px; top: 14px; }
+.calendar-pairing h3 { margin: 9px 0 4px; }
+.calendar-pairing p { color: rgba(239,245,255,.7); font-size: .8rem; line-height: 1.45; }
+.calendar-pairing img { background: #fff; border-radius: 15px; height: 220px; margin: 8px; padding: 8px; width: 220px; }
+.calendar-pairing small { color: rgba(239,245,255,.55); margin-top: 7px; }
 .calendar-day-panel, .calendar-upcoming-panel { display: flex; flex-direction: column; }
 .calendar-day-panel h2, .calendar-upcoming-panel h2 { font-size: 1rem; }
 .primary-action { align-items: center; background: #7899ff; border: 0; border-radius: 999px; color: #07132b; cursor: pointer; display: flex; font: inherit; font-size: .76rem; font-weight: 750; gap: 5px; padding: 9px 13px; }
