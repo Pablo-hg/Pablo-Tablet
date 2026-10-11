@@ -246,7 +246,7 @@ final class MobileAdminServer extends NanoWSD {
         photo.put("id", id);
         photo.put("name", cleanFileName(originalName));
         photo.put("uri", Uri.fromFile(destination).toString());
-        photo.put("createdAt", new java.util.Date().toInstant().toString());
+        photo.put("createdAt", UtcTimestamp.now());
         photo.put("deletedAt", JSONObject.NULL);
         photos.put(photo);
         long updatedAt = database.writeStorage(PabloTabletDatabase.DASHBOARD_KEY, state.toString());

@@ -9,6 +9,8 @@ import android.net.NetworkCapabilities;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -24,6 +26,7 @@ final class MobileAdminManager {
     private final MobileAdminRepository repository;
     private final MobilePairingRateLimiter pairingRateLimiter;
     private final ScheduledExecutorService maintenanceExecutor;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final MobileAdminAccessPreference accessPreference;
     private final ConnectivityManager connectivityManager;
     private final NsdManager nsdManager;
@@ -249,7 +252,7 @@ final class MobileAdminManager {
 
     private void notifyStatusChanged() {
         if (statusListeners.isEmpty()) return;
-        context.getMainExecutor().execute(() -> {
+        mainHandler.post(() -> {
             for (Runnable listener : statusListeners) listener.run();
         });
     }
