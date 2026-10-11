@@ -20,8 +20,8 @@ describe('puente nativo de administración móvil', () => {
   })
 
   it('consulta y cambia la preferencia usando el resultado real del servicio', async () => {
-    const disabled = { enabled: false, running: false, port: 8765, localAddress: null, hostname: null, networkGeneration: 0, error: null }
-    const enabled = { enabled: true, running: true, port: 8765, localAddress: 'http://192.168.1.50:8765', hostname: null, networkGeneration: 1, error: null }
+    const disabled = { enabled: false, running: false, port: 8765, localAddress: null, hostname: null, networkGeneration: 0, error: null, serviceState: 'disabled' as const }
+    const enabled = { enabled: true, running: true, port: 8765, localAddress: 'http://192.168.1.50:8765', hostname: null, networkGeneration: 1, error: null, serviceState: 'available' as const }
     nativeMobileAdmin.getStatus.mockResolvedValue(disabled)
     nativeMobileAdmin.setEnabled.mockResolvedValue(enabled)
 

@@ -9,6 +9,8 @@ import android.net.NetworkCapabilities;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -38,6 +40,7 @@ final class MobileAdminManager {
     private String lastError;
     private String networkError;
     private String discoveryError;
+    private String lifecycleError;
     private NsdManager.RegistrationListener registrationListener;
 
     static synchronized MobileAdminManager get(Context context) {
@@ -66,6 +69,7 @@ final class MobileAdminManager {
     synchronized void start() {
         if (!isEnabled()) repository.cancelPendingPairings();
         reconcileServer();
+        notifyStatusChanged();
     }
 
     synchronized void setEnabled(boolean enabled) {
@@ -81,16 +85,38 @@ final class MobileAdminManager {
     }
 
     synchronized void stop() {
+        stop(false);
+    }
+
+    synchronized void stopPreservingLifecycleError() {
+        stop(true);
+    }
+
+    private void stop(boolean preserveLifecycleError) {
         stopServer();
         lastError = null;
         discoveryError = null;
+        if (!preserveLifecycleError) lifecycleError = null;
+        notifyStatusChanged();
     }
 
     boolean isEnabled() { return accessPreference.isEnabled(); }
     synchronized boolean isRunning() { return server != null && server.isAlive(); }
     int port() { return MobileAdminServer.PORT; }
-    synchronized String error() { return lastError == null ? discoveryError : lastError; }
+    synchronized String error() {
+        if (lifecycleError != null) return lifecycleError;
+        return lastError == null ? discoveryError : lastError;
+    }
     MobileAdminRepository repository() { return repository; }
+
+    synchronized void clearLifecycleError() {
+        lifecycleError = null;
+    }
+
+    synchronized void reportLifecycleError(String message) {
+        lifecycleError = message;
+        notifyStatusChanged();
+    }
 
     void addStatusListener(Runnable listener) { statusListeners.add(listener); }
     void removeStatusListener(Runnable listener) { statusListeners.remove(listener); }
@@ -108,7 +134,15 @@ final class MobileAdminManager {
     }
 
     synchronized StatusSnapshot statusSnapshot() {
-        return new StatusSnapshot(isEnabled(), isRunning(), port(), localAddress(), networkGeneration, error());
+        boolean enabled = isEnabled();
+        boolean running = isRunning();
+        String currentError = error();
+        String serviceState = !enabled
+            ? "disabled"
+            : running
+                ? "available"
+                : currentError == null ? "starting" : "error";
+        return new StatusSnapshot(enabled, running, port(), localAddress(), networkGeneration, currentError, serviceState);
     }
 
     synchronized String pairingBaseAddress() {
@@ -249,7 +283,7 @@ final class MobileAdminManager {
 
     private void notifyStatusChanged() {
         if (statusListeners.isEmpty()) return;
-        context.getMainExecutor().execute(() -> {
+        new Handler(Looper.getMainLooper()).post(() -> {
             for (Runnable listener : statusListeners) listener.run();
         });
     }
@@ -341,14 +375,16 @@ final class MobileAdminManager {
         final String localAddress;
         final long networkGeneration;
         final String error;
+        final String serviceState;
 
-        StatusSnapshot(boolean enabled, boolean running, int port, String localAddress, long networkGeneration, String error) {
+        StatusSnapshot(boolean enabled, boolean running, int port, String localAddress, long networkGeneration, String error, String serviceState) {
             this.enabled = enabled;
             this.running = running;
             this.port = port;
             this.localAddress = localAddress;
             this.networkGeneration = networkGeneration;
             this.error = error;
+            this.serviceState = serviceState;
         }
     }
 }
