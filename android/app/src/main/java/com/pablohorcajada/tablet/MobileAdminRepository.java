@@ -457,7 +457,7 @@ final class MobileAdminRepository {
         result.append("- Versión: ").append(appVersion).append("\n");
         result.append("- Tablet: ").append(tabletModel).append("\n");
         result.append("- Móvil autorizado: ").append(deviceName).append("\n");
-        result.append("- Fecha: ").append(new java.util.Date(createdAt).toInstant()).append("\n\n");
+        result.append("- Fecha: ").append(UtcTimestamp.format(createdAt)).append("\n\n");
         result.append("## Descripción\n\n").append(description).append("\n");
         return result.toString();
     }
