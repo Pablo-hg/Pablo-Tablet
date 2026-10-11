@@ -5,6 +5,12 @@ import type { CalendarEvent, CalendarEventRecurrence } from '../dashboardState'
 function event(recurrence: CalendarEventRecurrence, date = '2026-01-31', endDate = date): CalendarEvent {
   return {
     id: 'event-1',
+    source: 'local',
+    accountId: null,
+    calendarId: null,
+    externalId: null,
+    externalVersion: null,
+    syncStatus: 'local',
     type: 'event',
     recurrence,
     completed: false,
@@ -19,6 +25,7 @@ function event(recurrence: CalendarEventRecurrence, date = '2026-01-31', endDate
     color: 'blue',
     reminders: [],
     createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
   }
 }
 
