@@ -2,7 +2,7 @@
 
 > Issue: #25
 >
-> Fecha de automatización: 10/10/2026
+> Última ejecución automatizada: 11/10/2026
 >
 > Estado global: **automatización completada; instalación y demostración física pendientes**
 
@@ -19,11 +19,15 @@ Este informe separa de forma explícita lo que está implementado, compilado y p
 | Límites de vinculación | `MobilePairingRateLimiterTest` cubre ráfaga por IP, límite global, espera progresiva, recuperación y memoria acotada; el repositorio comprueba el máximo de pendientes | Superado |
 | Revocación global | Pruebas nativas y web comprueban transacción, cancelación de pendientes, invalidación de credenciales y evento WebSocket | Superado |
 | Cambio de IP y QR | `MobileAdminSettings.test.tsx` comprueba el cambio de generación de red y la cancelación del QR anterior | Superado |
+| Servicio Android recuperable | `MobileAdminServiceTest` y `MobileAdminBootReceiverTest` cubren `START_STICKY`, notificación foreground única, acceso desactivado y recuperación condicionada tras reinicio | Superado |
+| Permiso y declaración foreground | El manifiesto fusionado contiene `POST_NOTIFICATIONS`, los permisos foreground, el tipo `connectedDevice` y un receptor de arranque no exportado | Superado |
 | Migraciones | `PabloTabletDatabaseMigrationTest` abre instalaciones simuladas de versiones 1 y 3, migra a la versión 4 y conserva el estado existente | Superado |
-| Cliente web | 46/46 pruebas Vitest cubren HTTP 401, pérdida de autorización por WebSocket, reconexión breve y borrado de la credencial revocada | Superado |
-| Compilación | `npm run lint`, `npm run build`, `npm run android:sync`, 15/15 pruebas JVM y `assembleDebug` | Superado |
+| Cliente web | 47/47 pruebas Vitest cubren HTTP 401, pérdida de autorización por WebSocket, reconexión breve, estados del servicio y borrado de la credencial revocada | Superado |
+| Compilación | `npm run lint`, `npm run build`, `npm run android:sync`, 22/22 pruebas JVM y `assembleDebug` | Superado |
 
-La publicación mDNS, el enlace del socket a la Wi-Fi activa y el cierre efectivo de conexiones en Android están compilados y cubiertos indirectamente por las políticas y estados puros. Su comportamiento real depende de servicios Android, router y red, por lo que se mantiene dentro de la matriz física.
+Esta ejecución combina `dev` (`e3617ef`) con la implementación completa del servicio recuperable de #31 (`4ce07ee`). La publicación mDNS, el enlace del socket a la Wi-Fi activa y el cierre efectivo de conexiones en Android están compilados y cubiertos indirectamente por las políticas y estados puros. Su comportamiento real depende de servicios Android, router y red, por lo que se mantiene dentro de la matriz física.
+
+`gradlew lintDebug` no está limpio por cuatro incidencias anteriores a esta validación: navegación predictiva en `MainActivity` y uso de APIs 26 con `minSdk 24` en `GalleryPlugin`, `MobileAdminRepository` y `MobileAdminServer`. No afectan a los comandos exigidos por el criterio automatizado actual, pero deben corregirse en una tarea separada antes de adoptar Android Lint como barrera obligatoria.
 
 ## Matriz física pendiente
 
@@ -34,6 +38,8 @@ La publicación mDNS, el enlace del socket a la Wi-Fi activa y el cierre efectiv
 | Intento desde un móvil no vinculado | Pendiente | Respuesta no autorizada y pantalla mostrada |
 | Revocación individual y global con la web abierta | Pendiente | Cierre WebSocket, pantalla de nueva vinculación y HTTP 401 |
 | Reinicio de app y tablet | Pendiente | Persistencia del interruptor y dispositivos según el caso |
+| Cierre de interfaz y recuperación del servicio | Pendiente | URL accesible sin la actividad, una sola notificación y una sola instancia en `dumpsys` |
+| Permiso de notificaciones | Pendiente | Solicitud al activar, notificación persistente visible y mensaje correcto si se deniega |
 | Cambio de IP y entre redes Wi-Fi | Pendiente | Nueva dirección, mDNS actualizado y QR anterior inválido |
 | Red de invitados con aislamiento | Pendiente | Imposibilidad documentada de alcanzar el servidor |
 | Intento desde otra red/Internet | Pendiente | Servicio no accesible fuera de la LAN |
