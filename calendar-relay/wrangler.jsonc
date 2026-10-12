@@ -6,9 +6,9 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "pablo-tablet-calendar",
-    "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+    "database_id": "d0c48ea7-2d68-4d72-be4c-a84d5c0e784b"
   }],
   "vars": {
-    "PUBLIC_BASE_URL": "https://pablo-tablet-calendar-relay.REPLACE.workers.dev"
+    "PUBLIC_BASE_URL": "https://pablo-tablet-calendar-relay.phghorcajada.workers.dev"
   }
 }

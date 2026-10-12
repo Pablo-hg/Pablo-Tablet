@@ -38,6 +38,8 @@ jobs:
           cache: gradle
 
       - name: Instalar y validar
+        env:
+          VITE_CALENDAR_RELAY_URL: https://pablo-tablet-calendar-relay.phghorcajada.workers.dev
         run: |
           npm ci
           npm run lint

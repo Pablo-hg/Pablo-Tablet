@@ -37,7 +37,9 @@ La integración necesitó conservar conjuntamente el servicio recuperable de #31
 
 ## Preparación externa pendiente
 
-- Para validar #19 con cuentas reales hay que desplegar `calendar-relay` y crear credenciales OAuth de Google y Microsoft. Esta ejecución no ha creado cuentas, claves ni secretos.
+- `calendar-relay` está desplegado en `https://pablo-tablet-calendar-relay.phghorcajada.workers.dev`, con D1 inicializada en Europa occidental y la clave de cifrado almacenada como secreto de Cloudflare.
+- Para validar #19 con cuentas reales todavía hay que crear y cargar las credenciales OAuth de Google y Microsoft. Ningún secreto OAuth forma parte del repositorio.
+- La compilación de la candidata `v0.3.0` ya incorpora la URL pública del relay; la Release todavía no se ha generado ni publicado.
 - Para instalar sobre la aplicación existente hay que generar un APK con su misma firma. El APK debug solo demuestra que el proyecto compila y no debe usarse para sustituir una release instalada.
 - No se ha cambiado `versionName`/`versionCode`, no se ha publicado ninguna Release y no se ha abierto una PR contra `dev`.
 
