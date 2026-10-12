@@ -2,7 +2,7 @@
 
 Este documento define el proceso de trabajo de Pablo Tablet. Su objetivo es mantener `main` siempre estable y distribuible, probar conjuntamente los cambios antes de publicarlos y conservar la relación entre GitHub Issues, ramas, pull requests, versiones y APK.
 
-La versión de producto actual continúa siendo `0.1.0`. Integrar código no cambia por sí solo ese número: una versión nueva existe cuando se crea un tag aprobado y el workflow publica correctamente su Release.
+La última versión publicada e instalada es `0.2.1`. Integrar código no cambia por sí solo ese número: una versión nueva existe cuando se crea un tag aprobado y el workflow publica correctamente su Release.
 
 ## Ramas permanentes
 
@@ -129,6 +129,8 @@ pull request release/* → main
 GitHub Actions → APK firmado → GitHub Release
         │
         └─ éxito: Issue = Implementado
+                         │ validación física
+                         └─ Issue = Instalado
 ```
 
 ### 1. Inicio
@@ -150,7 +152,7 @@ Un cambio presente solamente en `dev` continúa en estado **En desarrollo**.
 
 Una rama fusionada en `dev` puede convivir con otros trabajos que todavía estén en pruebas. Por eso no se fusiona `dev` completo en `main` ni se abre directamente un PR de la rama original hacia `main`: al partir de `dev`, esa rama podría arrastrar cambios ajenos.
 
-No existe una detección automática de «trabajo terminado». La decisión de publicar es humana y no añade un quinto estado al móvil. Una incidencia permanece **En desarrollo** hasta que la Release que la contiene se publique correctamente.
+No existe una detección automática de «trabajo terminado». Cuando el desarrollo queda listo para pasar a `dev`, la incidencia se marca **Implementado**. La publicación conserva ese estado; **Instalado** requiere una comprobación física posterior.
 
 ### 3. Preparación de una versión
 
@@ -199,20 +201,21 @@ El tag `vX.Y.Z` ejecuta el workflow de publicación. Este debe:
 4. firmar el APK con la clave oficial;
 5. generar y verificar su SHA-256;
 6. publicar el APK y su SHA-256 como Release de `Pablo-hg/Pablo-Tablet`;
-7. solo después del éxito, añadir `implementado`, retirar los otros estados y cerrar las incidencias incluidas.
+7. solo después del éxito, dejar como `implementado` las incidencias incluidas que aún no estén `instalado`.
 
-Si falla la compilación o la publicación, no existe una Release válida y las incidencias permanecen **En desarrollo**. La actualización de tickets se ejecuta en un trabajo separado después de publicar, por lo que puede reintentarse sin volver a crear la Release. Los tags publicados se consideran inmutables: si el código necesita otra corrección se prepara una versión posterior, sin mover ni reutilizar el tag anterior.
+Si falla la compilación o la publicación, no existe una Release válida y no se avanza el estado de las incidencias. La actualización de tickets se ejecuta en un trabajo separado después de publicar, por lo que puede reintentarse sin volver a crear la Release. Los tags publicados se consideran inmutables: si el código necesita otra corrección se prepara una versión posterior, sin mover ni reutilizar el tag anterior.
 
 ## Significado de los estados del móvil
 
-| Estado visible | Significado operativo                                                                              |
-| -------------- | -------------------------------------------------------------------------------------------------- |
-| Enviado        | El Issue se ha creado correctamente                                                                |
-| Visto          | El desarrollador ha revisado y clasificado el reporte                                              |
-| En desarrollo  | El trabajo ha comenzado o está integrado en `dev`, pero aún no existe una Release correcta         |
-| Implementado   | La Release que contiene el cambio se ha publicado correctamente y está disponible para las tablets |
+| Estado visible | Significado operativo                                                               |
+| -------------- | ----------------------------------------------------------------------------------- |
+| Enviado        | El Issue se ha creado correctamente                                                 |
+| Visto          | El desarrollador ha revisado y clasificado el reporte                               |
+| En desarrollo  | El trabajo ha comenzado y todavía necesita desarrollo o validación automatizada     |
+| Implementado   | El desarrollo está terminado y listo para pasar a `dev`, pero no verificado físicamente |
+| Instalado      | El cambio se ha instalado y comprobado físicamente en la tablet                     |
 
-Cerrar o fusionar un PR no basta por sí solo para mostrar **Implementado**. El cambio de estado depende del éxito de la publicación.
+Las etiquetas de estado son excluyentes. **Instalado** sustituye a **Implementado** y nunca se aplica automáticamente desde una compilación, un PR o una Release.
 
 ## Versionado
 
@@ -242,14 +245,14 @@ El hotfix mantiene las mismas validaciones, firma y regla de etiquetado. Despué
 - Exigir CI correcto antes de fusionar en `dev` y `main`.
 - Mantener los tags `v*` protegidos e inmutables.
 - No guardar claves, tokens ni contraseñas en ninguna rama.
-- No publicar una Release hasta completar la firma definitiva y una instalación de prueba en la Teclast T65.
+- No publicar una Release nueva sin comprobar la firma oficial y sin la aprobación expresa del número de versión.
 
 ## Automatización y agentes
 
 - `validate-pull-request.yml` valida los PR dirigidos a `dev` y `main`, acepta únicamente `release/MAJOR.MINOR.PATCH` o `hotfix/<issue>-<descripcion>` hacia `main` y exige que enumeren sus Issues bajo `Incidencias incluidas`, pero no publica versiones.
-- `android-release.yml` se ejecuta solo con un tag `vX.Y.Z`, verifica que el commit pertenece a `main`, localiza el PR de `release/*` o `hotfix/*`, publica la Release y después actualiza los Issues de feedback enumerados.
+- `android-release.yml` se ejecuta solo con un tag `vX.Y.Z`, verifica que el commit pertenece a `main`, valida la firma, identidad y SHA-256 del APK, localiza el PR de `release/*` o `hotfix/*`, publica la Release y después actualiza los Issues enumerados sin sobrescribir `instalado`.
 - `feedback-to-markdown.yml` no escribe directamente en `main`: crea una rama automática y propone el Markdown mediante un PR hacia `dev`.
-- El agente `Pablo Tablet Developer` puede implementar Issues y preparar PR hacia `dev`, pero no puede fusionar, publicar, crear tags ni marcar tickets como implementados.
+- El agente `Pablo Tablet Developer` puede implementar Issues y preparar ramas vinculadas, pero no puede fusionar, publicar, crear tags ni marcar tickets como `instalado` sin validación física.
 - GitHub Actions es la autoridad determinista para validaciones y publicación. El agente es una ayuda opcional y su resultado siempre requiere revisión humana.
 
 Ninguna automatización debe seleccionar por sí sola qué cambios de `dev` se publican, crear o fusionar el PR de publicación, elegir el número de versión o crear el tag. Esos pasos requieren una decisión expresa. La automatización comienza validando el PR y, después de enviar el tag, construye y publica la Release.

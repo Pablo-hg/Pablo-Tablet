@@ -45,12 +45,23 @@ jobs:
           npm run build
           npx cap sync android
 
-      - name: Recuperar la clave de firma
+      - name: Recuperar y validar la clave de firma
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          test -n "$KEYSTORE_BASE64"
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/release-key.jks
+          set -euo pipefail
+          for variable in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            test -n "${!variable:-}" || { echo "Falta el secret $variable" >&2; exit 1; }
+          done
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-key.jks
+          keytool -list \
+            -keystore android/release-key.jks \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" >/dev/null
 
       - name: Compilar APK firmado
         env:
@@ -76,6 +87,19 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk "Pablo-Tablet-${VERSION_NAME}.apk"
           sha256sum "Pablo-Tablet-${VERSION_NAME}.apk" > "Pablo-Tablet-${VERSION_NAME}.apk.sha256"
 
+      - name: Verificar identidad y firma del APK
+        run: |
+          set -euo pipefail
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          node scripts/verify-android-release.mjs \
+            --apk "Pablo-Tablet-${VERSION_NAME}.apk" \
+            --expected-package "com.pablohorcajada.tablet" \
+            --expected-version "$VERSION_NAME" \
+            --expected-certificate-sha256 "7a706549c89f27d3560fad8ffb7127d395c3830d18f403463d65d9e2fb6af346" \
+            --minimum-version-code "1003" \
+            --output "Pablo-Tablet-${VERSION_NAME}.apk.metadata.txt"
+          sha256sum --check "Pablo-Tablet-${VERSION_NAME}.apk.sha256"
+
       - name: Crear GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -85,9 +109,14 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             "Pablo-Tablet-${VERSION_NAME}.apk" \
             "Pablo-Tablet-${VERSION_NAME}.apk.sha256" \
+            "Pablo-Tablet-${VERSION_NAME}.apk.metadata.txt" \
             --verify-tag \
             --generate-notes \
             --title "Pablo Tablet ${VERSION_NAME}"
+
+      - name: Eliminar la clave temporal
+        if: always()
+        run: rm -f android/release-key.jks
 
   update-issues:
     name: Actualizar incidencias publicadas
@@ -127,16 +156,19 @@ jobs:
               const labels = issue.labels
                 .map((label) => typeof label === 'string' ? label : label.name)
                 .filter(Boolean)
-              if (!labels.includes('feedback-movil')) {
-                core.info(`#${issue_number} no es feedback móvil; no se modifica su estado.`)
+              if (labels.includes('instalado')) {
+                core.info(`#${issue_number} ya está instalado; se conserva ese estado.`)
                 continue
               }
-
               for (const name of ['visto', 'en-desarrollo']) {
                 if (!labels.includes(name)) continue
                 await github.rest.issues.removeLabel({ owner, repo, issue_number, name })
               }
-              await github.rest.issues.update({ owner, repo, issue_number, state: 'closed', state_reason: 'completed' })
-              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['implementado'] })
-              core.info(`#${issue_number} marcado como implementado.`)
+              if (!labels.includes('implementado')) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number, labels: ['implementado'] })
+              }
+              if (labels.includes('feedback-movil')) {
+                await github.rest.issues.update({ owner, repo, issue_number, state: 'closed', state_reason: 'completed' })
+              }
+              core.info(`#${issue_number} publicado y marcado como implementado.`)
             }
