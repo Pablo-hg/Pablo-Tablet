@@ -833,6 +833,7 @@
   .device-settings .settings-icon { height: 32px; width: 32px; }
   .device-settings .settings-copy small { display: none; }
   .device-settings .app-update-card .settings-copy small { display: block; font-size: .68rem; }
+  .device-settings .notification-permission-row .settings-copy small { display: block; font-size: .68rem; }
   .settings-range-row { padding-bottom: 9px !important; padding-top: 9px !important; }
   .settings-range-content { gap: 5px; }
 }
@@ -1037,3 +1038,7 @@
   .assistant-suggestions { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 3px; }
   .assistant-suggestions button { flex: 0 0 auto; }
 }
+.notification-permission-row { cursor: default; }
+.notification-permission-row.is-warning { cursor: pointer; }
+.notification-permission-row.is-warning .settings-icon { background: color-mix(in srgb, var(--ui-danger) 18%, transparent); color: var(--ui-danger); }
+.notification-permission-row.is-ready .settings-icon { background: color-mix(in srgb, #55d8b0 18%, transparent); color: #79e6c5; }
