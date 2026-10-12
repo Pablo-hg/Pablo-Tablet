@@ -130,6 +130,7 @@ export interface CalendarEvent {
   startTime: string
   endTime: string
   allDay: boolean
+  timeZone: string
   location: string
   notes: string
   color: CalendarEventColor
@@ -426,6 +427,7 @@ function readCalendarEvents(value: unknown): CalendarEvent[] {
       startTime: event.startTime,
       endTime: event.endTime,
       allDay: Boolean(event.allDay),
+      timeZone: typeof event.timeZone === 'string' && event.timeZone ? event.timeZone.slice(0, 100) : Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
       location: typeof event.location === 'string' ? event.location.slice(0, 100) : '',
       notes: typeof event.notes === 'string' ? event.notes.slice(0, 500) : '',
       color,
@@ -493,7 +495,7 @@ function readCalendarOutbox(value: unknown, accounts: import('./calendarSync/con
       provider: entry.provider,
       eventId: entry.eventId,
       operation: entry.operation,
-      event: entry.operation === 'delete' ? null : readCalendarEvents(entry.event ? [entry.event] : [])[0] ?? null,
+      event: readCalendarEvents(entry.event ? [entry.event] : [])[0] ?? null,
       expectedVersion: typeof entry.expectedVersion === 'string' ? entry.expectedVersion : null,
       createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),
       attempts: typeof entry.attempts === 'number' && Number.isInteger(entry.attempts) && entry.attempts >= 0 ? entry.attempts : 0,

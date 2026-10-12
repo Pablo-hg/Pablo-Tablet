@@ -7,6 +7,12 @@ const object = (value: unknown): JsonObject => value && typeof value === 'object
 const text = (value: unknown, fallback = '') => typeof value === 'string' ? value : fallback
 const datePart = (value: string) => value.slice(0, 10)
 const timePart = (value: string) => value.includes('T') ? value.slice(11, 16) : '00:00'
+const reminderBefore = (date: string, time: string, minutes: number, id: string) => {
+  const value = new Date(`${date}T${time || '00:00'}:00`)
+  value.setMinutes(value.getMinutes() - minutes)
+  const localDate = `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+  return { id, date: localDate, time: `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}` }
+}
 const recurrence = (value: unknown): CalendarEventRecurrence => {
   const raw = JSON.stringify(value ?? '').toLowerCase()
   if (raw.includes('daily')) return 'daily'
@@ -34,6 +40,11 @@ export function mapGoogleEvent(accountId: string, calendarId: string, value: unk
   const startValue = text(start.dateTime, text(start.date))
   const endValue = text(end.dateTime, text(end.date, startValue))
   const exclusiveEnd = allDay && endValue ? new Date(`${endValue}T12:00:00`) : null
+  const reminderConfig = object(raw.reminders)
+  const reminders = Array.isArray(reminderConfig.overrides) ? reminderConfig.overrides.flatMap((value, index) => {
+    const override = object(value)
+    return typeof override.minutes === 'number' ? [reminderBefore(datePart(startValue), allDay ? '09:00' : timePart(startValue), override.minutes, `google-${id}-${index}`)] : []
+  }) : []
   if (exclusiveEnd) exclusiveEnd.setDate(exclusiveEnd.getDate() - 1)
   return {
     provider: 'google', accountId, calendarId, externalId: id,
@@ -42,7 +53,9 @@ export function mapGoogleEvent(accountId: string, calendarId: string, value: unk
     title: text(raw.summary, 'Sin título'), date: datePart(startValue),
     endDate: exclusiveEnd ? exclusiveEnd.toISOString().slice(0, 10) : datePart(endValue || startValue),
     startTime: allDay ? '00:00' : timePart(startValue), endTime: allDay ? '23:59' : timePart(endValue), allDay,
+    timeZone: text(start.timeZone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid'),
     location: text(raw.location), notes: text(raw.description), color: colorFor('google', raw.colorId),
+    reminders,
     updatedAt: text(raw.updated, new Date().toISOString()),
   }
 }
@@ -58,13 +71,16 @@ export function mapOutlookEvent(accountId: string, calendarId: string, value: un
   const endValue = text(end.dateTime, startValue)
   const location = object(raw.location)
   const body = object(raw.body)
+  const reminders = raw.isReminderOn && typeof raw.reminderMinutesBeforeStart === 'number' ? [reminderBefore(datePart(startValue), raw.isAllDay ? '09:00' : timePart(startValue), raw.reminderMinutesBeforeStart, `outlook-${id}`)] : []
   return {
     provider: 'outlook', accountId, calendarId, externalId: id,
     externalVersion: text(raw.changeKey) || text(raw['@odata.etag']) || null,
     deleted: Boolean(raw.isCancelled) || Object.keys(removed).length > 0, type: 'event', recurrence: recurrence(raw.recurrence), completed: false,
     title: text(raw.subject, 'Sin título'), date: datePart(startValue), endDate: datePart(endValue || startValue),
     startTime: raw.isAllDay ? '00:00' : timePart(startValue), endTime: raw.isAllDay ? '23:59' : timePart(endValue), allDay: Boolean(raw.isAllDay),
+    timeZone: text(start.timeZone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid'),
     location: text(location.displayName), notes: text(body.contentPreview, text(raw.bodyPreview)), color: colorFor('outlook', raw.categories),
+    reminders,
     updatedAt: text(raw.lastModifiedDateTime, new Date().toISOString()),
   }
 }

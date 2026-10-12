@@ -1,4 +1,4 @@
-import type { CalendarEvent, CalendarEventColor, CalendarEventRecurrence, CalendarEventType } from '../dashboardState'
+import type { CalendarEvent, CalendarEventColor, CalendarEventRecurrence, CalendarEventReminder, CalendarEventType } from '../dashboardState'
 
 export type CalendarProviderId = 'google' | 'outlook'
 export type CalendarSource = 'local' | CalendarProviderId
@@ -56,9 +56,11 @@ export interface RemoteCalendarEvent {
   startTime: string
   endTime: string
   allDay: boolean
+  timeZone: string
   location: string
   notes: string
   color: CalendarEventColor
+  reminders: CalendarEventReminder[]
   updatedAt: string
 }
 
@@ -81,6 +83,8 @@ export interface CalendarSyncResult {
   calendars: SyncedCalendar[]
   events: RemoteCalendarEvent[]
   acknowledgedOutboxIds: string[]
+  createdEvents: Array<{ eventId: string; event: RemoteCalendarEvent }>
+  failedOutbox: Array<{ entryId: string; code: 'conflict' | 'reauthorize' | 'temporary' | 'error'; error: string }>
   syncedAt: string
 }
 

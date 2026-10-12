@@ -20,6 +20,7 @@ function event(recurrence: CalendarEventRecurrence, date = '2026-01-31', endDate
     startTime: '10:00',
     endTime: '11:00',
     allDay: false,
+    timeZone: 'Europe/Madrid',
     location: '',
     notes: '',
     color: 'blue',

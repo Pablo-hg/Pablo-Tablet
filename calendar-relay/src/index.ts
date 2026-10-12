@@ -82,9 +82,17 @@ async function providerProfile(provider: Provider, accessToken: string) {
     : { email: String(value.mail ?? value.userPrincipalName ?? ''), displayName: String(value.displayName ?? value.mail ?? '') }
 }
 
+class ProviderError extends Error {
+  constructor(readonly status: number, message: string) { super(message) }
+}
+
 async function providerFetch(url: string, token: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init?.headers ?? {}) } })
-  if (!response.ok) throw new Error(`El proveedor de calendario respondió ${response.status}.`)
+  if (!response.ok) {
+    const payload = await response.json<Json>().catch(() => ({} as Json))
+    const detail = string(object(payload.error).message, string(payload.error_description))
+    throw new ProviderError(response.status, detail || `El proveedor de calendario respondió ${response.status}.`)
+  }
   return response
 }
 
@@ -97,6 +105,27 @@ const nextDate = (value: unknown) => {
   result.setUTCDate(result.getUTCDate() + 1)
   return result.toISOString().slice(0, 10)
 }
+const calendarColor = (provider: Provider, value: unknown) => {
+  const raw = JSON.stringify(value ?? '').toLowerCase()
+  if (raw.includes('green') || raw.includes('teal') || raw.includes('#0b8043')) return 'mint'
+  if (raw.includes('red') || raw.includes('orange') || raw.includes('#d50000')) return 'coral'
+  if (raw.includes('yellow') || raw.includes('#f6bf26')) return 'sun'
+  return provider === 'google' ? 'blue' : 'mint'
+}
+const outlookWeekday = (value: unknown) => ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date(`${String(value)}T12:00:00Z`).getUTCDay()]
+const reminderBefore = (dateValue: string, timeValue: string, minutes: number, id: string) => {
+  const value = new Date(`${dateValue}T${timeValue || '00:00'}:00Z`)
+  value.setUTCMinutes(value.getUTCMinutes() - minutes)
+  return { id, date: value.toISOString().slice(0, 10), time: value.toISOString().slice(11, 16) }
+}
+const reminderMinutes = (event: Json) => {
+  const start = new Date(`${string(event.date)}T${event.allDay ? '09:00' : string(event.startTime, '00:00')}:00Z`).getTime()
+  return (Array.isArray(event.reminders) ? event.reminders : []).map(object).flatMap((reminder) => {
+    const value = new Date(`${string(reminder.date)}T${string(reminder.time, '00:00')}:00Z`).getTime()
+    const minutes = Math.round((start - value) / 60000)
+    return Number.isFinite(minutes) && minutes >= 0 ? [minutes] : []
+  }).sort((a, b) => a - b)
+}
 
 function normalizedEvent(provider: Provider, accountId: string, calendarId: string, value: unknown) {
   const raw = object(value)
@@ -105,43 +134,77 @@ function normalizedEvent(provider: Provider, accountId: string, calendarId: stri
     const startValue = string(start.dateTime, string(start.date)); const endValue = string(end.dateTime, string(end.date, startValue))
     const exclusive = allDay && endValue ? new Date(`${endValue}T12:00:00Z`) : null
     if (exclusive) exclusive.setUTCDate(exclusive.getUTCDate() - 1)
-    return { provider, accountId, calendarId, externalId: string(raw.id), externalVersion: string(raw.etag, string(raw.updated)) || null, deleted: raw.status === 'cancelled', type: 'event', recurrence: Array.isArray(raw.recurrence) ? 'weekly' : 'none', completed: false, title: string(raw.summary, 'Sin título'), date: date(startValue), endDate: exclusive ? exclusive.toISOString().slice(0, 10) : date(endValue), startTime: allDay ? '00:00' : time(startValue), endTime: allDay ? '23:59' : time(endValue), allDay, location: string(raw.location), notes: string(raw.description), color: 'blue', updatedAt: string(raw.updated, new Date().toISOString()) }
+    const recurrenceText = JSON.stringify(raw.recurrence ?? '').toUpperCase()
+    const recurrence = recurrenceText.includes('FREQ=DAILY') ? 'daily' : recurrenceText.includes('FREQ=WEEKLY') ? 'weekly' : recurrenceText.includes('FREQ=MONTHLY') ? 'monthly' : recurrenceText.includes('FREQ=YEARLY') ? 'yearly' : 'none'
+    const reminderConfig = object(raw.reminders)
+    const reminders = Array.isArray(reminderConfig.overrides) ? reminderConfig.overrides.flatMap((value, index) => { const override = object(value); return typeof override.minutes === 'number' ? [reminderBefore(date(startValue), allDay ? '09:00' : time(startValue), override.minutes, `google-${string(raw.id)}-${index}`)] : [] }) : []
+    return { provider, accountId, calendarId, externalId: string(raw.id), externalVersion: string(raw.etag, string(raw.updated)) || null, deleted: raw.status === 'cancelled', type: 'event', recurrence, completed: false, title: string(raw.summary, 'Sin título'), date: date(startValue), endDate: exclusive ? exclusive.toISOString().slice(0, 10) : date(endValue), startTime: allDay ? '00:00' : time(startValue), endTime: allDay ? '23:59' : time(endValue), allDay, timeZone: string(start.timeZone, 'Europe/Madrid'), location: string(raw.location), notes: string(raw.description), color: 'blue', reminders, updatedAt: string(raw.updated, new Date().toISOString()) }
   }
   const start = object(raw.start); const end = object(raw.end); const location = object(raw.location)
   const startValue = string(start.dateTime); const endValue = string(end.dateTime, startValue); const allDay = Boolean(raw.isAllDay)
-  return { provider, accountId, calendarId, externalId: string(raw.id), externalVersion: string(raw.changeKey, string(raw['@odata.etag'])) || null, deleted: Boolean(raw.isCancelled) || Boolean(raw['@removed']), type: 'event', recurrence: raw.recurrence ? 'weekly' : 'none', completed: false, title: string(raw.subject, 'Sin título'), date: date(startValue), endDate: date(endValue), startTime: allDay ? '00:00' : time(startValue), endTime: allDay ? '23:59' : time(endValue), allDay, location: string(location.displayName), notes: string(raw.bodyPreview), color: 'mint', updatedAt: string(raw.lastModifiedDateTime, new Date().toISOString()) }
+  const pattern = object(object(raw.recurrence).pattern)
+  const recurrence = pattern.type === 'daily' ? 'daily' : pattern.type === 'weekly' ? 'weekly' : pattern.type === 'absoluteMonthly' || pattern.type === 'relativeMonthly' ? 'monthly' : pattern.type === 'absoluteYearly' || pattern.type === 'relativeYearly' ? 'yearly' : 'none'
+  const reminders = raw.isReminderOn && typeof raw.reminderMinutesBeforeStart === 'number' ? [reminderBefore(date(startValue), allDay ? '09:00' : time(startValue), raw.reminderMinutesBeforeStart, `outlook-${string(raw.id)}`)] : []
+  return { provider, accountId, calendarId, externalId: string(raw.id), externalVersion: string(raw.changeKey, string(raw['@odata.etag'])) || null, deleted: Boolean(raw.isCancelled) || Boolean(raw['@removed']), type: 'event', recurrence, completed: false, title: string(raw.subject, 'Sin título'), date: date(startValue), endDate: date(endValue), startTime: allDay ? '00:00' : time(startValue), endTime: allDay ? '23:59' : time(endValue), allDay, timeZone: string(start.timeZone, 'Europe/Madrid'), location: string(location.displayName), notes: string(raw.bodyPreview), color: 'mint', reminders, updatedAt: string(raw.lastModifiedDateTime, new Date().toISOString()) }
 }
 
 async function pushOutbox(provider: Provider, token: string, entries: Json[]) {
-  const acknowledged: string[] = []
+  const acknowledgedOutboxIds: string[] = []
+  const createdEvents: Array<{ eventId: string; event: unknown }> = []
+  const failedOutbox: Array<{ entryId: string; code: 'conflict' | 'reauthorize' | 'temporary' | 'error'; error: string }> = []
   for (const entry of entries) {
     const event = object(entry.event); const calendarId = string(event.calendarId); const externalId = string(event.externalId)
-    if (!calendarId || !externalId) continue
+    const entryId = string(entry.id); const eventId = string(entry.eventId)
+    if (!calendarId || !entryId || !eventId) continue
     const operation = string(entry.operation)
-    const endpoint = provider === 'google'
-      ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(externalId)}`
-      : `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(externalId)}`
+    const collection = provider === 'google' ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events` : `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(calendarId)}/events`
+    const endpoint = externalId ? `${collection}/${encodeURIComponent(externalId)}` : collection
+    const eventTimeZone = string(event.timeZone, 'Europe/Madrid')
+    const reminders = reminderMinutes(event)
+    const googleFrequency = { daily: 'DAILY', weekly: 'WEEKLY', monthly: 'MONTHLY', yearly: 'YEARLY' }[string(event.recurrence)]
+    const outlookPattern = string(event.recurrence) === 'daily' ? { type: 'daily', interval: 1 } : string(event.recurrence) === 'weekly' ? { type: 'weekly', interval: 1, daysOfWeek: [outlookWeekday(event.date)] } : string(event.recurrence) === 'monthly' ? { type: 'absoluteMonthly', interval: 1, dayOfMonth: Number(string(event.date).slice(8, 10)) } : string(event.recurrence) === 'yearly' ? { type: 'absoluteYearly', interval: 1, dayOfMonth: Number(string(event.date).slice(8, 10)), month: Number(string(event.date).slice(5, 7)) } : null
     const body = provider === 'google'
-      ? { summary: event.title, description: event.notes, location: event.location, start: event.allDay ? { date: event.date } : { dateTime: `${event.date}T${event.startTime}:00` }, end: event.allDay ? { date: nextDate(event.endDate) } : { dateTime: `${event.endDate}T${event.endTime}:00` } }
-      : { subject: event.title, body: { contentType: 'text', content: event.notes }, location: { displayName: event.location }, isAllDay: event.allDay, start: { dateTime: `${event.date}T${event.startTime}:00`, timeZone: 'Europe/Madrid' }, end: { dateTime: `${event.endDate}T${event.endTime}:00`, timeZone: 'Europe/Madrid' } }
-    await providerFetch(endpoint, token, { method: operation === 'delete' ? 'DELETE' : 'PATCH', body: operation === 'delete' ? undefined : JSON.stringify(body), headers: entry.expectedVersion ? { 'If-Match': String(entry.expectedVersion) } : undefined })
-    acknowledged.push(string(entry.id))
+      ? { summary: event.title, description: event.notes, location: event.location, start: event.allDay ? { date: event.date } : { dateTime: `${event.date}T${event.startTime}:00`, timeZone: eventTimeZone }, end: event.allDay ? { date: nextDate(event.endDate) } : { dateTime: `${event.endDate}T${event.endTime}:00`, timeZone: eventTimeZone }, recurrence: googleFrequency ? [`RRULE:FREQ=${googleFrequency}`] : undefined, reminders: { useDefault: false, overrides: reminders.slice(0, 5).map((minutes) => ({ method: 'popup', minutes })) } }
+      : { subject: event.title, body: { contentType: 'text', content: event.notes }, location: { displayName: event.location }, isAllDay: event.allDay, start: { dateTime: `${event.date}T${event.startTime}:00`, timeZone: eventTimeZone }, end: { dateTime: `${event.endDate}T${event.endTime}:00`, timeZone: eventTimeZone }, recurrence: outlookPattern ? { pattern: outlookPattern, range: { type: 'noEnd', startDate: event.date, recurrenceTimeZone: eventTimeZone } } : null, isReminderOn: reminders.length > 0, reminderMinutesBeforeStart: reminders.at(-1) ?? 0 }
+    try {
+      if (operation === 'delete' && !externalId) { acknowledgedOutboxIds.push(entryId); continue }
+      const response = await providerFetch(endpoint, token, { method: operation === 'create' ? 'POST' : operation === 'delete' ? 'DELETE' : 'PATCH', body: operation === 'delete' ? undefined : JSON.stringify(body), headers: entry.expectedVersion ? { 'If-Match': String(entry.expectedVersion) } : undefined })
+      acknowledgedOutboxIds.push(entryId)
+      if (operation === 'create') createdEvents.push({ eventId, event: { ...normalizedEvent(provider, string(event.accountId), calendarId, await response.json<Json>()), color: string(event.color, provider === 'google' ? 'blue' : 'mint') } })
+    } catch (error) {
+      const status = error instanceof ProviderError ? error.status : 0
+      const code = status === 409 || status === 412 ? 'conflict' : status === 401 || status === 403 ? 'reauthorize' : status === 429 || status >= 500 ? 'temporary' : 'error'
+      failedOutbox.push({ entryId, code, error: error instanceof Error ? error.message : 'No se pudo enviar el cambio al proveedor.' })
+    }
   }
-  return acknowledged
+  return { acknowledgedOutboxIds, createdEvents, failedOutbox }
 }
 
-async function pullGoogle(token: string, accountId: string, cursors: Json) {
+export async function pullGoogle(token: string, accountId: string, cursors: Json) {
   const calendarsPayload = await (await providerFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', token)).json<Json>()
   const calendarItems = Array.isArray(calendarsPayload.items) ? calendarsPayload.items.map(object) : []
-  const calendars = calendarItems.map((item) => ({ id: `google:${encodeURIComponent(accountId)}:${encodeURIComponent(string(item.id))}`, accountId, provider: 'google', remoteId: string(item.id), name: string(item.summary, 'Calendario'), color: 'blue', visible: true, readOnly: item.accessRole === 'reader' }))
+  const calendars = calendarItems.map((item) => ({ id: `google:${encodeURIComponent(accountId)}:${encodeURIComponent(string(item.id))}`, accountId, provider: 'google', remoteId: string(item.id), name: string(item.summary, 'Calendario'), color: calendarColor('google', item.backgroundColor ?? item.colorId), visible: true, readOnly: item.accessRole === 'reader' }))
   const events: unknown[] = []; const nextCursors: Json = { ...cursors }
   for (const calendar of calendars) {
-    const cursor = string(cursors[calendar.remoteId]); const query = new URLSearchParams({ showDeleted: 'true', singleEvents: 'true', maxResults: '2500' })
-    if (cursor) query.set('syncToken', cursor); else query.set('timeMin', new Date(Date.now() - 366 * 86400000).toISOString())
+    const query = new URLSearchParams({ showDeleted: 'true', singleEvents: 'true', maxResults: '2500' })
+    if (string(cursors[calendar.remoteId])) query.set('syncToken', string(cursors[calendar.remoteId])); else query.set('timeMin', new Date(Date.now() - 366 * 86400000).toISOString())
     let page = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.remoteId)}/events?${query}`
+    let recoveredInvalidCursor = false
     while (page) {
-      const payload = await (await providerFetch(page, token)).json<Json>()
-      for (const item of Array.isArray(payload.items) ? payload.items : []) events.push(normalizedEvent('google', accountId, calendar.remoteId, item))
+      let payload: Json
+      try {
+        payload = await (await providerFetch(page, token)).json<Json>()
+      } catch (error) {
+        if (error instanceof ProviderError && error.status === 410 && !recoveredInvalidCursor) {
+          recoveredInvalidCursor = true
+          delete nextCursors[calendar.remoteId]
+          const fullQuery = new URLSearchParams({ showDeleted: 'true', singleEvents: 'true', maxResults: '2500', timeMin: new Date(Date.now() - 366 * 86400000).toISOString() })
+          page = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.remoteId)}/events?${fullQuery}`
+          continue
+        }
+        throw error
+      }
+      for (const item of Array.isArray(payload.items) ? payload.items : []) events.push({ ...normalizedEvent('google', accountId, calendar.remoteId, item), color: calendar.color })
       page = typeof payload.nextPageToken === 'string' ? `${page.split('&pageToken=')[0]}&pageToken=${encodeURIComponent(payload.nextPageToken)}` : ''
       if (typeof payload.nextSyncToken === 'string') nextCursors[calendar.remoteId] = payload.nextSyncToken
     }
@@ -149,17 +212,30 @@ async function pullGoogle(token: string, accountId: string, cursors: Json) {
   return { calendars, events, cursors: nextCursors }
 }
 
-async function pullOutlook(token: string, accountId: string, cursors: Json) {
+export async function pullOutlook(token: string, accountId: string, cursors: Json) {
   const calendarPayload = await (await providerFetch('https://graph.microsoft.com/v1.0/me/calendars?$select=id,name,canEdit,color', token)).json<Json>()
   const items = Array.isArray(calendarPayload.value) ? calendarPayload.value.map(object) : []
-  const calendars = items.map((item) => ({ id: `outlook:${encodeURIComponent(accountId)}:${encodeURIComponent(string(item.id))}`, accountId, provider: 'outlook', remoteId: string(item.id), name: string(item.name, 'Calendario'), color: 'mint', visible: true, readOnly: item.canEdit === false }))
+  const calendars = items.map((item) => ({ id: `outlook:${encodeURIComponent(accountId)}:${encodeURIComponent(string(item.id))}`, accountId, provider: 'outlook', remoteId: string(item.id), name: string(item.name, 'Calendario'), color: calendarColor('outlook', item.color), visible: true, readOnly: item.canEdit === false }))
   const events: unknown[] = []; const nextCursors: Json = { ...cursors }
   for (const calendar of calendars) {
     const start = new Date(Date.now() - 366 * 86400000).toISOString(); const end = new Date(Date.now() + 732 * 86400000).toISOString()
-    let page = string(cursors[calendar.remoteId], `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(calendar.remoteId)}/calendarView/delta?startDateTime=${encodeURIComponent(start)}&endDateTime=${encodeURIComponent(end)}`)
+    const fullPage = `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(calendar.remoteId)}/calendarView/delta?startDateTime=${encodeURIComponent(start)}&endDateTime=${encodeURIComponent(end)}`
+    let page = string(cursors[calendar.remoteId], fullPage)
+    let recoveredInvalidCursor = false
     while (page) {
-      const payload = await (await providerFetch(page, token)).json<Json>()
-      for (const item of Array.isArray(payload.value) ? payload.value : []) events.push(normalizedEvent('outlook', accountId, calendar.remoteId, item))
+      let payload: Json
+      try {
+        payload = await (await providerFetch(page, token)).json<Json>()
+      } catch (error) {
+        if (error instanceof ProviderError && error.status === 410 && !recoveredInvalidCursor) {
+          recoveredInvalidCursor = true
+          delete nextCursors[calendar.remoteId]
+          page = fullPage
+          continue
+        }
+        throw error
+      }
+      for (const item of Array.isArray(payload.value) ? payload.value : []) events.push({ ...normalizedEvent('outlook', accountId, calendar.remoteId, item), color: calendar.color })
       page = string(payload['@odata.nextLink'])
       if (typeof payload['@odata.deltaLink'] === 'string') nextCursors[calendar.remoteId] = payload['@odata.deltaLink']
     }
@@ -182,7 +258,7 @@ async function handle(request: Request, env: Env) {
     const provider = callback[1] as Provider; const state = url.searchParams.get('state'); const code = url.searchParams.get('code')
     if (!state || !code) return new Response('Autorización incompleta.', { status: 400 })
     const pairing = await env.DB.prepare('SELECT * FROM pairings WHERE state = ? AND provider = ?').bind(state, provider).first<Json>()
-    if (!pairing || Number(pairing.expires_at) < Date.now()) return new Response('La vinculación ha caducado.', { status: 400 })
+    if (!pairing || pairing.status !== 'pending' || Number(pairing.expires_at) < Date.now()) return new Response('La vinculación ha caducado o ya se ha utilizado.', { status: 400 })
     const tokens = await exchangeCode(env, provider, code, String(pairing.code_verifier)); const profile = await providerProfile(provider, tokens.access_token); const connectionId = crypto.randomUUID(); const connectionToken = random()
     await env.DB.prepare('INSERT INTO connections (id, provider, email, display_name, connection_hash, encrypted_tokens, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(connectionId, provider, profile.email, profile.displayName, await hash(connectionToken), await encrypt(env, tokens), Date.now()).run()
     const result = { account: { id: connectionId, provider, email: profile.email, displayName: profile.displayName, status: 'connected', enabled: true, lastSyncedAt: null, error: null }, connectionToken }
@@ -204,10 +280,10 @@ async function handle(request: Request, env: Env) {
     if (request.method === 'DELETE' && !connectionMatch[2]) { await env.DB.prepare('DELETE FROM connections WHERE id = ?').bind(row.id).run(); return json({ ok: true }) }
     if (request.method === 'POST' && connectionMatch[2]) {
       const provider = row.provider as Provider; let tokens = await decrypt<Tokens>(env, String(row.encrypted_tokens)); tokens = await refreshTokens(env, provider, tokens)
-      const body = await request.json<Json>(); const entries = Array.isArray(body.outbox) ? body.outbox.map(object) : []; const acknowledgedOutboxIds = await pushOutbox(provider, tokens.access_token, entries)
+      const body = await request.json<Json>(); const entries = Array.isArray(body.outbox) ? body.outbox.map(object) : []; const outboxResult = await pushOutbox(provider, tokens.access_token, entries)
       const cursors = typeof row.sync_cursor === 'string' ? JSON.parse(row.sync_cursor) as Json : {}; const pulled = provider === 'google' ? await pullGoogle(tokens.access_token, String(row.id), cursors) : await pullOutlook(tokens.access_token, String(row.id), cursors)
       const syncedAt = new Date().toISOString(); await env.DB.prepare('UPDATE connections SET encrypted_tokens = ?, sync_cursor = ?, updated_at = ? WHERE id = ?').bind(await encrypt(env, tokens), JSON.stringify(pulled.cursors), Date.now(), row.id).run()
-      return json({ calendars: pulled.calendars, events: pulled.events, acknowledgedOutboxIds, syncedAt })
+      return json({ calendars: pulled.calendars, events: pulled.events, ...outboxResult, syncedAt })
     }
   }
   return json({ error: 'Ruta no encontrada.' }, 404)
