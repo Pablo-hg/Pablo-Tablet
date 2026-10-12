@@ -9,6 +9,7 @@
     "database_id": "d0c48ea7-2d68-4d72-be4c-a84d5c0e784b"
   }],
   "vars": {
+    "MICROSOFT_CLIENT_ID": "24332f8d-a47c-43ce-a8f7-58e69c9d1dc3",
     "PUBLIC_BASE_URL": "https://pablo-tablet-calendar-relay.phghorcajada.workers.dev"
   }
 }
