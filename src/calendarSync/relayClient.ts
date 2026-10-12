@@ -39,11 +39,12 @@ export class HttpCalendarRelay implements CalendarRelay {
   }
 
   async synchronize(account: CalendarAccount, connectionToken: string, outbox: CalendarOutboxEntry[]) {
-    return responseJson<CalendarSyncResult>(await fetch(this.url(`/v1/calendar/connections/${encodeURIComponent(account.id)}/sync`), {
+    const result = await responseJson<CalendarSyncResult>(await fetch(this.url(`/v1/calendar/connections/${encodeURIComponent(account.id)}/sync`), {
       method: 'POST',
       headers: { Authorization: `Bearer ${connectionToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ outbox }),
     }))
+    return { ...result, createdEvents: result.createdEvents ?? [], failedOutbox: result.failedOutbox ?? [] }
   }
 
   async disconnect(account: CalendarAccount, connectionToken: string) {

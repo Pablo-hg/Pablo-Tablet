@@ -422,9 +422,11 @@
 .calendar-upcoming-event strong, .calendar-upcoming-event small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.calendar-upcoming-event strong { align-items: center; display: flex; font-size: .75rem; gap: 6px; }.calendar-upcoming-event small { color: #9eacc5; display: block; font-size: .62rem; margin-top: 2px; }
 .calendar-upcoming-empty { align-items: center; color: #9eacc5; display: flex; flex: 1; font-size: .72rem; justify-content: center; min-height: 70px; }
 .calendar-event-editor { column-gap: 12px; display: grid; grid-template-columns: 1.25fr .75fr; width: min(900px, calc(100vw - 36px)); }
-.calendar-event-editor > .alarm-editor-header, .calendar-event-editor > .calendar-title-field, .calendar-event-editor > .calendar-type-field, .calendar-event-editor > .calendar-recurrence-field, .calendar-event-editor > .calendar-event-switches, .calendar-event-editor > .alarm-editor-footer { grid-column: 1 / -1; }
+.calendar-event-editor > .alarm-editor-header, .calendar-event-editor > .calendar-destination-field, .calendar-event-editor > .calendar-title-field, .calendar-event-editor > .calendar-type-field, .calendar-event-editor > .calendar-recurrence-field, .calendar-event-editor > .calendar-event-switches, .calendar-event-editor > .alarm-editor-footer { grid-column: 1 / -1; }
 .calendar-event-editor label > span, .calendar-color-field > span, .calendar-type-field > span, .calendar-recurrence-field > span { color: #aebbd4; display: block; font-size: .67rem; font-weight: 700; letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
-.calendar-title-field { display: block; margin-top: 16px; }
+.calendar-destination-field { display: grid; margin-top: 16px; }
+.calendar-destination-field small { color: #8f9db8; font-size: .66rem; margin-top: 5px; }
+.calendar-title-field { display: block; margin-top: 10px; }
 .calendar-type-field { margin-top: 12px; }
 .calendar-type-options { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
 .calendar-type-option { align-items: center; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.1); border-radius: 11px; color: #bdc9dc; cursor: pointer; display: flex; font: inherit; font-size: .74rem; font-weight: 700; gap: 7px; justify-content: center; padding: 9px 11px; }
@@ -437,7 +439,7 @@
 .calendar-event-switches { display: grid; grid-template-columns: 1fr; }.calendar-event-switches.has-task { gap: 8px; grid-template-columns: 1fr 1fr; }
 .calendar-event-switches .calendar-all-day, .calendar-task-status { margin-top: 10px; }
 .calendar-task-status { align-items: center; background: rgba(85,216,176,.08); border: 1px solid rgba(85,216,176,.18); border-radius: 12px; color: #dff9f0; cursor: pointer; display: flex; font: inherit; justify-content: space-between; padding: 8px 11px; width: 100%; }.calendar-task-status > span:first-child { align-items: center; display: flex; font-size: .76rem; gap: 8px; }.calendar-task-status.is-completed { background: rgba(85,216,176,.16); }
-.calendar-title-field input, .calendar-location-field input, .calendar-notes-field textarea, .calendar-editor-date select, .calendar-time-fields select, .calendar-boundary-fields select { background: rgba(4,14,33,.28); border: 1px solid rgba(255,255,255,.13); border-radius: 11px; box-sizing: border-box; color: #f6f8ff; font: inherit; outline: none; padding: 9px 11px; width: 100%; }
+.calendar-title-field input, .calendar-destination-field select, .calendar-location-field input, .calendar-notes-field textarea, .calendar-editor-date select, .calendar-time-fields select, .calendar-boundary-fields select { background: rgba(4,14,33,.28); border: 1px solid rgba(255,255,255,.13); border-radius: 11px; box-sizing: border-box; color: #f6f8ff; font: inherit; outline: none; padding: 9px 11px; width: 100%; }
 .calendar-title-field input { font-size: 1.05rem; }
 .calendar-editor-date { display: grid; gap: 9px; grid-template-columns: .7fr 1.4fr .9fr; margin-top: 12px; }.calendar-editor-date option, .calendar-time-fields option, .calendar-boundary-fields option { color: #101a32; }
 .calendar-all-day { align-items: center; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 13px; color: #e7edfb; cursor: pointer; display: flex; font: inherit; justify-content: space-between; margin-top: 12px; padding: 9px 11px; width: 100%; }.calendar-all-day > span:first-child { align-items: center; display: flex; font-size: .78rem; gap: 8px; }

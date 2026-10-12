@@ -5,7 +5,7 @@ export const externalCalendarEventId = (event: Pick<RemoteCalendarEvent, 'provid
   `${event.provider}:${encodeURIComponent(event.accountId)}:${encodeURIComponent(event.calendarId)}:${encodeURIComponent(event.externalId)}`
 
 function normalizedRemoteEvent(event: RemoteCalendarEvent, previous?: CalendarEvent): CalendarEvent {
-  const pending = previous?.syncStatus === 'pending-create' || previous?.syncStatus === 'pending-update'
+  const pending = previous?.syncStatus === 'pending-update'
   const conflict = pending && previous.externalVersion !== event.externalVersion
   return {
     id: externalCalendarEventId(event),
@@ -24,10 +24,11 @@ function normalizedRemoteEvent(event: RemoteCalendarEvent, previous?: CalendarEv
     startTime: conflict ? previous.startTime : event.startTime,
     endTime: conflict ? previous.endTime : event.endTime,
     allDay: conflict ? previous.allDay : event.allDay,
+    timeZone: conflict ? previous.timeZone : event.timeZone,
     location: conflict ? previous.location : event.location,
     notes: conflict ? previous.notes : event.notes,
     color: event.color,
-    reminders: conflict ? previous.reminders : [],
+    reminders: conflict ? previous.reminders : event.reminders,
     createdAt: previous?.createdAt ?? event.updatedAt,
     updatedAt: event.updatedAt,
   }
@@ -40,23 +41,38 @@ export function applyCalendarSync(
   account: CalendarAccount,
   result: CalendarSyncResult,
 ) {
-  const remoteById = new Map(result.events.map((event) => [externalCalendarEventId(event), event]))
+  const allRemoteEvents = [...result.events, ...result.createdEvents.map((created) => created.event)]
+  const remoteById = new Map(allRemoteEvents.map((event) => [externalCalendarEventId(event), event]))
   const currentById = new Map(events.map((event) => [event.id, event]))
-  const deletedIds = new Set(result.events.filter((event) => event.deleted).map(externalCalendarEventId))
+  for (const created of result.createdEvents) currentById.set(externalCalendarEventId(created.event), currentById.get(created.eventId) ?? currentById.get(externalCalendarEventId(created.event))!)
+  const deletedIds = new Set(allRemoteEvents.filter((event) => event.deleted).map(externalCalendarEventId))
+  const replacedClientIds = new Set(result.createdEvents.map((created) => created.eventId))
 
-  const retained = events.filter((event) => event.accountId !== account.id || (!deletedIds.has(event.id) && !remoteById.has(event.id)))
-  const merged = result.events.flatMap((event) => event.deleted ? [] : [normalizedRemoteEvent(event, currentById.get(externalCalendarEventId(event)))])
+  const retained = events.filter((event) => !replacedClientIds.has(event.id) && (event.accountId !== account.id || (!deletedIds.has(event.id) && !remoteById.has(event.id))))
+  const mergedById = new Map<string, CalendarEvent>()
+  for (const event of allRemoteEvents) {
+    if (!event.deleted) mergedById.set(externalCalendarEventId(event), normalizedRemoteEvent(event, currentById.get(externalCalendarEventId(event))))
+  }
   const nextCalendars = [
     ...calendars.filter((calendar) => calendar.accountId !== account.id),
-    ...result.calendars,
+    ...result.calendars.map((calendar) => ({ ...calendar, visible: calendars.find((current) => current.id === calendar.id)?.visible ?? calendar.visible })),
   ]
   const acknowledged = new Set(result.acknowledgedOutboxIds)
+  const failed = new Map(result.failedOutbox.map((entry) => [entry.entryId, entry]))
 
   return {
-    events: [...retained, ...merged],
+    events: [...retained, ...mergedById.values()],
     calendars: nextCalendars,
-    outbox: outbox.filter((entry) => !acknowledged.has(entry.id)),
-    account: { ...account, status: 'connected' as const, lastSyncedAt: result.syncedAt, error: null },
+    outbox: outbox.filter((entry) => !acknowledged.has(entry.id)).map((entry) => {
+      const failure = failed.get(entry.id)
+      return failure ? { ...entry, attempts: entry.attempts + 1, lastError: failure.error } : entry
+    }),
+    account: {
+      ...account,
+      status: result.failedOutbox.some((entry) => entry.code === 'reauthorize') ? 'reauthorize' as const : 'connected' as const,
+      lastSyncedAt: result.syncedAt,
+      error: result.failedOutbox.length > 0 ? result.failedOutbox[0].error : null,
+    },
   }
 }
 
@@ -73,7 +89,7 @@ export function createCalendarOutboxEntry(
     provider: event.source,
     eventId: event.id,
     operation,
-    event: operation === 'delete' ? null : event,
+    event,
     expectedVersion: event.externalVersion,
     createdAt: now.toISOString(),
     attempts: 0,
