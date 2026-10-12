@@ -2,7 +2,7 @@
 
 > Issue: #25
 >
-> Última ejecución automatizada: 11/10/2026
+> Última ejecución automatizada: 12/10/2026
 >
 > Estado global: **automatización completada; instalación y demostración física pendientes**
 
@@ -22,12 +22,24 @@ Este informe separa de forma explícita lo que está implementado, compilado y p
 | Servicio Android recuperable | `MobileAdminServiceTest` y `MobileAdminBootReceiverTest` cubren `START_STICKY`, notificación foreground única, acceso desactivado y recuperación condicionada tras reinicio | Superado |
 | Permiso y declaración foreground | El manifiesto fusionado contiene `POST_NOTIFICATIONS`, los permisos foreground, el tipo `connectedDevice` y un receptor de arranque no exportado | Superado |
 | Migraciones | `PabloTabletDatabaseMigrationTest` abre instalaciones simuladas de versiones 1 y 3, migra a la versión 4 y conserva el estado existente | Superado |
-| Cliente web | 47/47 pruebas Vitest cubren HTTP 401, pérdida de autorización por WebSocket, reconexión breve, estados del servicio y borrado de la credencial revocada | Superado |
-| Compilación | `npm run lint`, `npm run build`, `npm run android:sync`, 22/22 pruebas JVM y `assembleDebug` | Superado |
+| Calendario local y externo | Pruebas de mapeo, coexistencia local/Google/Outlook, outbox, conflictos, visibilidad, paginación y recuperación de cursores | Superado |
+| Asistente local | Pruebas de interpretación, confirmación previa, cancelación y ejecución tipada; flujo visual revisado sin modificar datos | Superado |
+| Notificaciones locales | Pruebas de programación, actualización, cancelación y estados de permisos; comportamiento real con la app cerrada sigue en la matriz física | Superado |
+| Canal de actualización | Pruebas del verificador de paquete, versión, certificado y SHA-256; no se ha generado ni publicado una Release | Superado |
+| Cliente web | 86/86 pruebas Vitest cubren administración móvil, calendario, asistente, notificaciones y verificación de release | Superado |
+| Servicio de calendarios | 2/2 pruebas cubren paginación y recuperación de cursores inválidos de Google y Outlook; `tsc --noEmit` limpio | Superado |
+| Compilación | `npm run lint`, `npm run build`, `npm run android:sync`, 23/23 pruebas JVM, `lintDebug` y `assembleDebug` | Superado |
+| Revisión visual web | Dashboard, asistente, calendario y ajustes revisados en navegador; 0 errores de consola | Superado |
 
-Esta ejecución combina `dev` (`e3617ef`) con la implementación completa del servicio recuperable de #31 (`4ce07ee`). La publicación mDNS, el enlace del socket a la Wi-Fi activa y el cierre efectivo de conexiones en Android están compilados y cubiertos indirectamente por las políticas y estados puros. Su comportamiento real depende de servicios Android, router y red, por lo que se mantiene dentro de la matriz física.
+Esta ejecución usa la rama vinculada `test/25-validate-mobile-admin-mvp` como candidata integral. Combina `dev` (`e3617ef`) con #19, #26, #27, #28, #30, #31, #32 y #40. Las tareas #20–#24 ya forman parte de `dev`. La publicación mDNS, el enlace del socket a la Wi-Fi activa y el cierre efectivo de conexiones en Android están compilados y cubiertos indirectamente por las políticas y estados puros. Su comportamiento real depende de servicios Android, router y red, por lo que se mantiene dentro de la matriz física.
 
-`gradlew lintDebug` no está limpio por cuatro incidencias anteriores a esta validación: navegación predictiva en `MainActivity` y uso de APIs 26 con `minSdk 24` en `GalleryPlugin`, `MobileAdminRepository` y `MobileAdminServer`. No afectan a los comandos exigidos por el criterio automatizado actual, pero deben corregirse en una tarea separada antes de adoptar Android Lint como barrera obligatoria.
+La integración necesitó conservar conjuntamente el servicio recuperable de #31 y las correcciones compatibles con `minSdk 24` de #40. `gradlew lintDebug` finaliza ahora sin errores.
+
+## Preparación externa pendiente
+
+- Para validar #19 con cuentas reales hay que desplegar `calendar-relay` y crear credenciales OAuth de Google y Microsoft. Esta ejecución no ha creado cuentas, claves ni secretos.
+- Para instalar sobre la aplicación existente hay que generar un APK con su misma firma. El APK debug solo demuestra que el proyecto compila y no debe usarse para sustituir una release instalada.
+- No se ha cambiado `versionName`/`versionCode`, no se ha publicado ninguna Release y no se ha abierto una PR contra `dev`.
 
 ## Matriz física pendiente
 
