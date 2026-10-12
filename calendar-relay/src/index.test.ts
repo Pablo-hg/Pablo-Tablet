@@ -1,11 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { pullGoogle, pullOutlook } from './index'
+import worker, { pullGoogle, pullOutlook } from './index'
 
 const jsonResponse = (body: unknown, status = 200) => Response.json(body, { status })
 
 afterEach(() => {
   vi.unstubAllGlobals()
+})
+
+describe('public calendar information', () => {
+  it.each([
+    ['/', 'Calendarios en Pablo Tablet'],
+    ['/privacy', 'Política de privacidad'],
+    ['/terms', 'Condiciones de uso'],
+  ])('serves %s as a public HTML page', async (path, heading) => {
+    const response = await worker.fetch(new Request(`https://calendar.example${path}`), {} as never)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toContain('text/html')
+    expect(await response.text()).toContain(heading)
+  })
 })
 
 describe('calendar provider pagination', () => {

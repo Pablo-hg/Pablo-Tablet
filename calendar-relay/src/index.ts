@@ -14,6 +14,18 @@ type Tokens = { access_token: string; refresh_token?: string; expires_at: number
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS' }
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { ...corsHeaders, 'Cache-Control': 'no-store' } })
+const publicPage = (title: string, content: string) => new Response(`<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} · Pablo Tablet Calendar</title><style>body{font:16px/1.6 system-ui,sans-serif;max-width:760px;margin:0 auto;padding:32px 20px;color:#172033}h1,h2{line-height:1.2}a{color:#075ec9}footer{margin-top:48px;padding-top:20px;border-top:1px solid #d9deea;color:#536079}</style></head>
+<body><header><a href="/">Pablo Tablet Calendar</a></header><main><h1>${title}</h1>${content}</main>
+<footer><a href="/privacy">Privacidad</a> · <a href="/terms">Condiciones de uso</a> · Contacto: <a href="mailto:phghorcajada@gmail.com">phghorcajada@gmail.com</a></footer></body></html>`, {
+  headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' },
+})
+const publicPages: Record<string, () => Response> = {
+  '/': () => publicPage('Calendarios en Pablo Tablet', '<p>Esta integración permite conectar voluntariamente una cuenta de Google Calendar o Microsoft Outlook con Pablo Tablet. La tablet combina esos calendarios con su calendario local y puede sincronizar los cambios que el usuario decida realizar.</p><p>La conexión es opcional: la aplicación funciona también sin cuentas externas o con un solo proveedor.</p><h2>Control del usuario</h2><p>El usuario elige qué cuenta conectar y puede desconectarla o revocar su autorización en cualquier momento.</p>'),
+  '/privacy': () => publicPage('Política de privacidad', '<p><strong>Última actualización:</strong> 12 de octubre de 2026.</p><h2>Datos utilizados</h2><p>La integración accede al nombre, correo electrónico, calendarios y eventos autorizados por el usuario. Utiliza estos datos exclusivamente para mostrar y sincronizar calendarios en Pablo Tablet.</p><h2>Almacenamiento y seguridad</h2><p>Los tokens de acceso se guardan cifrados en la infraestructura de Cloudflare. La tablet recibe una credencial revocable y no almacena los secretos OAuth de Google ni Microsoft.</p><h2>Uso y comunicación de datos</h2><p>No vendemos datos personales, no los utilizamos para publicidad y no los compartimos con terceros salvo Google, Microsoft y Cloudflare en la medida necesaria para prestar la sincronización solicitada.</p><h2>Conservación y eliminación</h2><p>Los datos de conexión se conservan mientras la cuenta permanezca vinculada. El usuario puede desconectarla desde la aplicación o revocar el permiso desde su cuenta de Google o Microsoft. Para solicitar la eliminación de una conexión, puede escribir a <a href="mailto:phghorcajada@gmail.com">phghorcajada@gmail.com</a>.</p><h2>Uso limitado de datos de Google</h2><p>El uso de la información recibida de las APIs de Google cumple la Política de datos de usuario de los servicios de API de Google, incluidos sus requisitos de uso limitado.</p>'),
+  '/terms': () => publicPage('Condiciones de uso', '<p><strong>Última actualización:</strong> 12 de octubre de 2026.</p><p>Pablo Tablet Calendar es una función personal de sincronización de calendarios. Su uso es opcional y requiere que el usuario autorice expresamente cada proveedor conectado.</p><h2>Acceso al calendario</h2><p>Los permisos concedidos permiten leer, crear, modificar y eliminar eventos cuando el usuario realiza esas acciones desde Pablo Tablet. El usuario es responsable de revisar los cambios sincronizados y puede revocar el acceso en cualquier momento.</p><h2>Disponibilidad</h2><p>El servicio se proporciona sin garantía de disponibilidad ininterrumpida. Las conexiones pueden requerir una nueva autorización si Google, Microsoft o el usuario revocan o caducan las credenciales.</p><h2>Contacto</h2><p>Para consultas sobre estas condiciones, escribe a <a href="mailto:phghorcajada@gmail.com">phghorcajada@gmail.com</a>.</p>'),
+}
 const random = () => crypto.randomUUID() + crypto.randomUUID().replaceAll('-', '')
 const bytes = (value: string) => new TextEncoder().encode(value)
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((value) => value.toString(16).padStart(2, '0')).join('')
@@ -245,6 +257,7 @@ export async function pullOutlook(token: string, accountId: string, cursors: Jso
 
 async function handle(request: Request, env: Env) {
   const url = new URL(request.url)
+  if (request.method === 'GET' && publicPages[url.pathname]) return publicPages[url.pathname]()
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
   if (request.method === 'POST' && url.pathname === '/v1/calendar/pairings') {
     const body = await request.json<Json>(); const provider = body.provider
