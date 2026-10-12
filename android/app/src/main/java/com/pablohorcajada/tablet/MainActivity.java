@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -14,6 +15,15 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     private boolean kioskExitRequested = false;
+    private final OnBackPressedCallback kioskBackCallback = new OnBackPressedCallback(true) {
+        @Override
+        public void handleOnBackPressed() {
+            if (!kioskExitRequested) return;
+
+            setEnabled(false);
+            getOnBackPressedDispatcher().onBackPressed();
+        }
+    };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -24,7 +34,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppStoragePlugin.class);
         registerPlugin(MobileAdminPlugin.class);
         registerPlugin(AppUpdaterPlugin.class);
+        registerPlugin(AssistantVoicePlugin.class);
+        registerPlugin(CalendarSecretsPlugin.class);
         super.onCreate(savedInstanceState);
+        getOnBackPressedDispatcher().addCallback(this, kioskBackCallback);
         MobileAdminServiceController.reconcile(this);
         getWindow().getDecorView().setOnSystemUiVisibilityChangeListener((visibility) -> {
             if (!kioskExitRequested && (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
@@ -50,15 +63,9 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    @Override
-    public void onBackPressed() {
-        if (kioskExitRequested) {
-            super.onBackPressed();
-        }
-    }
-
     public void enterKioskMode() {
         kioskExitRequested = false;
+        kioskBackCallback.setEnabled(true);
         enableImmersiveMode();
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             if (!isInLockTaskMode()) {

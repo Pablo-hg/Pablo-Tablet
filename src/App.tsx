@@ -35,6 +35,7 @@ import {
   RotateCw,
   RefreshCw,
   Search,
+  Sparkles,
   Snowflake,
   Star,
   SunMedium,
@@ -70,11 +71,19 @@ import {
   type GalleryPhoto,
   EVERY_ALARM_WEEKDAY,
 } from './dashboardState'
+import type { AssistantCommand } from './assistant/contracts'
+import { executeAssistantCommand } from './assistant/executor'
 import { DEFAULT_ALARM_SOUND, getDeviceAlarmSounds, previewAlarmSound, stopAlarmSoundPreview, type DeviceAlarmSound } from './alarmSounds'
 import { snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
 import { arrangeWidgets, DASHBOARD_COLUMNS, DASHBOARD_ROWS, placeWidgets, resizeWidgets, type DashboardOrientation, type DashboardWidgetId, type PlacedWidget, type WidgetPosition } from './widgetLayout'
 import { playInteractionSound } from './deviceSettings'
 import { deleteGalleryPhotoFile, galleryPhotoSource, pickGalleryPhotos } from './gallery'
+import { compactCalendarOutbox, createCalendarOutboxEntry } from './calendarSync/repository'
+import { applyCalendarSync } from './calendarSync/repository'
+import { calendarRelay } from './calendarSync/relayClient'
+import { readCalendarConnectionToken, removeCalendarConnectionToken, writeCalendarConnectionToken } from './calendarSync/secretVault'
+import { CalendarConnectionsPanel } from './calendarSync/CalendarConnectionsPanel'
+import type { CalendarAccount, SyncedCalendar } from './calendarSync/contracts'
 import { searchWeatherLocations, weatherDescription, type WeatherForecast, type WeatherLocation } from './weather'
 import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, nextCalendarOccurrence, offsetDateKey, toLocalDateKey } from './calendarRecurrence'
 import { formatCountdown, pauseTimer, resetTimer, startTimer, timerHasFinished, timerRemainingSeconds } from './timerLogic'
@@ -85,6 +94,7 @@ import { useWeatherForecasts } from './hooks/useWeatherForecasts'
 import { AppNavigation, type AppScreen } from './app/AppNavigation'
 import { AppShell } from './app/AppShell'
 import { SettingsPage } from './pages/SettingsPage'
+import { AssistantPage } from './pages/AssistantPage'
 import { PageHeader } from './components/PageHeader'
 import './App.css'
 import './themes.css'
@@ -131,6 +141,7 @@ function App() {
   const lastScreensaverPhotoId = useRef<string | null>(null)
   const suppressClick = useRef(false)
   const deliveredSimulationIds = useRef(new Set<string>())
+  const calendarSyncInFlight = useRef(new Set<string>())
   const dashboardStateRef = useRef(dashboardState)
   useDashboardPersistence({ state: dashboardState, stateRef: dashboardStateRef, setState: setDashboardState })
 
@@ -510,8 +521,15 @@ function App() {
   }
 
   const createCalendarEvent = (date: string) => {
+    const createdAt = new Date().toISOString()
     const event: CalendarEvent = {
       id: createLocalId(),
+      source: 'local',
+      accountId: null,
+      calendarId: null,
+      externalId: null,
+      externalVersion: null,
+      syncStatus: 'local',
       type: 'event',
       recurrence: 'none',
       completed: false,
@@ -521,23 +539,151 @@ function App() {
       startTime: '09:00',
       endTime: '10:00',
       allDay: false,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
       location: '',
       notes: '',
       color: 'blue',
       reminders: [],
-      createdAt: new Date().toISOString(),
+      createdAt,
+      updatedAt: createdAt,
     }
     setDashboardState((current) => ({ ...current, calendarEvents: [...current.calendarEvents, event] }))
     return event.id
   }
 
   const updateCalendarEvent = (eventId: string, patch: CalendarEventPatch) => {
-    setDashboardState((current) => ({ ...current, calendarEvents: current.calendarEvents.map((event) => event.id === eventId ? { ...event, ...patch } : event) }))
+    setDashboardState((current) => {
+      const previous = current.calendarEvents.find((event) => event.id === eventId)
+      if (!previous) return current
+      const updated: CalendarEvent = {
+        ...previous,
+        ...patch,
+        updatedAt: new Date().toISOString(),
+        syncStatus: previous.source === 'local' ? 'local' : previous.syncStatus === 'pending-create' ? 'pending-create' : 'pending-update',
+      }
+      const entry = createCalendarOutboxEntry(updated, previous.externalId ? 'update' : 'create', createLocalId)
+      return {
+        ...current,
+        calendarEvents: current.calendarEvents.map((event) => event.id === eventId ? updated : event),
+        calendarOutbox: entry ? compactCalendarOutbox(current.calendarOutbox, entry) : current.calendarOutbox,
+      }
+    })
+  }
+
+  const setCalendarEventDestination = (eventId: string, syncedCalendarId: string | null) => {
+    setDashboardState((current) => {
+      const previous = current.calendarEvents.find((event) => event.id === eventId)
+      if (!previous || (previous.source !== 'local' && previous.syncStatus !== 'pending-create')) return current
+      const withoutPreviousCreate = current.calendarOutbox.filter((entry) => entry.eventId !== eventId)
+      if (syncedCalendarId === null) {
+        const localEvent: CalendarEvent = { ...previous, source: 'local', accountId: null, calendarId: null, externalId: null, externalVersion: null, syncStatus: 'local', updatedAt: new Date().toISOString() }
+        return { ...current, calendarEvents: current.calendarEvents.map((event) => event.id === eventId ? localEvent : event), calendarOutbox: withoutPreviousCreate }
+      }
+      const calendar = current.externalCalendars.find((item) => item.id === syncedCalendarId && !item.readOnly)
+      const account = calendar ? current.calendarAccounts.find((item) => item.id === calendar.accountId && item.enabled) : null
+      if (!calendar || !account) return current
+      const externalEvent: CalendarEvent = { ...previous, source: calendar.provider, accountId: calendar.accountId, calendarId: calendar.remoteId, externalId: null, externalVersion: null, syncStatus: 'pending-create', color: calendar.color, updatedAt: new Date().toISOString() }
+      const entry = createCalendarOutboxEntry(externalEvent, 'create', createLocalId)
+      return { ...current, calendarEvents: current.calendarEvents.map((event) => event.id === eventId ? externalEvent : event), calendarOutbox: entry ? [...withoutPreviousCreate, entry] : withoutPreviousCreate }
+    })
   }
 
   const deleteCalendarEvent = (eventId: string) => {
-    setDashboardState((current) => ({ ...current, calendarEvents: current.calendarEvents.filter((event) => event.id !== eventId) }))
+    setDashboardState((current) => {
+      const event = current.calendarEvents.find((item) => item.id === eventId)
+      const entry = event ? createCalendarOutboxEntry(event, 'delete', createLocalId) : null
+      return {
+        ...current,
+        calendarEvents: current.calendarEvents.filter((item) => item.id !== eventId),
+        calendarOutbox: entry ? compactCalendarOutbox(current.calendarOutbox, entry) : current.calendarOutbox,
+      }
+    })
   }
+
+  const syncCalendarAccount = useCallback(async (accountId: string, connectionToken?: string) => {
+    if (calendarSyncInFlight.current.has(accountId)) return
+    const snapshot = dashboardStateRef.current
+    const account = snapshot.calendarAccounts.find((item) => item.id === accountId)
+    if (!account) return
+    calendarSyncInFlight.current.add(accountId)
+    setDashboardState((current) => ({ ...current, calendarAccounts: current.calendarAccounts.map((item) => item.id === accountId ? { ...item, status: 'syncing', error: null } : item) }))
+    try {
+      const token = connectionToken ?? await readCalendarConnectionToken(accountId)
+      if (!token) throw new Error('La credencial de conexión no está disponible. Vuelve a conectar la cuenta.')
+      const result = await calendarRelay.synchronize(account, token, snapshot.calendarOutbox.filter((entry) => entry.accountId === accountId))
+      setDashboardState((current) => {
+        const liveAccount = current.calendarAccounts.find((item) => item.id === accountId)
+        if (!liveAccount) return current
+        const applied = applyCalendarSync(current.calendarEvents, current.externalCalendars, current.calendarOutbox, liveAccount, result)
+        return { ...current, calendarEvents: applied.events, externalCalendars: applied.calendars, calendarOutbox: applied.outbox, calendarAccounts: current.calendarAccounts.map((item) => item.id === accountId ? applied.account : item) }
+      })
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'No se pudo sincronizar el calendario.'
+      const requiresAuthorization = /autoriza|credencial|401|403/i.test(message)
+      setDashboardState((current) => ({ ...current, calendarAccounts: current.calendarAccounts.map((item) => item.id === accountId ? { ...item, status: requiresAuthorization ? 'reauthorize' : navigator.onLine ? 'error' : 'offline', error: message } : item) }))
+    } finally {
+      calendarSyncInFlight.current.delete(accountId)
+    }
+  }, [])
+
+  const connectCalendarAccount = useCallback(async (account: CalendarAccount, token: string) => {
+    await writeCalendarConnectionToken(account.id, token)
+    setDashboardState((current) => ({ ...current, calendarAccounts: [...current.calendarAccounts.filter((item) => item.provider !== account.provider), { ...account, status: 'syncing' }] }))
+    try {
+      const snapshot = dashboardStateRef.current
+      const result = await calendarRelay.synchronize(account, token, snapshot.calendarOutbox.filter((entry) => entry.accountId === account.id))
+      setDashboardState((current) => {
+        const applied = applyCalendarSync(current.calendarEvents, current.externalCalendars, current.calendarOutbox, account, result)
+        return { ...current, calendarEvents: applied.events, externalCalendars: applied.calendars, calendarOutbox: applied.outbox, calendarAccounts: [...current.calendarAccounts.filter((item) => item.provider !== account.provider), applied.account] }
+      })
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'No se pudo realizar la primera sincronización.'
+      setDashboardState((current) => ({ ...current, calendarAccounts: current.calendarAccounts.map((item) => item.id === account.id ? { ...item, status: 'error', error: message } : item) }))
+    }
+  }, [])
+
+  const disconnectCalendarAccount = useCallback(async (accountId: string) => {
+    const account = dashboardStateRef.current.calendarAccounts.find((item) => item.id === accountId)
+    if (!account) return
+    const token = await readCalendarConnectionToken(accountId)
+    try {
+      if (token) await calendarRelay.disconnect(account, token)
+    } catch (error) {
+      console.warn('No se pudo revocar la conexión remota; se eliminará de esta tablet.', error)
+    }
+    await removeCalendarConnectionToken(accountId)
+    setDashboardState((current) => ({
+      ...current,
+      calendarAccounts: current.calendarAccounts.filter((item) => item.id !== accountId),
+      externalCalendars: current.externalCalendars.filter((calendar) => calendar.accountId !== accountId),
+      calendarEvents: current.calendarEvents.filter((event) => event.accountId !== accountId),
+      calendarOutbox: current.calendarOutbox.filter((entry) => entry.accountId !== accountId),
+    }))
+  }, [])
+
+  const setExternalCalendarVisibility = useCallback((calendarId: string, visible: boolean) => {
+    setDashboardState((current) => ({ ...current, externalCalendars: current.externalCalendars.map((calendar) => calendar.id === calendarId ? { ...calendar, visible } : calendar) }))
+  }, [])
+
+  const calendarAccountIds = dashboardState.calendarAccounts.map((account) => account.id).sort().join('|')
+  useEffect(() => {
+    if (!calendarAccountIds) return
+    const synchronize = () => {
+      if (!navigator.onLine) return
+      for (const accountId of calendarAccountIds.split('|')) void syncCalendarAccount(accountId)
+    }
+    const synchronizeWhenVisible = () => { if (document.visibilityState === 'visible') synchronize() }
+    const initial = window.setTimeout(synchronize, 1200)
+    const interval = window.setInterval(synchronize, 15 * 60_000)
+    window.addEventListener('online', synchronize)
+    document.addEventListener('visibilitychange', synchronizeWhenVisible)
+    return () => {
+      window.clearTimeout(initial)
+      window.clearInterval(interval)
+      window.removeEventListener('online', synchronize)
+      document.removeEventListener('visibilitychange', synchronizeWhenVisible)
+    }
+  }, [calendarAccountIds, syncCalendarAccount])
 
   const addGalleryPhotos = async () => {
     setInteractionLocked(true)
@@ -664,6 +810,67 @@ function App() {
     registerInteraction()
   }
 
+  const openAssistant = () => {
+    if (!dashboardState.preferences.enabledPageIds.includes('assistant')) {
+      updatePreferences({
+        enabledPageIds: DASHBOARD_PAGES
+          .map((page) => page.id)
+          .filter((id) => dashboardState.preferences.enabledPageIds.includes(id) || id === 'assistant'),
+      })
+    }
+    setActivePageId('assistant')
+    registerInteraction()
+  }
+
+  const openDashboardPage = (pageId: DashboardPageId) => {
+    if (!dashboardState.preferences.enabledPageIds.includes(pageId)) {
+      updatePreferences({
+        enabledPageIds: DASHBOARD_PAGES
+          .map((page) => page.id)
+          .filter((id) => dashboardState.preferences.enabledPageIds.includes(id) || id === pageId),
+      })
+    }
+    setActivePageId(pageId)
+    registerInteraction()
+  }
+
+  const setAssistantWidgetVisible = (visible: boolean) => {
+    setDashboardState((current) => {
+      let widgets = current.widgets.map((widget) => widget.id === 'assistant' ? { ...widget, visible } : widget)
+      if (!visible) return { ...current, widgets }
+
+      const assistant = widgets.find((widget) => widget.id === 'assistant')
+      if (!assistant) return current
+      const landscape = arrangeWidgets(widgets, 'landscape', 'assistant', assistant.layouts.landscape)
+      if (landscape) widgets = landscape
+
+      let portrait = arrangeWidgets(widgets, 'portrait', 'assistant', assistant.layouts.portrait)
+      if (!portrait) {
+        widgets = widgets.map((widget) => widget.id === 'agenda'
+          ? { ...widget, layouts: { ...widget.layouts, portrait: { ...widget.layouts.portrait, x: 0, y: 0, width: 3, height: 2 } } }
+          : widget)
+        portrait = arrangeWidgets(widgets, 'portrait', 'assistant', assistant.layouts.portrait)
+      }
+      return { ...current, widgets: portrait ?? widgets }
+    })
+  }
+
+  const executeAssistant = async (command: AssistantCommand) => {
+    const current = dashboardStateRef.current
+    const homeLocation = current.weatherLocations.find((location) => location.id === current.homeWeatherLocationId) ?? current.weatherLocations[0] ?? null
+    const result = executeAssistantCommand(current, command, {
+      now: new Date(),
+      homeWeatherLocation: homeLocation,
+      homeWeatherForecast: homeLocation ? weatherForecasts[homeLocation.id] ?? null : null,
+      createId: createLocalId,
+    })
+    if (result.state !== current) {
+      dashboardStateRef.current = result.state
+      setDashboardState(result.state)
+    }
+    return result
+  }
+
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return
     const target = event.target as HTMLElement
@@ -765,7 +972,17 @@ function App() {
       onClick={handleClick}
     >
       <section className="tablet-content" aria-label="Pablo Tablet">
-        {screen === 'home' && activePage ? (
+        {screen === 'home' && activePage?.id === 'assistant' ? (
+          <AssistantPage
+            enabled={dashboardState.preferences.assistantEnabled}
+            voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
+            readAloud={dashboardState.preferences.assistantReadAloud}
+            now={now}
+            onExecute={executeAssistant}
+            onOpenPage={openDashboardPage}
+            onEditingChange={setInteractionLocked}
+          />
+        ) : screen === 'home' && activePage ? (
           <DashboardPage
             key={activePage.id}
             page={activePage}
@@ -775,6 +992,8 @@ function App() {
             widgets={dashboardState.widgets}
             notes={dashboardState.notes}
             calendarEvents={dashboardState.calendarEvents}
+            calendarAccounts={dashboardState.calendarAccounts}
+            externalCalendars={dashboardState.externalCalendars}
             galleryPhotos={dashboardState.galleryPhotos}
             weatherLocations={dashboardState.weatherLocations}
             homeWeatherLocationId={dashboardState.homeWeatherLocationId}
@@ -794,6 +1013,11 @@ function App() {
             onCreateCalendarEvent={createCalendarEvent}
             onUpdateCalendarEvent={updateCalendarEvent}
             onDeleteCalendarEvent={deleteCalendarEvent}
+            onSetCalendarEventDestination={setCalendarEventDestination}
+            onConnectCalendarAccount={connectCalendarAccount}
+            onSyncCalendarAccount={syncCalendarAccount}
+            onDisconnectCalendarAccount={disconnectCalendarAccount}
+            onExternalCalendarVisibilityChange={setExternalCalendarVisibility}
             onAddGalleryPhotos={() => void addGalleryPhotos()}
             onMoveGalleryPhotoToTrash={moveGalleryPhotoToTrash}
             onMoveGalleryPhotosToTrash={moveGalleryPhotosToTrash}
@@ -817,6 +1041,7 @@ function App() {
             onOpenNotes={openNotes}
             onOpenWeather={openWeather}
             onOpenCalendar={openCalendar}
+            onOpenAssistant={openAssistant}
             onChangeWidgetLayout={updateWidgetLayout}
             onEditingChange={setInteractionLocked}
           />
@@ -826,6 +1051,8 @@ function App() {
             onBack={() => goTo('home')}
             onPreferencesChange={updatePreferences}
             onTogglePage={togglePage}
+            assistantWidgetVisible={dashboardState.widgets.find((widget) => widget.id === 'assistant')?.visible ?? false}
+            onAssistantWidgetVisibilityChange={setAssistantWidgetVisible}
             nightModeActive={nightModeActive}
           />
         )}
@@ -860,6 +1087,8 @@ function DashboardPage({
   widgets,
   notes,
   calendarEvents,
+  calendarAccounts,
+  externalCalendars,
   galleryPhotos,
   weatherLocations,
   homeWeatherLocationId,
@@ -879,6 +1108,11 @@ function DashboardPage({
   onCreateCalendarEvent,
   onUpdateCalendarEvent,
   onDeleteCalendarEvent,
+  onSetCalendarEventDestination,
+  onConnectCalendarAccount,
+  onSyncCalendarAccount,
+  onDisconnectCalendarAccount,
+  onExternalCalendarVisibilityChange,
   onAddGalleryPhotos,
   onMoveGalleryPhotoToTrash,
   onMoveGalleryPhotosToTrash,
@@ -902,6 +1136,7 @@ function DashboardPage({
   onOpenNotes,
   onOpenWeather,
   onOpenCalendar,
+  onOpenAssistant,
   onChangeWidgetLayout,
   onEditingChange,
 }: {
@@ -912,6 +1147,8 @@ function DashboardPage({
   widgets: import('./widgetLayout').DashboardWidget[]
   notes: Note[]
   calendarEvents: CalendarEvent[]
+  calendarAccounts: CalendarAccount[]
+  externalCalendars: SyncedCalendar[]
   galleryPhotos: GalleryPhoto[]
   weatherLocations: WeatherLocation[]
   homeWeatherLocationId: string | null
@@ -931,6 +1168,11 @@ function DashboardPage({
   onCreateCalendarEvent: (date: string) => string
   onUpdateCalendarEvent: (eventId: string, patch: CalendarEventPatch) => void
   onDeleteCalendarEvent: (eventId: string) => void
+  onSetCalendarEventDestination: (eventId: string, calendarId: string | null) => void
+  onConnectCalendarAccount: (account: CalendarAccount, token: string) => Promise<void>
+  onSyncCalendarAccount: (accountId: string) => Promise<void>
+  onDisconnectCalendarAccount: (accountId: string) => Promise<void>
+  onExternalCalendarVisibilityChange: (calendarId: string, visible: boolean) => void
   onAddGalleryPhotos: () => void
   onMoveGalleryPhotoToTrash: (photoId: string) => void
   onMoveGalleryPhotosToTrash: (photoIds: string[]) => void
@@ -954,15 +1196,16 @@ function DashboardPage({
   onOpenNotes: (noteId?: string) => void
   onOpenWeather: () => void
   onOpenCalendar: () => void
+  onOpenAssistant: () => void
   onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void
   onEditingChange: (isEditing: boolean) => void
 }) {
   if (page.id === 'clock') return <ClockPage time={time} date={date} now={now} alarms={alarms} timers={timers} stopwatch={stopwatch} onCreateAlarm={onCreateAlarm} onUpdateAlarm={onUpdateAlarm} onDeleteAlarm={onDeleteAlarm} onCreateTimer={onCreateTimer} onUpdateTimer={onUpdateTimer} onDeleteTimer={onDeleteTimer} onToggleStopwatch={onToggleStopwatch} onResetStopwatch={onResetStopwatch} onPreviewNotification={onPreviewNotification} />
-  if (page.id === 'calendar') return <CalendarPage now={now} events={calendarEvents} hideCompletedTasks={hideCompletedCalendarTasks} onHideCompletedTasksChange={onHideCompletedCalendarTasksChange} onCreate={onCreateCalendarEvent} onUpdate={onUpdateCalendarEvent} onDelete={onDeleteCalendarEvent} onEditingChange={onEditingChange} />
+  if (page.id === 'calendar') return <CalendarPage now={now} events={calendarEvents} accounts={calendarAccounts} calendars={externalCalendars} hideCompletedTasks={hideCompletedCalendarTasks} onHideCompletedTasksChange={onHideCompletedCalendarTasksChange} onCreate={onCreateCalendarEvent} onUpdate={onUpdateCalendarEvent} onDelete={onDeleteCalendarEvent} onSetDestination={onSetCalendarEventDestination} onConnected={onConnectCalendarAccount} onSync={onSyncCalendarAccount} onDisconnect={onDisconnectCalendarAccount} onCalendarVisibilityChange={onExternalCalendarVisibilityChange} onEditingChange={onEditingChange} />
   if (page.id === 'gallery') return <GalleryPage photos={galleryPhotos} onAddPhotos={onAddGalleryPhotos} onMoveToTrash={onMoveGalleryPhotoToTrash} onMoveSelectionToTrash={onMoveGalleryPhotosToTrash} onRestore={onRestoreGalleryPhoto} onPermanentlyDelete={onPermanentlyDeleteGalleryPhoto} onEditingChange={onEditingChange} />
   if (page.id === 'weather') return <WeatherPage locations={weatherLocations} homeLocationId={homeWeatherLocationId} selectedLocationId={selectedWeatherLocationId} forecasts={weatherForecasts} loading={weatherLoading} errors={weatherErrors} onAddLocation={onAddWeatherLocation} onRemoveLocation={onRemoveWeatherLocation} onSetHomeLocation={onSetHomeWeatherLocation} onSelectLocation={onSelectWeatherLocation} onRefresh={onRefreshWeather} onEditingChange={onEditingChange} />
   if (page.id === 'notes') return <NotesPage notes={notes} onCreateNote={onCreateNote} onUpdateNote={onUpdateNote} onArchiveNote={onArchiveNote} onRestoreNote={onRestoreNote} onDeleteNote={onDeleteNote} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} />
-  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} calendarEvents={calendarEvents} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
+  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} calendarEvents={calendarEvents} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
 }
 
 function GalleryScreensaver({ photo, now, time, date, calendarEvents, onDismiss }: { photo: GalleryPhoto | undefined; now: Date; time: string; date: string; calendarEvents: CalendarEvent[]; onDismiss: () => void }) {
@@ -1167,7 +1410,7 @@ function resizeWidgetFromEdge(initial: WidgetPosition, direction: WidgetResizeDi
   return { ...initial, height: initial.height + delta }
 }
 
-function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
+function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: () => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
   const orientation = useDashboardOrientation()
   const [isEditing, setIsEditing] = useState(false)
   const [selectedWidgetId, setSelectedWidgetId] = useState<DashboardWidgetId | null>(null)
@@ -1401,7 +1644,7 @@ function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWe
       {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>Arrastra para mover · arrastra los bordes para ajustar</span><button type="button" onClick={finishEditing}><Check size={17} />Listo</button></div> : null}
       <div ref={gridRef} className={`dashboard-grid is-${orientation}`}>
         {displayedWidgets.length > 0
-          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} />)
+          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
           : <DashboardEmptyState time={time} date={date} />}
       </div>
     </div>
@@ -1418,7 +1661,7 @@ function DashboardEmptyState({ time, date }: { time: string; date: string }) {
 }
 
 function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, children }: { widget: PlacedWidget; style: CSSProperties; isEditing: boolean; showResizeHandles: boolean; isHolding: boolean; dragOffset: { x: number; y: number } | null; onHoldStart: (widgetId: DashboardWidgetId, event: ReactPointerEvent<HTMLDivElement>) => void; onDragStart: (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => void; onDragMove: (event: ReactPointerEvent<HTMLDivElement>) => void; onDragEnd: (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => void; onResizeStart: (widget: PlacedWidget, direction: WidgetResizeDirection, event: ReactPointerEvent<HTMLButtonElement>) => void; onResizeMove: (event: ReactPointerEvent<HTMLButtonElement>) => void; onResizeEnd: (event: ReactPointerEvent<HTMLButtonElement>) => void; canExpand: (direction: WidgetResizeDirection) => boolean; canShrink: (direction: WidgetResizeDirection) => boolean; children: ReactNode }) {
-  const widgetNames: Record<DashboardWidgetId, string> = { clock: 'Reloj', weather: 'Tiempo', notes: 'Notas', agenda: 'Calendario' }
+  const widgetNames: Record<DashboardWidgetId, string> = { clock: 'Reloj', weather: 'Tiempo', notes: 'Notas', agenda: 'Calendario', assistant: 'Asistente' }
   const resizeDirections: WidgetResizeDirection[] = ['left', 'right', 'top', 'bottom']
   const arrows: Record<WidgetResizeDirection, string> = { left: '←', right: '→', top: '↑', bottom: '↓' }
   const directionNames: Record<WidgetResizeDirection, string> = { left: 'izquierdo', right: 'derecho', top: 'superior', bottom: 'inferior' }
@@ -1456,7 +1699,7 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
   </div>
 }
 
-function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, upcomingEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar }: {
+function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, upcomingEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
   widget: PlacedWidget
   now: Date
   time: string
@@ -1484,6 +1727,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   onOpenNotes: (noteId?: string) => void
   onOpenWeather: () => void
   onOpenCalendar: () => void
+  onOpenAssistant: () => void
 }) {
   const style = {
     gridColumn: `${widget.layout.x + 1} / span ${widget.layout.width}`,
@@ -1492,6 +1736,12 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   const sizeKey = `${widget.layout.width}x${widget.layout.height}`
   const area = widget.layout.width * widget.layout.height
   const frameProps = { widget, style, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink }
+
+  if (widget.id === 'assistant') return <DashboardWidgetFrame {...frameProps}><button type="button" className="assistant-widget widget-card interactive-card" onClick={() => onActivate(onOpenAssistant)}>
+    <span className="assistant-widget-icon"><Sparkles size={area >= 3 ? 34 : 25} /></span>
+    <span><strong>Asistente</strong><small>{area >= 2 ? 'Consulta tu día o prepara una acción con voz o texto.' : 'Voz y texto'}</small></span>
+    <ChevronRight size={18} />
+  </button></DashboardWidgetFrame>
 
   if (widget.id === 'clock') return <DashboardWidgetFrame {...frameProps}><article className="clock-card responsive-clock-widget widget-card">
     <div className="widget-label"><span>Ahora</span><span className="live-dot">En directo</span></div>
@@ -1638,7 +1888,7 @@ function CalendarEventTypeMark({ type, size = 14 }: { type: CalendarEventType; s
   return <span className={`calendar-type-mark kind-${type}`} title={label} aria-label={label}><Icon size={size} strokeWidth={2.2} /></span>
 }
 
-function CalendarPage({ now, events, hideCompletedTasks, onHideCompletedTasksChange, onCreate, onUpdate, onDelete, onEditingChange }: { now: Date; events: CalendarEvent[]; hideCompletedTasks: boolean; onHideCompletedTasksChange: (hidden: boolean) => void; onCreate: (date: string) => string; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onDelete: (eventId: string) => void; onEditingChange: (isEditing: boolean) => void }) {
+function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, onHideCompletedTasksChange, onCreate, onUpdate, onDelete, onSetDestination, onConnected, onSync, onDisconnect, onCalendarVisibilityChange, onEditingChange }: { now: Date; events: CalendarEvent[]; accounts: CalendarAccount[]; calendars: SyncedCalendar[]; hideCompletedTasks: boolean; onHideCompletedTasksChange: (hidden: boolean) => void; onCreate: (date: string) => string; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onDelete: (eventId: string) => void; onSetDestination: (eventId: string, calendarId: string | null) => void; onConnected: (account: CalendarAccount, token: string) => Promise<void>; onSync: (accountId: string) => Promise<void>; onDisconnect: (accountId: string) => Promise<void>; onCalendarVisibilityChange: (calendarId: string, visible: boolean) => void; onEditingChange: (isEditing: boolean) => void }) {
   const todayKey = toLocalDateKey(now)
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState(todayKey)
@@ -1650,7 +1900,9 @@ function CalendarPage({ now, events, hideCompletedTasks, onHideCompletedTasksCha
     const day = index - firstWeekday + 1
     return day >= 1 && day <= daysInMonth ? new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day) : null
   })
-  const visibleEvents = hideCompletedTasks ? events.filter((event) => event.type !== 'task' || !event.completed) : events
+  const visibleCalendarIds = new Set(calendars.filter((calendar) => calendar.visible).map((calendar) => `${calendar.provider}:${calendar.accountId}:${calendar.remoteId}`))
+  const sourceVisibleEvents = events.filter((event) => event.source === 'local' || (event.calendarId !== null && event.accountId !== null && visibleCalendarIds.has(`${event.source}:${event.accountId}:${event.calendarId}`)))
+  const visibleEvents = hideCompletedTasks ? sourceVisibleEvents.filter((event) => event.type !== 'task' || !event.completed) : sourceVisibleEvents
   const selectedEvents = visibleEvents.flatMap((event) => {
     const occurrence = calendarOccurrenceForDate(event, selectedDate)
     return occurrence ? [eventForOccurrence(event, occurrence)] : []
@@ -1685,7 +1937,7 @@ function CalendarPage({ now, events, hideCompletedTasks, onHideCompletedTasksCha
     <div className="calendar-layout">
       <section className="calendar-month-panel">
         <header className="calendar-toolbar">
-          <div><p className="eyebrow">Calendario local</p><h1>{calendarMonthFormatter.format(visibleMonth)}</h1></div>
+          <div><p className="eyebrow">Agenda unificada</p><h1>{calendarMonthFormatter.format(visibleMonth)}</h1></div>
           <div><button type="button" className={`calendar-hide-completed ${hideCompletedTasks ? 'is-active' : ''}`} onClick={() => onHideCompletedTasksChange(!hideCompletedTasks)} aria-pressed={hideCompletedTasks}><EyeOff size={17} /><span>Ocultar finalizados</span></button><button type="button" onClick={() => changeMonth(-1)} aria-label="Mes anterior"><ChevronLeft size={20} /></button><button type="button" className="calendar-today-button" onClick={goToToday}>Hoy</button><button type="button" onClick={() => changeMonth(1)} aria-label="Mes siguiente"><ChevronRight size={20} /></button></div>
         </header>
         <div className="calendar-weekdays">{['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => <span key={day}>{day}</span>)}</div>
@@ -1700,6 +1952,7 @@ function CalendarPage({ now, events, hideCompletedTasks, onHideCompletedTasksCha
         })}</div>
       </section>
       <div className="calendar-side-column">
+        <CalendarConnectionsPanel accounts={accounts} calendars={calendars} onConnected={onConnected} onSync={onSync} onDisconnect={onDisconnect} onCalendarVisibilityChange={onCalendarVisibilityChange} />
         <aside className="calendar-day-panel">
           <header><div><p className="eyebrow">Agenda del día</p><h2>{calendarDayFormatter.format(new Date(`${selectedDate}T12:00:00`))}</h2></div><button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />Nuevo</button></header>
           <div className="calendar-day-events">{selectedEvents.length > 0 ? selectedEvents.map((event) => {
@@ -1713,17 +1966,20 @@ function CalendarPage({ now, events, hideCompletedTasks, onHideCompletedTasksCha
         </aside>
       </div>
     </div>
-    {editingEvent ? <CalendarEventEditor event={editingEvent} onUpdate={onUpdate} onDelete={() => { onDelete(editingEvent.id); closeEditor() }} onClose={closeEditor} /> : null}
+    {editingEvent ? <CalendarEventEditor event={editingEvent} calendars={calendars} onUpdate={onUpdate} onSetDestination={onSetDestination} onDelete={() => { onDelete(editingEvent.id); closeEditor() }} onClose={closeEditor} /> : null}
   </div>
 }
 
-function CalendarEventEditor({ event, onUpdate, onDelete, onClose }: { event: CalendarEvent; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onDelete: () => void; onClose: () => void }) {
+function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onDelete, onClose }: { event: CalendarEvent; calendars: SyncedCalendar[]; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onSetDestination: (eventId: string, calendarId: string | null) => void; onDelete: () => void; onClose: () => void }) {
   const [remindersOpen, setRemindersOpen] = useState(false)
   const [startYear, startMonth, startDay] = event.date.split('-').map(Number)
   const [endYear, endMonth, endDay] = event.endDate.split('-').map(Number)
   const years = Array.from({ length: 7 }, (_, index) => new Date().getFullYear() - 1 + index)
   const months = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(2026, index, 1)) }))
   const times = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`)
+  const writableCalendars = calendars.filter((calendar) => !calendar.readOnly)
+  const selectedCalendar = calendars.find((calendar) => calendar.provider === event.source && calendar.accountId === event.accountId && calendar.remoteId === event.calendarId)
+  const canChangeDestination = event.source === 'local' || event.syncStatus === 'pending-create'
   const makeDate = (nextYear: number, nextMonth: number, nextDay: number) => {
     const safeDay = Math.min(nextDay, new Date(nextYear, nextMonth, 0).getDate())
     return `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`
@@ -1771,7 +2027,8 @@ function CalendarEventEditor({ event, onUpdate, onDelete, onClose }: { event: Ca
 
   return <div className="alarm-editor-backdrop calendar-editor-backdrop" role="dialog" aria-modal="true" aria-label="Editar evento">
     <section className="alarm-editor calendar-event-editor">
-      <header className="alarm-editor-header"><div><p className="eyebrow">Calendario local</p><h2>Configurar evento</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label="Cerrar"><X size={20} /></button></header>
+      <header className="alarm-editor-header"><div><p className="eyebrow">{event.source === 'local' ? 'Calendario local' : event.source === 'google' ? 'Google Calendar' : 'Outlook'}</p><h2>Configurar evento</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label="Cerrar"><X size={20} /></button></header>
+      <label className="calendar-destination-field"><span>Guardar en</span><select value={event.source === 'local' ? 'local' : selectedCalendar?.id ?? 'local'} disabled={!canChangeDestination} onChange={(change) => onSetDestination(event.id, change.target.value === 'local' ? null : change.target.value)}><option value="local">Calendario local</option>{writableCalendars.map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.name} · {calendar.provider === 'google' ? 'Google' : 'Outlook'}</option>)}</select>{!canChangeDestination ? <small>Los eventos ya sincronizados conservan su calendario de origen.</small> : null}</label>
       <label className="calendar-title-field"><span>Título</span><input value={event.title} maxLength={80} onChange={(change) => onUpdate(event.id, { title: change.target.value })} /></label>
       <div className="calendar-type-field"><span>Tipo</span><div className="calendar-type-options">{CALENDAR_EVENT_TYPES.map((option) => <button key={option.value} type="button" className={`calendar-type-option kind-${option.value} ${event.type === option.value ? 'is-selected' : ''}`} aria-pressed={event.type === option.value} onClick={() => onUpdate(event.id, { type: option.value, completed: option.value === 'task' ? event.completed : false, recurrence: option.value === 'birthday' && event.recurrence === 'none' ? 'yearly' : event.recurrence })}><CalendarEventTypeMark type={option.value} size={17} />{option.label}</button>)}</div></div>
       <div className="calendar-recurrence-field"><span>Repetición</span><div className="calendar-recurrence-options">{CALENDAR_RECURRENCES.map((option) => <button key={option.value} type="button" className={event.recurrence === option.value ? 'is-selected' : ''} aria-pressed={event.recurrence === option.value} onClick={() => onUpdate(event.id, { recurrence: option.value })}>{option.value !== 'none' ? <RotateCw size={14} /> : null}{option.label}</button>)}</div></div>

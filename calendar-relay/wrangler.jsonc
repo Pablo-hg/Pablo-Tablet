@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pablo-tablet-calendar-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "pablo-tablet-calendar",
+    "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+  }],
+  "vars": {
+    "PUBLIC_BASE_URL": "https://pablo-tablet-calendar-relay.REPLACE.workers.dev"
+  }
+}
