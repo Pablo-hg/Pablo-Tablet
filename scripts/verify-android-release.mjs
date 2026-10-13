@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { execFileSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,9 +13,12 @@ export function parseBadging(output) {
 }
 
 export function parseCertificateSha256(output) {
-  const match = output.match(/Signer #1 certificate SHA-256 digest:\s*([0-9a-f:]+)/i)
+  const digestLine = output
+    .split(/\r?\n/)
+    .find((line) => /certificate.*SHA-?256.*digest/i.test(line))
+  const match = digestLine?.match(/(?:[0-9a-f]{2}:){31}[0-9a-f]{2}|[0-9a-f]{64}/i)
   if (!match) throw new Error('No se pudo leer el SHA-256 del certificado firmante.')
-  return match[1].replaceAll(':', '').toLowerCase()
+  return match[0].replaceAll(':', '').toLowerCase()
 }
 
 export function validateIdentity(actual, expected) {
@@ -57,10 +60,16 @@ function toolPath(directory, name) {
 }
 
 function runTool(command, args) {
-  return execFileSync(command, args, {
+  const result = spawnSync(command, args, {
     encoding: 'utf8',
     shell: process.platform === 'win32' && command.endsWith('.bat'),
   })
+  const output = [result.stdout, result.stderr].filter(Boolean).join('\n')
+  if (result.error) throw result.error
+  if (result.status !== 0) {
+    throw new Error(`Fallo al ejecutar ${basename(command)}:\n${output.trim()}`)
+  }
+  return output
 }
 
 export function verifyAndroidRelease({
