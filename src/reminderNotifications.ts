@@ -1,7 +1,8 @@
 import { Capacitor } from '@capacitor/core'
-import { LocalNotifications, Weekday } from '@capacitor/local-notifications'
+import { LocalNotifications, Weekday, type LocalNotificationSchema } from '@capacitor/local-notifications'
 import { alarmChannelId, configureAlarmChannel, configureAlertChannel } from './alarmSounds'
 import type { Alarm, CalendarEvent, Note, Timer } from './dashboardState'
+import { checkNotificationPermissionStatus } from './notificationPermissions'
 
 const REMINDER_SOURCE = 'pablo-tablet-note'
 const ALARM_SOURCE = 'pablo-tablet-alarm'
@@ -20,24 +21,56 @@ function notificationId(noteId: string) {
   return Math.abs(hash) || 1
 }
 
+type KnownNotification = { id: number; extra?: Record<string, unknown> }
+
+async function schedulingAccess() {
+  const status = await checkNotificationPermissionStatus()
+  if (!status.supported || status.display !== 'granted') return null
+  return { exact: status.exactAlarm === 'granted' || status.exactAlarm === 'not-required' }
+}
+
+async function reconcileNotifications(
+  source: string,
+  notifications: LocalNotificationSchema[],
+  isOrphan: (notification: KnownNotification) => boolean = () => false,
+) {
+  const access = await schedulingAccess()
+  const desired = notifications.map((notification) => ({
+    ...notification,
+    isExactNotification: access?.exact ?? false,
+  }))
+  const desiredIds = new Set(desired.map((notification) => notification.id))
+  const pending = await LocalNotifications.getPending()
+  const managedPending = pending.notifications.filter((notification) => notification.extra?.source === source)
+  const existingIds = new Set(managedPending.map((notification) => notification.id))
+  const staleIds = pending.notifications
+    .filter((notification) => (notification.extra?.source === source && !desiredIds.has(notification.id)) || isOrphan(notification))
+    .map((notification) => notification.id)
+  const stale = [...new Set(staleIds)].map((id) => ({ id }))
+
+  if (stale.length > 0) await LocalNotifications.cancel({ notifications: stale })
+
+  const delivered = await LocalNotifications.getDeliveredNotifications()
+  const orphanedDeliveredIds = delivered.notifications.filter(isOrphan).map((notification) => notification.id)
+  if (orphanedDeliveredIds.length > 0) {
+    await LocalNotifications.removeDeliveredNotificationsById({ ids: orphanedDeliveredIds })
+  }
+
+  if (!access) return
+
+  const updates = desired.filter((notification) => existingIds.has(notification.id))
+  if (updates.length > 0) await LocalNotifications.update({ notifications: updates })
+
+  const additions = desired.filter((notification) => !existingIds.has(notification.id))
+  if (additions.length > 0) await LocalNotifications.schedule({ notifications: additions })
+}
+
 export async function syncReminderNotifications(notes: Note[]) {
   if (!Capacitor.isNativePlatform()) return
 
   try {
-    let permission = await LocalNotifications.checkPermissions()
-    if (permission.display === 'prompt') permission = await LocalNotifications.requestPermissions()
-    if (permission.display !== 'granted') return
-
-    const pending = await LocalNotifications.getPending()
-    const scheduledByPabloTablet = pending.notifications
-      .filter((notification) => notification.extra?.source === REMINDER_SOURCE)
-      .map((notification) => ({ id: notification.id }))
-
-    if (scheduledByPabloTablet.length > 0) {
-      await LocalNotifications.cancel({ notifications: scheduledByPabloTablet })
-    }
-
     const now = Date.now()
+    const validNoteIds = new Set(notes.filter((note) => !note.archived).map((note) => note.id))
     const notifications = notes
       .filter((note) => !note.archived && note.reminderAt && new Date(note.reminderAt).getTime() > now)
       .map((note) => ({
@@ -48,7 +81,11 @@ export async function syncReminderNotifications(notes: Note[]) {
         extra: { source: REMINDER_SOURCE, noteId: note.id },
       }))
 
-    if (notifications.length > 0) await LocalNotifications.schedule({ notifications })
+    await reconcileNotifications(REMINDER_SOURCE, notifications, (notification) => (
+      notification.extra?.source === REMINDER_SOURCE
+      && typeof notification.extra.noteId === 'string'
+      && !validNoteIds.has(notification.extra.noteId)
+    ))
   } catch (error) {
     console.warn('No se han podido sincronizar los recordatorios locales.', error)
   }
@@ -58,17 +95,8 @@ export async function syncAlarmNotifications(alarms: Alarm[]) {
   if (!Capacitor.isNativePlatform()) return
 
   try {
-    let permission = await LocalNotifications.checkPermissions()
-    if (permission.display === 'prompt') permission = await LocalNotifications.requestPermissions()
-    if (permission.display !== 'granted') return
-
-    const pending = await LocalNotifications.getPending()
-    const scheduledAlarms = pending.notifications
-      .filter((notification) => notification.extra?.source === ALARM_SOURCE)
-      .map((notification) => ({ id: notification.id }))
-    if (scheduledAlarms.length > 0) await LocalNotifications.cancel({ notifications: scheduledAlarms })
-
     const activeAlarms = alarms.filter((alarm) => alarm.enabled)
+    const activeAlarmIds = new Set(activeAlarms.map((alarm) => alarm.id))
     const channels = new Map<string, string | undefined>()
     for (const alarm of activeAlarms) channels.set(alarm.id, await configureAlarmChannel(alarm))
 
@@ -83,7 +111,11 @@ export async function syncAlarmNotifications(alarms: Alarm[]) {
         extra: { source: ALARM_SOURCE, kind: 'alarm', alarmId: alarm.id, weekday },
       }))
     })
-    if (notifications.length > 0) await LocalNotifications.schedule({ notifications })
+    await reconcileNotifications(ALARM_SOURCE, notifications, (notification) => (
+      (notification.extra?.source === ALARM_SOURCE || notification.extra?.source === ALARM_SNOOZE_SOURCE)
+      && typeof notification.extra.alarmId === 'string'
+      && !activeAlarmIds.has(notification.extra.alarmId)
+    ))
   } catch (error) {
     console.warn('No se han podido sincronizar las alarmas locales.', error)
   }
@@ -117,19 +149,11 @@ export async function syncCalendarEventNotifications(events: CalendarEvent[]) {
   if (!Capacitor.isNativePlatform()) return
 
   try {
-    let permission = await LocalNotifications.checkPermissions()
-    if (permission.display === 'prompt') permission = await LocalNotifications.requestPermissions()
-    if (permission.display !== 'granted') return
-
-    const pending = await LocalNotifications.getPending()
-    const scheduledEvents = pending.notifications
-      .filter((notification) => notification.extra?.source === CALENDAR_EVENT_SOURCE)
-      .map((notification) => ({ id: notification.id }))
-    if (scheduledEvents.length > 0) await LocalNotifications.cancel({ notifications: scheduledEvents })
-
     await configureAlertChannel(CALENDAR_EVENT_CHANNEL, 'Recordatorios del calendario', null, true)
     const now = Date.now()
-    const notifications = events.flatMap((event) => event.reminders.flatMap((reminder) => calendarReminderOccurrences(event, reminder).flatMap(({ index, occurrenceDate, at }) => {
+    const activeEvents = events.filter((event) => event.type !== 'task' || !event.completed)
+    const activeEventIds = new Set(activeEvents.map((event) => event.id))
+    const notifications = activeEvents.flatMap((event) => event.reminders.flatMap((reminder) => calendarReminderOccurrences(event, reminder).flatMap(({ index, occurrenceDate, at }) => {
       if (at.getTime() <= now) return []
       const eventDate = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(`${occurrenceDate}T12:00:00`))
       return [{
@@ -141,7 +165,11 @@ export async function syncCalendarEventNotifications(events: CalendarEvent[]) {
         extra: { source: CALENDAR_EVENT_SOURCE, kind: 'calendar', calendarEventId: event.id, calendarReminderId: reminder.id, recurrenceIndex: index },
       }]
     })))
-    if (notifications.length > 0) await LocalNotifications.schedule({ notifications })
+    await reconcileNotifications(CALENDAR_EVENT_SOURCE, notifications, (notification) => (
+      (notification.extra?.source === CALENDAR_EVENT_SOURCE || notification.extra?.source === CALENDAR_SNOOZE_SOURCE)
+      && typeof notification.extra.calendarEventId === 'string'
+      && !activeEventIds.has(notification.extra.calendarEventId)
+    ))
   } catch (error) {
     console.warn('No se han podido sincronizar los recordatorios del calendario.', error)
   }
@@ -149,12 +177,15 @@ export async function syncCalendarEventNotifications(events: CalendarEvent[]) {
 
 export async function snoozeAlarmNotification(alarm: Alarm, minutes: number) {
   if (!Capacitor.isNativePlatform()) return
+  const access = await schedulingAccess()
+  if (!access) return
   const channelId = await configureAlarmChannel(alarm) ?? alarmChannelId(alarm.id)
   await LocalNotifications.schedule({ notifications: [{
     id: notificationId(`snooze:${alarm.id}:${Date.now()}`),
     title: alarm.label.trim() || 'Alarma',
     body: `Alarma pospuesta ${minutes} min.`,
     channelId,
+    isExactNotification: access.exact,
     schedule: { at: new Date(Date.now() + minutes * 60_000), allowWhileIdle: true },
     extra: { source: ALARM_SNOOZE_SOURCE, kind: 'alarm', alarmId: alarm.id, snoozed: true },
   }] })
@@ -162,6 +193,8 @@ export async function snoozeAlarmNotification(alarm: Alarm, minutes: number) {
 
 export async function snoozeCalendarEventNotification(event: CalendarEvent, minutes: number) {
   if (!Capacitor.isNativePlatform()) return
+  const access = await schedulingAccess()
+  if (!access) return
   await configureAlertChannel(CALENDAR_EVENT_CHANNEL, 'Recordatorios del calendario', null, true)
   const eventDate = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(`${event.date}T12:00:00`))
   await LocalNotifications.schedule({ notifications: [{
@@ -169,6 +202,7 @@ export async function snoozeCalendarEventNotification(event: CalendarEvent, minu
     title: event.title.trim() || 'Recordatorio del calendario',
     body: event.allDay ? `Empieza el ${eventDate}.` : `Empieza el ${eventDate} a las ${event.startTime}.`,
     channelId: CALENDAR_EVENT_CHANNEL,
+    isExactNotification: access.exact,
     schedule: { at: new Date(Date.now() + minutes * 60_000), allowWhileIdle: true },
     extra: { source: CALENDAR_SNOOZE_SOURCE, kind: 'calendar', calendarEventId: event.id, snoozed: true },
   }] })
@@ -177,16 +211,6 @@ export async function snoozeCalendarEventNotification(event: CalendarEvent, minu
 export async function syncTimerNotifications(timers: Timer[]) {
   if (!Capacitor.isNativePlatform()) return
   try {
-    let permission = await LocalNotifications.checkPermissions()
-    if (permission.display === 'prompt') permission = await LocalNotifications.requestPermissions()
-    if (permission.display !== 'granted') return
-
-    const pending = await LocalNotifications.getPending()
-    const scheduledTimers = pending.notifications
-      .filter((notification) => notification.extra?.source === TIMER_SOURCE)
-      .map((notification) => ({ id: notification.id }))
-    if (scheduledTimers.length > 0) await LocalNotifications.cancel({ notifications: scheduledTimers })
-
     await configureAlertChannel(TIMER_CHANNEL, 'Temporizadores', null)
     const now = Date.now()
     const notifications = timers
@@ -199,7 +223,12 @@ export async function syncTimerNotifications(timers: Timer[]) {
         schedule: { at: new Date(timer.endsAt as string), allowWhileIdle: true },
         extra: { source: TIMER_SOURCE, kind: 'timer', timerId: timer.id },
       }))
-    if (notifications.length > 0) await LocalNotifications.schedule({ notifications })
+    const timerIds = new Set(timers.map((timer) => timer.id))
+    await reconcileNotifications(TIMER_SOURCE, notifications, (notification) => (
+      notification.extra?.source === TIMER_SOURCE
+      && typeof notification.extra.timerId === 'string'
+      && !timerIds.has(notification.extra.timerId)
+    ))
   } catch (error) {
     console.warn('No se han podido sincronizar los temporizadores.', error)
   }

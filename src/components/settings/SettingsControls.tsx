@@ -5,16 +5,18 @@ export function SettingToggle({
   title,
   detail,
   checked,
+  disabled = false,
   onChange,
 }: {
   icon: ReactNode
   title: string
   detail: string
   checked: boolean
+  disabled?: boolean
   onChange: (checked: boolean) => void
 }) {
   return (
-    <button type="button" className="settings-row toggle-row" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
+    <button type="button" className={`settings-row toggle-row ${disabled ? 'is-disabled' : ''}`} role="switch" aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)}>
       <span className="settings-icon">{icon}</span>
       <span className="settings-copy"><strong>{title}</strong><small>{detail}</small></span>
       <span className={`toggle ${checked ? 'is-on' : ''}`} aria-hidden="true"><span /></span>

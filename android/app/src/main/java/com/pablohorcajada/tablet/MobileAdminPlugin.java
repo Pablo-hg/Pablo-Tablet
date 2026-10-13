@@ -1,45 +1,92 @@
 package com.pablohorcajada.tablet;
 
+import android.Manifest;
+import android.os.Build;
+
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
-@CapacitorPlugin(name = "MobileAdmin")
+@CapacitorPlugin(
+    name = "MobileAdmin",
+    permissions = {
+        @Permission(alias = MobileAdminPlugin.NOTIFICATIONS_PERMISSION, strings = { Manifest.permission.POST_NOTIFICATIONS })
+    }
+)
 public class MobileAdminPlugin extends Plugin {
+    static final String NOTIFICATIONS_PERMISSION = "notifications";
     private MobileAdminManager manager;
+    private final Runnable statusListener = this::emitStatusChanged;
 
     @Override
     public void load() {
         manager = MobileAdminManager.get(getContext());
+        manager.addStatusListener(statusListener);
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        if (manager != null) manager.removeStatusListener(statusListener);
+        super.handleOnDestroy();
     }
 
     @PluginMethod
     public void getStatus(PluginCall call) {
         try {
-            manager.start();
-            String localAddress = manager.localAddress();
-            JSObject result = new JSObject();
-            result.put("running", manager.isRunning());
-            result.put("port", manager.port());
-            result.put("localAddress", localAddress == null ? JSObject.NULL : localAddress);
-            result.put("hostname", "http://pablotablet.local:" + manager.port());
-            result.put("error", manager.error() == null ? JSObject.NULL : manager.error());
-            call.resolve(result);
+            call.resolve(statusResult());
         } catch (Exception error) {
             call.reject("No se pudo consultar el servidor local.", error);
         }
     }
 
     @PluginMethod
+    public void setEnabled(PluginCall call) {
+        Boolean enabled = call.getBoolean("enabled");
+        if (enabled == null) {
+            call.reject("Falta indicar si el acceso móvil debe estar activado.");
+            return;
+        }
+        if (enabled && shouldRequestNotificationPermission()) {
+            requestPermissionForAlias(NOTIFICATIONS_PERMISSION, call, "enableAfterNotificationPermission");
+            return;
+        }
+        applyEnabled(call, enabled);
+    }
+
+    @PermissionCallback
+    private void enableAfterNotificationPermission(PluginCall call) {
+        if (getPermissionState(NOTIFICATIONS_PERMISSION) != PermissionState.GRANTED) {
+            call.reject("Permite las notificaciones para mantener visible el servicio de administración móvil.");
+            return;
+        }
+        applyEnabled(call, true);
+    }
+
+    private boolean shouldRequestNotificationPermission() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && getPermissionState(NOTIFICATIONS_PERMISSION) != PermissionState.GRANTED;
+    }
+
+    private void applyEnabled(PluginCall call, boolean enabled) {
+        MobileAdminServiceController.setEnabled(getContext(), enabled);
+        getStatus(call);
+    }
+
+    @PluginMethod
     public void createPairing(PluginCall call) {
         try {
-            MobileAdminRepository.PairingSession session = manager.repository().createPairing(manager.pairingBaseAddress());
+            MobileAdminManager.PairingSnapshot snapshot = manager.createPairing();
+            MobileAdminRepository.PairingSession session = snapshot.session;
             JSObject result = new JSObject();
             result.put("id", session.id);
             result.put("url", session.url);
             result.put("expiresAt", session.expiresAt);
+            result.put("networkGeneration", snapshot.networkGeneration);
             call.resolve(result);
         } catch (Exception error) {
             call.reject("No se pudo crear el QR de vinculación.", error);
@@ -101,8 +148,38 @@ public class MobileAdminPlugin extends Plugin {
     public void revokeDevice(PluginCall call) {
         String id = required(call, "id");
         if (id == null) return;
-        manager.repository().revokeDevice(id);
+        manager.revokeDevice(id);
         call.resolve();
+    }
+
+    @PluginMethod
+    public void revokeAllDevices(PluginCall call) {
+        try {
+            int revokedCount = manager.revokeAllDevices();
+            JSObject result = new JSObject();
+            result.put("revokedCount", revokedCount);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("No se pudieron revocar los dispositivos autorizados.", error);
+        }
+    }
+
+    private void emitStatusChanged() {
+        notifyListeners("statusChanged", statusResult(), true);
+    }
+
+    private JSObject statusResult() {
+        MobileAdminManager.StatusSnapshot snapshot = manager.statusSnapshot();
+        JSObject result = new JSObject();
+        result.put("enabled", snapshot.enabled);
+        result.put("running", snapshot.running);
+        result.put("port", snapshot.port);
+        result.put("localAddress", snapshot.localAddress == null ? JSObject.NULL : snapshot.localAddress);
+        result.put("hostname", JSObject.NULL);
+        result.put("networkGeneration", snapshot.networkGeneration);
+        result.put("error", snapshot.error == null ? JSObject.NULL : snapshot.error);
+        result.put("serviceState", snapshot.serviceState);
+        return result;
     }
 
     private String required(PluginCall call, String key) {

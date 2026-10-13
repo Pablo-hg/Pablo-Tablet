@@ -1,17 +1,21 @@
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
 
 export interface MobileAdminStatus {
+  enabled: boolean
   running: boolean
   port: number
   localAddress: string | null
-  hostname: string
+  hostname: string | null
+  networkGeneration: number
   error: string | null
+  serviceState: 'disabled' | 'starting' | 'available' | 'error'
 }
 
 export interface PairingSession {
   id: string
   url: string
   expiresAt: number
+  networkGeneration: number
 }
 
 export interface PairingRequest {
@@ -34,6 +38,7 @@ export interface AuthorizedDevice {
 
 interface MobileAdminPlugin {
   getStatus(): Promise<MobileAdminStatus>
+  setEnabled(options: { enabled: boolean }): Promise<MobileAdminStatus>
   createPairing(): Promise<PairingSession>
   cancelPairing(options: { id: string }): Promise<void>
   listPendingRequests(): Promise<{ requests: PairingRequest[] }>
@@ -42,6 +47,8 @@ interface MobileAdminPlugin {
   listDevices(): Promise<{ devices: AuthorizedDevice[] }>
   renameDevice(options: { id: string; name: string }): Promise<void>
   revokeDevice(options: { id: string }): Promise<void>
+  revokeAllDevices(): Promise<{ revokedCount: number }>
+  addListener(eventName: 'statusChanged', listener: (status: MobileAdminStatus) => void): Promise<PluginListenerHandle>
 }
 
 const NativeMobileAdmin = registerPlugin<MobileAdminPlugin>('MobileAdmin')
@@ -51,8 +58,18 @@ export function supportsMobileAdmin() {
 }
 
 export async function getMobileAdminStatus(): Promise<MobileAdminStatus> {
-  if (!supportsMobileAdmin()) return { running: false, port: 8765, localAddress: null, hostname: 'http://pablotablet.local:8765', error: 'Disponible al ejecutar la app Android.' }
+  if (!supportsMobileAdmin()) return { enabled: false, running: false, port: 8765, localAddress: null, hostname: null, networkGeneration: 0, error: 'Disponible al ejecutar la app Android.', serviceState: 'disabled' }
   return NativeMobileAdmin.getStatus()
+}
+
+export async function addMobileAdminStatusListener(listener: (status: MobileAdminStatus) => void): Promise<PluginListenerHandle> {
+  if (!supportsMobileAdmin()) return { remove: async () => undefined }
+  return NativeMobileAdmin.addListener('statusChanged', listener)
+}
+
+export async function setMobileAdminEnabled(enabled: boolean): Promise<MobileAdminStatus> {
+  if (!supportsMobileAdmin()) return getMobileAdminStatus()
+  return NativeMobileAdmin.setEnabled({ enabled })
 }
 
 export async function createMobilePairing() {
@@ -86,4 +103,9 @@ export async function renameAuthorizedDevice(id: string, name: string) {
 
 export async function revokeAuthorizedDevice(id: string) {
   await NativeMobileAdmin.revokeDevice({ id })
+}
+
+export async function revokeAllAuthorizedDevices() {
+  if (!supportsMobileAdmin()) return 0
+  return (await NativeMobileAdmin.revokeAllDevices()).revokedCount
 }

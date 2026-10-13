@@ -29,14 +29,17 @@ final class MobileAdminServer extends NanoWSD {
     private final Context context;
     private final PabloTabletDatabase database;
     private final MobileAdminRepository repository;
+    private final MobilePairingRateLimiter pairingRateLimiter;
     private final FeedbackRelayClient feedbackRelay;
     private final Set<AdminSocket> sockets = new CopyOnWriteArraySet<>();
+    private final Object socketAuthorizationLock = new Object();
 
-    MobileAdminServer(Context context, PabloTabletDatabase database, MobileAdminRepository repository) {
-        super(PORT);
+    MobileAdminServer(Context context, PabloTabletDatabase database, MobileAdminRepository repository, MobilePairingRateLimiter pairingRateLimiter, String bindAddress) {
+        super(bindAddress, PORT);
         this.context = context.getApplicationContext();
         this.database = database;
         this.repository = repository;
+        this.pairingRateLimiter = pairingRateLimiter;
         this.feedbackRelay = new FeedbackRelayClient(BuildConfig.FEEDBACK_RELAY_URL, BuildConfig.FEEDBACK_RELAY_KEY);
     }
 
@@ -64,6 +67,8 @@ final class MobileAdminServer extends NanoWSD {
                 return error(Response.Status.NOT_FOUND, "La operación solicitada no existe.");
             }
             return serveAsset(path);
+        } catch (MobileAdminRepository.PairingCapacityException error) {
+            return tooManyRequests(error.retryAfterSeconds);
         } catch (SecurityException error) {
             return error(Response.Status.FORBIDDEN, error.getMessage());
         } catch (IllegalArgumentException error) {
@@ -75,12 +80,12 @@ final class MobileAdminServer extends NanoWSD {
 
     @Override
     protected WebSocket openWebSocket(IHTTPSession handshake) {
-        boolean authorized = false;
+        MobileAdminRepository.Device device = null;
         try {
             String token = handshake.getParms().get("token");
-            authorized = repository.authenticate(token) != null;
+            device = repository.authenticate(token);
         } catch (Exception ignored) { }
-        return new AdminSocket(handshake, authorized);
+        return new AdminSocket(handshake, device == null ? null : device.id);
     }
 
     void broadcastStateChanged(long updatedAt) {
@@ -100,18 +105,38 @@ final class MobileAdminServer extends NanoWSD {
         }
     }
 
+    void disconnectDevices(Set<String> deviceIds) {
+        if (deviceIds == null || deviceIds.isEmpty()) return;
+        synchronized (socketAuthorizationLock) {
+            for (AdminSocket socket : sockets) {
+                if (deviceIds.contains(socket.deviceId)) socket.revokeAuthorization();
+            }
+        }
+    }
+
     private Response createPairingRequest(IHTTPSession session) throws Exception {
-        JSONObject body = readJsonBody(session);
-        MobileAdminRepository.PairingRequest request = repository.requestPairing(
-            body.optString("pairingToken"),
-            body.optString("deviceName"),
-            body.optString("userAgent", session.getHeaders().get("user-agent"))
-        );
-        JSONObject result = new JSONObject();
-        result.put("requestId", request.id);
-        result.put("status", request.status);
-        result.put("expiresAt", request.expiresAt);
-        return json(Response.Status.CREATED, result);
+        String remoteAddress = session.getRemoteIpAddress();
+        MobilePairingRateLimiter.Decision decision = pairingRateLimiter.acquire(remoteAddress);
+        if (!decision.allowed) return tooManyRequests(decision.retryAfterSeconds);
+        try {
+            JSONObject body = readJsonBody(session);
+            MobileAdminRepository.PairingRequest request = repository.requestPairing(
+                body.optString("pairingToken"),
+                body.optString("deviceName"),
+                body.optString("userAgent", session.getHeaders().get("user-agent"))
+            );
+            pairingRateLimiter.recordSuccess(remoteAddress);
+            JSONObject result = new JSONObject();
+            result.put("requestId", request.id);
+            result.put("status", request.status);
+            result.put("expiresAt", request.expiresAt);
+            return json(Response.Status.CREATED, result);
+        } catch (MobileAdminRepository.PairingCapacityException error) {
+            throw error;
+        } catch (Exception error) {
+            pairingRateLimiter.recordFailure(remoteAddress);
+            throw error;
+        }
     }
 
     private Response readPairingRequest(IHTTPSession session, String path) throws Exception {
@@ -221,7 +246,7 @@ final class MobileAdminServer extends NanoWSD {
         photo.put("id", id);
         photo.put("name", cleanFileName(originalName));
         photo.put("uri", Uri.fromFile(destination).toString());
-        photo.put("createdAt", new java.util.Date().toInstant().toString());
+        photo.put("createdAt", UtcTimestamp.now());
         photo.put("deletedAt", JSONObject.NULL);
         photos.put(photo);
         long updatedAt = database.writeStorage(PabloTabletDatabase.DASHBOARD_KEY, state.toString());
@@ -347,6 +372,18 @@ final class MobileAdminServer extends NanoWSD {
         return json(status, body);
     }
 
+    private static Response tooManyRequests(int retryAfterSeconds) {
+        int retry = Math.max(1, retryAfterSeconds);
+        JSONObject body = new JSONObject();
+        try {
+            body.put("error", "Demasiados intentos de vinculación. Inténtalo de nuevo en " + retry + " segundos.");
+            body.put("retryAfterSeconds", retry);
+        } catch (Exception ignored) { }
+        Response result = json(Response.Status.TOO_MANY_REQUESTS, body);
+        result.addHeader("Retry-After", Integer.toString(retry));
+        return result;
+    }
+
     private static Response response(Response.Status status, String mime, String body) {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         Response result = newFixedLengthResponse(status, mime, new ByteArrayInputStream(bytes), bytes.length);
@@ -364,20 +401,28 @@ final class MobileAdminServer extends NanoWSD {
     }
 
     private final class AdminSocket extends WebSocket {
-        private final boolean authorized;
+        private final String deviceId;
 
-        AdminSocket(IHTTPSession handshake, boolean authorized) {
+        AdminSocket(IHTTPSession handshake, String deviceId) {
             super(handshake);
-            this.authorized = authorized;
+            this.deviceId = deviceId;
         }
 
         @Override protected void onOpen() {
-            if (!authorized) {
-                try { close(WebSocketFrame.CloseCode.PolicyViolation, "Credencial no válida", false); } catch (IOException ignored) { }
-                return;
+            synchronized (socketAuthorizationLock) {
+                if (!repository.isDeviceActive(deviceId)) {
+                    try { close(WebSocketFrame.CloseCode.PolicyViolation, "Credencial no válida", false); } catch (IOException ignored) { }
+                    return;
+                }
+                sockets.add(this);
             }
-            sockets.add(this);
             try { send(new JSONObject().put("type", "connected").toString()); } catch (Exception ignored) { }
+        }
+
+        void revokeAuthorization() {
+            try { send(new JSONObject().put("type", "authorization-revoked").toString()); } catch (Exception ignored) { }
+            try { close(WebSocketFrame.CloseCode.PolicyViolation, "Acceso revocado desde la tablet", false); } catch (IOException ignored) { }
+            sockets.remove(this);
         }
 
         @Override protected void onClose(WebSocketFrame.CloseCode code, String reason, boolean initiatedByRemote) { sockets.remove(this); }

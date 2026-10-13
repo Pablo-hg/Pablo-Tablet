@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pablo-tablet-calendar-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "pablo-tablet-calendar",
+    "database_id": "d0c48ea7-2d68-4d72-be4c-a84d5c0e784b"
+  }],
+  "vars": {
+    "GOOGLE_CLIENT_ID": "1068273465285-2c26eja5trrlaa0jfog94e1t81d8okqc.apps.googleusercontent.com",
+    "MICROSOFT_CLIENT_ID": "24332f8d-a47c-43ce-a8f7-58e69c9d1dc3",
+    "PUBLIC_BASE_URL": "https://pablo-tablet-calendar-relay.phghorcajada.workers.dev"
+  }
+}
