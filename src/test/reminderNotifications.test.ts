@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Alarm } from '../dashboardState'
-import { syncAlarmNotifications } from '../reminderNotifications'
+import type { Alarm, CalendarEvent } from '../dashboardState'
+import { MAX_SCHEDULED_CALENDAR_NOTIFICATIONS, syncAlarmNotifications, syncCalendarEventNotifications } from '../reminderNotifications'
 
 const notificationPlugin = vi.hoisted(() => ({
   checkPermissions: vi.fn(),
@@ -134,5 +134,75 @@ describe('sincronización de notificaciones locales', () => {
     expect(notificationPlugin.schedule).toHaveBeenCalledWith({
       notifications: [expect.objectContaining({ isExactNotification: false })],
     })
+  })
+
+  it('limita los recordatorios de calendario y conserva primero los más próximos', async () => {
+    const events = Array.from({ length: 200 }, (_, index): CalendarEvent => {
+      const date = new Date(Date.UTC(2099, 0, index + 1)).toISOString().slice(0, 10)
+      return {
+        id: `event-${index}`,
+        source: 'google',
+        accountId: 'google-1',
+        calendarId: 'primary',
+        externalId: `remote-${index}`,
+        externalVersion: 'v1',
+        syncStatus: 'synced',
+        type: 'event',
+        recurrence: 'none',
+        completed: false,
+        title: `Evento ${index}`,
+        date,
+        endDate: date,
+        startTime: '10:00',
+        endTime: '11:00',
+        allDay: false,
+        timeZone: 'Europe/Madrid',
+        location: '',
+        notes: '',
+        color: 'blue',
+        reminders: [{ id: `reminder-${index}`, date, time: '09:45' }],
+        createdAt: '2098-12-01T00:00:00.000Z',
+        updatedAt: '2098-12-01T00:00:00.000Z',
+      }
+    })
+
+    await syncCalendarEventNotifications(events.reverse())
+
+    const scheduled = notificationPlugin.schedule.mock.calls[0][0].notifications
+    expect(scheduled).toHaveLength(MAX_SCHEDULED_CALENDAR_NOTIFICATIONS)
+    expect(scheduled[0].title).toBe('Evento 0')
+    expect(scheduled.at(-1)?.title).toBe(`Evento ${MAX_SCHEDULED_CALENDAR_NOTIFICATIONS - 1}`)
+  })
+
+  it('cancela el exceso ya programado antes de actualizar los recordatorios conservados', async () => {
+    const date = '2099-01-01'
+    const event: CalendarEvent = {
+      id: 'event-recovery', source: 'google', accountId: 'google-1', calendarId: 'primary', externalId: 'remote-1', externalVersion: 'v1', syncStatus: 'synced',
+      type: 'event', recurrence: 'none', completed: false, title: 'Cita', date, endDate: date, startTime: '10:00', endTime: '11:00', allDay: false,
+      timeZone: 'Europe/Madrid', location: '', notes: '', color: 'blue', reminders: [{ id: 'reminder-1', date, time: '09:45' }],
+      createdAt: '2098-12-01T00:00:00.000Z', updatedAt: '2098-12-01T00:00:00.000Z',
+    }
+
+    await syncCalendarEventNotifications([event])
+    const desired = notificationPlugin.schedule.mock.calls[0][0].notifications[0]
+    notificationPlugin.schedule.mockClear()
+    notificationPlugin.getPending.mockResolvedValue({
+      notifications: [
+        desired,
+        ...Array.from({ length: 499 }, (_, index) => ({
+          id: 10_000 + index,
+          extra: { source: 'pablo-tablet-calendar-event', calendarEventId: `old-${index}` },
+        })),
+      ],
+    })
+
+    await syncCalendarEventNotifications([event])
+
+    expect(notificationPlugin.cancel).toHaveBeenCalledWith({
+      notifications: Array.from({ length: 499 }, (_, index) => ({ id: 10_000 + index })),
+    })
+    expect(notificationPlugin.update).toHaveBeenCalledWith({ notifications: [expect.objectContaining({ id: desired.id })] })
+    expect(notificationPlugin.cancel.mock.invocationCallOrder[0]).toBeLessThan(notificationPlugin.update.mock.invocationCallOrder[0])
+    expect(notificationPlugin.schedule).not.toHaveBeenCalled()
   })
 })
