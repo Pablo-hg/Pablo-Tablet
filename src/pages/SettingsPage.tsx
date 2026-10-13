@@ -1,4 +1,4 @@
-import { CalendarDays, Clock3, CloudSun, FileText, Home, Images, LogOut, Moon, Palette, RotateCw, SunMedium, Volume2 } from 'lucide-react'
+import { Bot, CalendarDays, Clock3, CloudSun, FileText, Home, Images, LogOut, Mic, Moon, Palette, RotateCw, Sparkles, SunMedium, Volume2 } from 'lucide-react'
 import { DASHBOARD_PAGES, type DashboardPageId, type DashboardPreferences } from '../dashboardState'
 import { playInteractionSound, previewDeviceVolume } from '../deviceSettings'
 import { exitTabletApp } from '../kioskMode'
@@ -6,6 +6,7 @@ import { MobileAdminSettings } from '../MobileAdminSettings'
 import { ScreensaverDelaySelect, ScreenTimeoutSelect, SettingsRange, SettingsSelect, SettingToggle, TimeSetting } from '../components/settings/SettingsControls'
 import { ThemePicker } from '../components/settings/ThemePicker'
 import { AppUpdateSettings } from '../components/settings/AppUpdateSettings'
+import { NotificationSettings } from '../components/settings/NotificationSettings'
 
 export interface SettingsPageProps {
   preferences: DashboardPreferences
@@ -13,9 +14,11 @@ export interface SettingsPageProps {
   onPreferencesChange: (patch: Partial<DashboardPreferences>) => void
   onTogglePage: (pageId: DashboardPageId) => void
   nightModeActive: boolean
+  assistantWidgetVisible: boolean
+  onAssistantWidgetVisibilityChange: (visible: boolean) => void
 }
 
-export function SettingsPage({ preferences, onBack, onPreferencesChange, onTogglePage, nightModeActive }: SettingsPageProps) {
+export function SettingsPage({ preferences, onBack, onPreferencesChange, onTogglePage, nightModeActive, assistantWidgetVisible, onAssistantWidgetVisibilityChange }: SettingsPageProps) {
   return (
     <div className="settings-page page-enter">
       <header className="settings-header">
@@ -35,7 +38,7 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
           {DASHBOARD_PAGES.filter((page) => page.id !== 'dashboard').map((page) => (
             <SettingToggle
               key={page.id}
-              icon={page.id === 'clock' ? <Clock3 size={20} /> : page.id === 'calendar' ? <CalendarDays size={20} /> : page.id === 'gallery' ? <Images size={20} /> : page.id === 'weather' ? <CloudSun size={20} /> : <FileText size={20} />}
+              icon={page.id === 'clock' ? <Clock3 size={20} /> : page.id === 'calendar' ? <CalendarDays size={20} /> : page.id === 'gallery' ? <Images size={20} /> : page.id === 'weather' ? <CloudSun size={20} /> : page.id === 'assistant' ? <Sparkles size={20} /> : <FileText size={20} />}
               title={`Página ${page.label}`}
               detail="Página fullscreen disponible mediante swipe y navegación."
               checked={preferences.enabledPageIds.includes(page.id)}
@@ -43,6 +46,14 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
             />
           ))}
         </div>
+        <div className="settings-subheading"><div><p className="eyebrow">Privacidad</p><h2>Asistente</h2></div><Bot size={20} /></div>
+        <div className="page-toggle-list assistant-settings-list">
+          <SettingToggle icon={<Sparkles size={20} />} title="Activar Asistente" detail="Procesamiento local seguro; no envía datos ni guarda la conversación." checked={preferences.assistantEnabled} onChange={(assistantEnabled) => onPreferencesChange({ assistantEnabled })} />
+          <SettingToggle icon={<Home size={20} />} title="Widget Asistente" detail="Añade un acceso configurable sin cambiar la cuadrícula 3 × 4." checked={assistantWidgetVisible} onChange={onAssistantWidgetVisibilityChange} />
+          <SettingToggle icon={<Mic size={20} />} title="Entrada por voz" detail="El micrófono solo se activa al pulsar el botón." checked={preferences.assistantVoiceEnabled} disabled={!preferences.assistantEnabled} onChange={(assistantVoiceEnabled) => onPreferencesChange({ assistantVoiceEnabled })} />
+          <SettingToggle icon={<Volume2 size={20} />} title="Leer respuestas automáticamente" detail="También puedes leer cada respuesta manualmente." checked={preferences.assistantReadAloud} disabled={!preferences.assistantEnabled} onChange={(assistantReadAloud) => onPreferencesChange({ assistantReadAloud })} />
+        </div>
+        <p className="settings-note assistant-privacy-note">Proveedor activo: local seguro · Límite: 30 peticiones por sesión · Historial: no guardado.</p>
       </section>
 
       <MobileAdminSettings />
@@ -73,6 +84,7 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
         <SettingsRange icon={<Volume2 size={20} />} label="Volumen de alarmas" value={preferences.alarmVolume} minimum={0} onChange={(alarmVolume) => { onPreferencesChange({ alarmVolume }); void previewDeviceVolume('alarm', alarmVolume) }} />
         <SettingsRange icon={<Volume2 size={20} />} label="Volumen general" value={preferences.mediaVolume} minimum={0} onChange={(mediaVolume) => { onPreferencesChange({ mediaVolume }); void playInteractionSound(mediaVolume) }} />
         <SettingToggle icon={<Volume2 size={20} />} title="Sonido al interactuar" detail="Reproduce un toque breve al pulsar controles." checked={preferences.interactionSoundsEnabled} onChange={(interactionSoundsEnabled) => { onPreferencesChange({ interactionSoundsEnabled }); if (interactionSoundsEnabled) void playInteractionSound(preferences.mediaVolume) }} />
+        <NotificationSettings />
         <SettingToggle icon={<Images size={20} />} title="Salvapantallas de fotos" detail="Muestra las fotos elegidas cuando la tablet queda inactiva." checked={preferences.screensaverEnabled} onChange={(screensaverEnabled) => onPreferencesChange({ screensaverEnabled })} />
         {preferences.screensaverEnabled ? <ScreensaverDelaySelect value={preferences.screensaverDelaySeconds} onChange={(screensaverDelaySeconds) => onPreferencesChange({ screensaverDelaySeconds })} /> : null}
         <SettingToggle icon={<SunMedium size={20} />} title="Pantalla siempre encendida" detail="Evita que la tablet se suspenda mientras Pablo Tablet está abierta." checked={preferences.keepScreenAwake} onChange={(keepScreenAwake) => onPreferencesChange({ keepScreenAwake })} />

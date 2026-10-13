@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -13,17 +14,14 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-    private final Handler kioskHandler = new Handler(Looper.getMainLooper());
-    private boolean appExitRequested = false;
-    private boolean activityResumed = false;
-    private final Runnable startLockTaskRunnable = () -> {
-        if (appExitRequested || !activityResumed || !hasWindowFocus() || isInLockTaskMode()) return;
+    private boolean kioskExitRequested = false;
+    private final OnBackPressedCallback kioskBackCallback = new OnBackPressedCallback(true) {
+        @Override
+        public void handleOnBackPressed() {
+            if (!kioskExitRequested) return;
 
-        try {
-            startLockTask();
-        } catch (RuntimeException ignored) {
-            // The activity can lose focus while Android handles permissions or another native screen.
-            // onWindowFocusChanged will retry when Pablo Tablet is foreground again.
+            setEnabled(false);
+            getOnBackPressedDispatcher().onBackPressed();
         }
     };
 
@@ -36,64 +34,59 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppStoragePlugin.class);
         registerPlugin(MobileAdminPlugin.class);
         registerPlugin(AppUpdaterPlugin.class);
+        registerPlugin(AssistantVoicePlugin.class);
+        registerPlugin(CalendarSecretsPlugin.class);
         super.onCreate(savedInstanceState);
-        MobileAdminManager.get(this).start();
+        getOnBackPressedDispatcher().addCallback(this, kioskBackCallback);
+        MobileAdminServiceController.reconcile(this);
         getWindow().getDecorView().setOnSystemUiVisibilityChangeListener((visibility) -> {
-            if (!appExitRequested && (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+            if (!kioskExitRequested && (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::enableImmersiveMode, 80);
             }
         });
-        enableImmersiveMode();
+        enterKioskMode();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        activityResumed = true;
-        if (!appExitRequested) {
+        if (!kioskExitRequested) {
             enterKioskMode();
         }
-    }
-
-    @Override
-    public void onPause() {
-        activityResumed = false;
-        kioskHandler.removeCallbacks(startLockTaskRunnable);
-        super.onPause();
     }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && activityResumed && !appExitRequested) {
-            enterKioskMode();
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (appExitRequested) {
-            super.onBackPressed();
+        if (hasFocus && !kioskExitRequested) {
+            enableImmersiveMode();
         }
     }
 
     public void enterKioskMode() {
-        appExitRequested = false;
+        kioskExitRequested = false;
+        kioskBackCallback.setEnabled(true);
         enableImmersiveMode();
-        kioskHandler.removeCallbacks(startLockTaskRunnable);
-        kioskHandler.postDelayed(startLockTaskRunnable, 350);
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (!isInLockTaskMode()) {
+                try {
+                    startLockTask();
+                } catch (IllegalStateException ignored) {
+                    // Immersive mode remains active when lock task is unavailable.
+                }
+            }
+        }, 350);
     }
 
     public void exitKioskMode() {
-        appExitRequested = true;
-        kioskHandler.removeCallbacks(startLockTaskRunnable);
+        kioskExitRequested = true;
         leaveKioskMode();
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> finishAndRemoveTask(), 180);
     }
 
     public void prepareForExternalActivity() {
-        kioskHandler.removeCallbacks(startLockTaskRunnable);
+        kioskExitRequested = true;
         leaveKioskMode();
     }
 

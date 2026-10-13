@@ -1,4 +1,4 @@
-export type DashboardWidgetId = 'clock' | 'weather' | 'notes' | 'agenda'
+export type DashboardWidgetId = 'clock' | 'weather' | 'notes' | 'agenda' | 'assistant'
 export type DashboardOrientation = 'landscape' | 'portrait'
 
 export const DASHBOARD_COLUMNS: Record<DashboardOrientation, number> = { landscape: 4, portrait: 3 }
@@ -48,6 +48,7 @@ export const WIDGET_SIZES: Record<DashboardWidgetId, readonly WidgetSize[]> = {
   weather: RESPONSIVE_WIDGET_SIZES,
   notes: RESPONSIVE_WIDGET_SIZES,
   agenda: RESPONSIVE_WIDGET_SIZES,
+  assistant: RESPONSIVE_WIDGET_SIZES,
 }
 
 export const DEFAULT_WIDGETS: DashboardWidget[] = [
@@ -55,10 +56,11 @@ export const DEFAULT_WIDGETS: DashboardWidget[] = [
   { id: 'clock', visible: true, layouts: { landscape: { x: 2, y: 0, width: 2, height: 1 }, portrait: { x: 0, y: 3, width: 1, height: 1 } } },
   { id: 'weather', visible: true, layouts: { landscape: { x: 2, y: 1, width: 1, height: 2 }, portrait: { x: 1, y: 3, width: 1, height: 1 } } },
   { id: 'notes', visible: true, layouts: { landscape: { x: 0, y: 2, width: 2, height: 1 }, portrait: { x: 2, y: 3, width: 1, height: 1 } } },
+  { id: 'assistant', visible: false, layouts: { landscape: { x: 3, y: 1, width: 1, height: 2 }, portrait: { x: 0, y: 2, width: 3, height: 1 } } },
 ]
 
 export function isDashboardWidgetId(value: unknown): value is DashboardWidgetId {
-  return value === 'clock' || value === 'weather' || value === 'notes' || value === 'agenda'
+  return value === 'clock' || value === 'weather' || value === 'notes' || value === 'agenda' || value === 'assistant'
 }
 
 export function isWidgetPosition(value: unknown): value is WidgetPosition {

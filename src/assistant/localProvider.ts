@@ -1,0 +1,112 @@
+import { InvalidAssistantCommandError, type AssistantProposal, type AssistantRequest } from './contracts'
+import type { AssistantProvider } from './provider'
+
+const NUMBER_WORDS: Record<string, number> = {
+  un: 1,
+  uno: 1,
+  dos: 2,
+  tres: 3,
+  cuatro: 4,
+  cinco: 5,
+  diez: 10,
+  quince: 15,
+  veinte: 20,
+  treinta: 30,
+  cuarenta: 40,
+  cuarentaicinco: 45,
+  sesenta: 60,
+}
+
+const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
+const dateInTimeZone = (now: string, timeZone: string) => {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(now))
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+const addLocalDays = (date: string, days: number) => {
+  const value = new Date(`${date}T12:00:00`)
+  value.setDate(value.getDate() + days)
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+}
+
+const proposal = (command: unknown, explanation: string): AssistantProposal => ({ command, explanation })
+
+function readNumber(value: string | undefined) {
+  if (!value) return null
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) return numeric
+  return NUMBER_WORDS[normalize(value)] ?? null
+}
+
+/** Intérprete local deliberadamente acotado; nunca ejecuta acciones. */
+export class LocalAssistantProvider implements AssistantProvider {
+  readonly id = 'local-safe'
+
+  async interpret(request: AssistantRequest): Promise<AssistantProposal> {
+    const text = normalize(request.text)
+    const today = dateInTimeZone(request.now, request.timeZone)
+    const tomorrow = addLocalDays(today, 1)
+
+    if (text.includes('resumen') || text.includes('que tengo hoy')) {
+      return proposal({ type: 'get_daily_summary', args: { date: today } }, 'Preparar el resumen con datos guardados en esta tablet.')
+    }
+
+    if (text.includes('tiempo') || text.includes('llover') || text.includes('temperatura')) {
+      const period = text.includes('manana') ? 'tomorrow' : text.includes('ahora') ? 'now' : 'today'
+      return proposal({ type: 'get_weather', args: { period } }, 'Consultar la previsión disponible para Casa.')
+    }
+
+    if (text.includes('agenda') || text.includes('proxima cita') || text.includes('eventos')) {
+      return proposal(
+        { type: 'get_calendar', args: { from: `${today}T00:00:00`, to: `${tomorrow}T23:59:59` } },
+        'Consultar la agenda local de hoy y mañana.',
+      )
+    }
+
+    const notePrefix = /^(?:guarda|crea|apunta)(?: una)? nota(?: que diga)?\s*:?\s*/i
+    if (notePrefix.test(request.text.trim())) {
+      const content = request.text.trim().replace(notePrefix, '').trim()
+      if (!content) throw new InvalidAssistantCommandError('Indica qué contenido debe tener la nota.')
+      return proposal(
+        { type: 'create_note', args: { title: content.slice(0, 60), content, reminderAt: null } },
+        'Preparar una nota nueva. Revisa sus datos antes de confirmar.',
+      )
+    }
+
+    if (text.includes('mis notas') || text.includes('notas recientes') || text.includes('recordatorios recientes')) {
+      return proposal({ type: 'get_notes', args: { limit: 5 } }, 'Consultar las notas recientes guardadas localmente.')
+    }
+
+    const timerMatch = text.match(/temporizador(?: de)?\s+(\d+|[a-z]+)\s*(segundos?|minutos?|horas?)/)
+    if (timerMatch) {
+      const amount = readNumber(timerMatch[1])
+      if (!amount || amount <= 0) throw new InvalidAssistantCommandError('Indica una duración válida para el temporizador.')
+      const unit = timerMatch[2]
+      const multiplier = unit.startsWith('hora') ? 3_600 : unit.startsWith('minuto') ? 60 : 1
+      return proposal(
+        { type: 'start_timer', args: { label: 'Temporizador', durationSeconds: amount * multiplier } },
+        'Preparar un temporizador. No empezará hasta que lo confirmes.',
+      )
+    }
+
+    const alarmMatch = text.match(/alarma(?: todos los dias)?(?: a las| para las)?\s+(\d{1,2})(?::(\d{2}))?/)
+    if (alarmMatch) {
+      const hour = Number(alarmMatch[1])
+      const minute = Number(alarmMatch[2] ?? 0)
+      if (hour > 23 || minute > 59) throw new InvalidAssistantCommandError('La hora de la alarma no es válida.')
+      const at = `${tomorrow}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`
+      return proposal(
+        { type: 'create_alarm', args: { label: 'Alarma', at, repeatDays: [1, 2, 3, 4, 5, 6, 7] } },
+        'Preparar una alarma diaria. No se guardará hasta que la confirmes.',
+      )
+    }
+
+    if (text.includes('como') || text.includes('ayuda') || text.includes('donde')) {
+      return proposal({ type: 'get_local_help', args: { topic: request.text.trim().slice(0, 200) } }, 'Buscar instrucciones incluidas en la aplicación.')
+    }
+
+    throw new InvalidAssistantCommandError('No he entendido la petición en modo local. Prueba una de las sugerencias o abre el módulo manual.')
+  }
+}

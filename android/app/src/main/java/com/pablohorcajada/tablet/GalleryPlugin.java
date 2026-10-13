@@ -21,7 +21,6 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.time.Instant;
 import java.util.UUID;
 
 @CapacitorPlugin(name = "Gallery")
@@ -110,7 +109,7 @@ public class GalleryPlugin extends Plugin {
         photo.put("id", id);
         photo.put("name", displayName);
         photo.put("uri", Uri.fromFile(destination).toString());
-        photo.put("createdAt", Instant.now().toString());
+        photo.put("createdAt", UtcTimestamp.now());
         return photo;
     }
 

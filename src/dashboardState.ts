@@ -1,7 +1,7 @@
 import { DEFAULT_WIDGETS, readWidgets, type DashboardWidget } from './widgetLayout'
 import type { WeatherLocation } from './weather'
 
-export type DashboardPageId = 'dashboard' | 'calendar' | 'clock' | 'weather' | 'notes' | 'gallery'
+export type DashboardPageId = 'dashboard' | 'assistant' | 'calendar' | 'clock' | 'weather' | 'notes' | 'gallery'
 
 export type DashboardPageKind = 'grid' | 'fullscreen'
 
@@ -40,6 +40,9 @@ export interface DashboardPreferences {
   nightBrightness: number
   nightAlarmVolume: number
   nightMediaVolume: number
+  assistantEnabled: boolean
+  assistantVoiceEnabled: boolean
+  assistantReadAloud: boolean
 }
 
 export type NoteColor = 'coral' | 'violet' | 'mint' | 'sun'
@@ -112,6 +115,12 @@ export interface CalendarEventReminder {
 
 export interface CalendarEvent {
   id: string
+  source: import('./calendarSync/contracts').CalendarSource
+  accountId: string | null
+  calendarId: string | null
+  externalId: string | null
+  externalVersion: string | null
+  syncStatus: import('./calendarSync/contracts').CalendarEventSyncStatus
   type: CalendarEventType
   recurrence: CalendarEventRecurrence
   completed: boolean
@@ -121,11 +130,13 @@ export interface CalendarEvent {
   startTime: string
   endTime: string
   allDay: boolean
+  timeZone: string
   location: string
   notes: string
   color: CalendarEventColor
   reminders: CalendarEventReminder[]
   createdAt: string
+  updatedAt: string
 }
 
 export interface GalleryPhoto {
@@ -142,6 +153,9 @@ export interface DashboardState {
   timers: Timer[]
   stopwatch: StopwatchState
   calendarEvents: CalendarEvent[]
+  calendarAccounts: import('./calendarSync/contracts').CalendarAccount[]
+  externalCalendars: import('./calendarSync/contracts').SyncedCalendar[]
+  calendarOutbox: import('./calendarSync/contracts').CalendarOutboxEntry[]
   galleryPhotos: GalleryPhoto[]
   weatherLocations: WeatherLocation[]
   homeWeatherLocationId: string | null
@@ -152,6 +166,7 @@ export interface DashboardState {
 
 export const DASHBOARD_PAGES: DashboardPageDefinition[] = [
   { id: 'dashboard', kind: 'grid', label: 'Inicio' },
+  { id: 'assistant', kind: 'fullscreen', label: 'Asistente' },
   { id: 'calendar', kind: 'fullscreen', label: 'Calendario' },
   { id: 'clock', kind: 'fullscreen', label: 'Reloj' },
   { id: 'weather', kind: 'fullscreen', label: 'Tiempo' },
@@ -178,6 +193,9 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
   timers: [],
   stopwatch: { elapsedMilliseconds: 0, startedAt: null },
   calendarEvents: [],
+  calendarAccounts: [],
+  externalCalendars: [],
+  calendarOutbox: [],
   galleryPhotos: [],
   weatherLocations: [],
   homeWeatherLocationId: null,
@@ -204,6 +222,9 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
     nightBrightness: 5,
     nightAlarmVolume: 30,
     nightMediaVolume: 12,
+    assistantEnabled: true,
+    assistantVoiceEnabled: true,
+    assistantReadAloud: false,
   },
 }
 
@@ -376,6 +397,12 @@ function readCalendarEvents(value: unknown): CalendarEvent[] {
     const recurrence: CalendarEventRecurrence = event.recurrence === 'daily' || event.recurrence === 'weekly' || event.recurrence === 'monthly' || event.recurrence === 'yearly' ? event.recurrence : 'none'
     const storedEndDate = typeof event.endDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(event.endDate) ? event.endDate : event.date
     const endDate = storedEndDate < event.date ? event.date : storedEndDate
+    const source = event.source === 'google' || event.source === 'outlook' ? event.source : 'local'
+    const syncStatus = source === 'local'
+      ? 'local'
+      : event.syncStatus === 'pending-create' || event.syncStatus === 'pending-update' || event.syncStatus === 'pending-delete' || event.syncStatus === 'conflict' || event.syncStatus === 'error'
+        ? event.syncStatus
+        : 'synced'
     const reminders = Array.isArray(event.reminders) ? event.reminders.flatMap((value): CalendarEventReminder[] => {
       if (!value || typeof value !== 'object') return []
       const reminder = value as Partial<CalendarEventReminder>
@@ -385,6 +412,12 @@ function readCalendarEvents(value: unknown): CalendarEvent[] {
     }) : []
     return [{
       id: event.id,
+      source,
+      accountId: source !== 'local' && typeof event.accountId === 'string' ? event.accountId : null,
+      calendarId: source !== 'local' && typeof event.calendarId === 'string' ? event.calendarId : null,
+      externalId: source !== 'local' && typeof event.externalId === 'string' ? event.externalId : null,
+      externalVersion: source !== 'local' && typeof event.externalVersion === 'string' ? event.externalVersion : null,
+      syncStatus,
       type,
       recurrence,
       completed: type === 'task' && Boolean(event.completed),
@@ -394,11 +427,79 @@ function readCalendarEvents(value: unknown): CalendarEvent[] {
       startTime: event.startTime,
       endTime: event.endTime,
       allDay: Boolean(event.allDay),
+      timeZone: typeof event.timeZone === 'string' && event.timeZone ? event.timeZone.slice(0, 100) : Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
       location: typeof event.location === 'string' ? event.location.slice(0, 100) : '',
       notes: typeof event.notes === 'string' ? event.notes.slice(0, 500) : '',
       color,
       reminders,
       createdAt: typeof event.createdAt === 'string' ? event.createdAt : new Date().toISOString(),
+      updatedAt: typeof event.updatedAt === 'string'
+        ? event.updatedAt
+        : typeof event.createdAt === 'string'
+          ? event.createdAt
+          : new Date().toISOString(),
+    }]
+  })
+}
+
+function readCalendarAccounts(value: unknown): import('./calendarSync/contracts').CalendarAccount[] {
+  if (!Array.isArray(value)) return []
+  const seenProviders = new Set<string>()
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const account = item as Partial<import('./calendarSync/contracts').CalendarAccount>
+    if (typeof account.id !== 'string' || (account.provider !== 'google' && account.provider !== 'outlook') || seenProviders.has(account.provider)) return []
+    seenProviders.add(account.provider)
+    const status = account.status === 'connecting' || account.status === 'syncing' || account.status === 'offline' || account.status === 'reauthorize' || account.status === 'error'
+      ? account.status
+      : 'connected'
+    return [{
+      id: account.id,
+      provider: account.provider,
+      email: typeof account.email === 'string' ? account.email.slice(0, 254) : '',
+      displayName: typeof account.displayName === 'string' ? account.displayName.slice(0, 100) : '',
+      status,
+      enabled: account.enabled !== false,
+      lastSyncedAt: typeof account.lastSyncedAt === 'string' ? account.lastSyncedAt : null,
+      error: typeof account.error === 'string' ? account.error.slice(0, 500) : null,
+    }]
+  })
+}
+
+function readExternalCalendars(value: unknown, accounts: import('./calendarSync/contracts').CalendarAccount[]): import('./calendarSync/contracts').SyncedCalendar[] {
+  if (!Array.isArray(value)) return []
+  const accountIds = new Set(accounts.map((account) => account.id))
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const calendar = item as Partial<import('./calendarSync/contracts').SyncedCalendar>
+    if (typeof calendar.id !== 'string' || typeof calendar.accountId !== 'string' || !accountIds.has(calendar.accountId)) return []
+    if (calendar.provider !== 'google' && calendar.provider !== 'outlook') return []
+    if (typeof calendar.remoteId !== 'string' || typeof calendar.name !== 'string') return []
+    const color: CalendarEventColor = calendar.color === 'mint' || calendar.color === 'coral' || calendar.color === 'sun' ? calendar.color : 'blue'
+    return [{ ...calendar, color, name: calendar.name.slice(0, 100), visible: calendar.visible !== false, readOnly: Boolean(calendar.readOnly) } as import('./calendarSync/contracts').SyncedCalendar]
+  })
+}
+
+function readCalendarOutbox(value: unknown, accounts: import('./calendarSync/contracts').CalendarAccount[]): import('./calendarSync/contracts').CalendarOutboxEntry[] {
+  if (!Array.isArray(value)) return []
+  const accountIds = new Set(accounts.map((account) => account.id))
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const entry = item as Partial<import('./calendarSync/contracts').CalendarOutboxEntry>
+    if (typeof entry.id !== 'string' || typeof entry.accountId !== 'string' || !accountIds.has(entry.accountId)) return []
+    if ((entry.provider !== 'google' && entry.provider !== 'outlook') || (entry.operation !== 'create' && entry.operation !== 'update' && entry.operation !== 'delete')) return []
+    if (typeof entry.eventId !== 'string') return []
+    return [{
+      id: entry.id,
+      accountId: entry.accountId,
+      provider: entry.provider,
+      eventId: entry.eventId,
+      operation: entry.operation,
+      event: readCalendarEvents(entry.event ? [entry.event] : [])[0] ?? null,
+      expectedVersion: typeof entry.expectedVersion === 'string' ? entry.expectedVersion : null,
+      createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),
+      attempts: typeof entry.attempts === 'number' && Number.isInteger(entry.attempts) && entry.attempts >= 0 ? entry.attempts : 0,
+      lastError: typeof entry.lastError === 'string' ? entry.lastError.slice(0, 500) : null,
     }]
   })
 }
@@ -459,6 +560,9 @@ export function loadDashboardState(serializedState?: string): DashboardState {
     const timers = readTimers(parsed.timers)
     const stopwatch = readStopwatch(parsed.stopwatch)
     const calendarEvents = readCalendarEvents(parsed.calendarEvents)
+    const calendarAccounts = readCalendarAccounts(parsed.calendarAccounts)
+    const externalCalendars = readExternalCalendars(parsed.externalCalendars, calendarAccounts)
+    const calendarOutbox = readCalendarOutbox(parsed.calendarOutbox, calendarAccounts)
     const galleryPhotos = readGalleryPhotos(parsed.galleryPhotos)
     const weatherLocations = readWeatherLocations(parsed.weatherLocations)
     const storedHomeWeatherLocationId = typeof parsed.homeWeatherLocationId === 'string' ? parsed.homeWeatherLocationId : null
@@ -484,9 +588,12 @@ export function loadDashboardState(serializedState?: string): DashboardState {
     const pageIdsWithCalendar = storedState?.key !== STORAGE_KEY && !pageIdsWithWeather.includes('calendar')
       ? [...pageIdsWithWeather, 'calendar' as const]
       : pageIdsWithWeather
-    const enabledPageIds = storedState?.key !== STORAGE_KEY && !pageIdsWithCalendar.includes('gallery')
+    const pageIdsWithGallery = storedState?.key !== STORAGE_KEY && !pageIdsWithCalendar.includes('gallery')
       ? [...pageIdsWithCalendar, 'gallery' as const]
       : pageIdsWithCalendar
+    const enabledPageIds = pageIdsWithGallery.includes('assistant')
+      ? pageIdsWithGallery
+      : [...pageIdsWithGallery, 'assistant' as const]
 
     return {
       notes: notes.length > 0
@@ -512,6 +619,9 @@ export function loadDashboardState(serializedState?: string): DashboardState {
       timers,
       stopwatch,
       calendarEvents,
+      calendarAccounts,
+      externalCalendars,
+      calendarOutbox,
       galleryPhotos,
       weatherLocations,
       homeWeatherLocationId,
@@ -571,6 +681,15 @@ export function loadDashboardState(serializedState?: string): DashboardState {
         nightMediaVolume: typeof parsedPreferences.nightMediaVolume === 'number' && Number.isFinite(parsedPreferences.nightMediaVolume)
           ? Math.min(100, Math.max(0, Math.round(parsedPreferences.nightMediaVolume)))
           : DEFAULT_DASHBOARD_STATE.preferences.nightMediaVolume,
+        assistantEnabled: typeof parsedPreferences.assistantEnabled === 'boolean'
+          ? parsedPreferences.assistantEnabled
+          : DEFAULT_DASHBOARD_STATE.preferences.assistantEnabled,
+        assistantVoiceEnabled: typeof parsedPreferences.assistantVoiceEnabled === 'boolean'
+          ? parsedPreferences.assistantVoiceEnabled
+          : DEFAULT_DASHBOARD_STATE.preferences.assistantVoiceEnabled,
+        assistantReadAloud: typeof parsedPreferences.assistantReadAloud === 'boolean'
+          ? parsedPreferences.assistantReadAloud
+          : DEFAULT_DASHBOARD_STATE.preferences.assistantReadAloud,
         enabledPageIds: enabledPageIds.includes('dashboard')
           ? enabledPageIds
           : ['dashboard', ...enabledPageIds],

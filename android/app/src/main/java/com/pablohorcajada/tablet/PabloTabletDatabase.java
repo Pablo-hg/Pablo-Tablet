@@ -18,7 +18,11 @@ final class PabloTabletDatabase extends SQLiteOpenHelper {
     }
 
     private PabloTabletDatabase(Context context) {
-        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        this(context, DATABASE_NAME);
+    }
+
+    PabloTabletDatabase(Context context, String databaseName) {
+        super(context, databaseName, null, DATABASE_VERSION);
     }
 
     @Override
