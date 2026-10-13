@@ -2,7 +2,7 @@
 
 > Issue: #25
 >
-> Última ejecución automatizada: 12/10/2026
+> Última ejecución automatizada: 13/10/2026
 >
 > Estado global: **automatización completada; instalación y demostración física pendientes**
 
@@ -26,8 +26,8 @@ Este informe separa de forma explícita lo que está implementado, compilado y p
 | Asistente local | Pruebas de interpretación, confirmación previa, cancelación y ejecución tipada; flujo visual revisado sin modificar datos | Superado |
 | Notificaciones locales | Pruebas de programación, actualización, cancelación y estados de permisos; comportamiento real con la app cerrada sigue en la matriz física | Superado |
 | Canal de actualización | Pruebas del verificador de paquete, versión, certificado y SHA-256; no se ha generado ni publicado una Release | Superado |
-| Cliente web | 86/86 pruebas Vitest cubren administración móvil, calendario, asistente, notificaciones y verificación de release | Superado |
-| Servicio de calendarios | 2/2 pruebas cubren paginación y recuperación de cursores inválidos de Google y Outlook; `tsc --noEmit` limpio | Superado |
+| Cliente web | 89/89 pruebas Vitest cubren administración móvil, calendario, asistente, notificaciones y verificación de release | Superado |
+| Servicio de calendarios | 5/5 pruebas cubren OAuth, paginación y recuperación de cursores inválidos de Google y Outlook; `tsc --noEmit` limpio | Superado |
 | Compilación | `npm run lint`, `npm run build`, `npm run android:sync`, 23/23 pruebas JVM, `lintDebug` y `assembleDebug` | Superado |
 | Revisión visual web | Dashboard, asistente, calendario y ajustes revisados en navegador; 0 errores de consola | Superado |
 
@@ -38,7 +38,7 @@ La integración necesitó conservar conjuntamente el servicio recuperable de #31
 ## Preparación externa pendiente
 
 - `calendar-relay` está desplegado en `https://pablo-tablet-calendar-relay.phghorcajada.workers.dev`, con D1 inicializada en Europa occidental y la clave de cifrado almacenada como secreto de Cloudflare.
-- Para validar #19 con cuentas reales todavía hay que crear y cargar las credenciales OAuth de Google y Microsoft. Ningún secreto OAuth forma parte del repositorio.
+- Las credenciales OAuth de Google y Microsoft están configuradas como secretos del relay y no forman parte del repositorio ni del APK. Ambos proveedores completaron la vinculación y sincronización real contra el relay; queda repetir el flujo desde la aplicación instalada en la tablet.
 - La compilación de la candidata `v0.3.0` ya incorpora la URL pública del relay; la Release todavía no se ha generado ni publicado.
 - Para instalar sobre la aplicación existente hay que generar un APK con su misma firma. El APK debug solo demuestra que el proyecto compila y no debe usarse para sustituir una release instalada.
 - No se ha cambiado `versionName`/`versionCode`, no se ha publicado ninguna Release y no se ha abierto una PR contra `dev`.
