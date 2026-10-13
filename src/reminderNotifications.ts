@@ -12,6 +12,9 @@ const CALENDAR_EVENT_SOURCE = 'pablo-tablet-calendar-event'
 const CALENDAR_SNOOZE_SOURCE = 'pablo-tablet-calendar-snooze'
 const TIMER_CHANNEL = 'pablo_timer_alerts'
 const CALENDAR_EVENT_CHANNEL = 'pablo_calendar_reminders_silent'
+// Android limits the number of alarms a single application can own (500 on the
+// Teclast T65). Keep enough headroom for alarms, timers and snoozed reminders.
+export const MAX_SCHEDULED_CALENDAR_NOTIFICATIONS = 128
 
 function notificationId(noteId: string) {
   let hash = 0
@@ -165,6 +168,8 @@ export async function syncCalendarEventNotifications(events: CalendarEvent[]) {
         extra: { source: CALENDAR_EVENT_SOURCE, kind: 'calendar', calendarEventId: event.id, calendarReminderId: reminder.id, recurrenceIndex: index },
       }]
     })))
+      .sort((left, right) => left.schedule.at.getTime() - right.schedule.at.getTime())
+      .slice(0, MAX_SCHEDULED_CALENDAR_NOTIFICATIONS)
     await reconcileNotifications(CALENDAR_EVENT_SOURCE, notifications, (notification) => (
       (notification.extra?.source === CALENDAR_EVENT_SOURCE || notification.extra?.source === CALENDAR_SNOOZE_SOURCE)
       && typeof notification.extra.calendarEventId === 'string'
