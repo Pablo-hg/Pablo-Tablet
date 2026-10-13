@@ -20,9 +20,21 @@ describe('verificacion de una release Android', () => {
   })
 
   it('normaliza la huella SHA-256 del certificado', () => {
+    const digest = Array.from({ length: 32 }, (_, index) =>
+      index.toString(16).padStart(2, '0'),
+    ).join(':')
     expect(
-      parseCertificateSha256('Signer #1 certificate SHA-256 digest: AA:0b:C1'),
-    ).toBe('aa0bc1')
+      parseCertificateSha256(`Signer #1 certificate SHA-256 digest: ${digest}`),
+    ).toBe(digest.replaceAll(':', ''))
+  })
+
+  it('acepta avisos y una huella SHA-256 sin separadores', () => {
+    const digest = '7a706549c89f27d3560fad8ffb7127d395c3830d18f403463d65d9e2fb6af346'
+    expect(
+      parseCertificateSha256(
+        `Aviso emitido por apksigner\nSigner #1 certificate SHA-256 digest: ${digest}`,
+      ),
+    ).toBe(digest)
   })
 
   it('rechaza una clave distinta de la firma oficial', () => {
