@@ -15,6 +15,7 @@ const CALENDAR_EVENT_CHANNEL = 'pablo_calendar_reminders_silent'
 // Android limits the number of alarms a single application can own (500 on the
 // Teclast T65). Keep enough headroom for alarms, timers and snoozed reminders.
 export const MAX_SCHEDULED_CALENDAR_NOTIFICATIONS = 128
+const NOTIFICATION_CANCELLATION_BATCH_SIZE = 128
 
 function notificationId(noteId: string) {
   let hash = 0
@@ -25,6 +26,17 @@ function notificationId(noteId: string) {
 }
 
 type KnownNotification = { id: number; extra?: Record<string, unknown> }
+
+async function cancelNotificationIds(ids: number[]) {
+  const uniqueIds = [...new Set(ids)]
+  for (let index = 0; index < uniqueIds.length; index += NOTIFICATION_CANCELLATION_BATCH_SIZE) {
+    await LocalNotifications.cancel({
+      notifications: uniqueIds
+        .slice(index, index + NOTIFICATION_CANCELLATION_BATCH_SIZE)
+        .map((id) => ({ id })),
+    })
+  }
+}
 
 async function schedulingAccess() {
   const status = await checkNotificationPermissionStatus()
@@ -156,7 +168,7 @@ export async function syncCalendarEventNotifications(events: CalendarEvent[]) {
     const now = Date.now()
     const activeEvents = events.filter((event) => event.type !== 'task' || !event.completed)
     const activeEventIds = new Set(activeEvents.map((event) => event.id))
-    const notifications = activeEvents.flatMap((event) => event.reminders.flatMap((reminder) => calendarReminderOccurrences(event, reminder).flatMap(({ index, occurrenceDate, at }) => {
+    const candidates = activeEvents.flatMap((event) => event.reminders.flatMap((reminder) => calendarReminderOccurrences(event, reminder).flatMap(({ index, occurrenceDate, at }) => {
       if (at.getTime() <= now) return []
       const eventDate = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(`${occurrenceDate}T12:00:00`))
       return [{
@@ -169,7 +181,15 @@ export async function syncCalendarEventNotifications(events: CalendarEvent[]) {
       }]
     })))
       .sort((left, right) => left.schedule.at.getTime() - right.schedule.at.getTime())
-      .slice(0, MAX_SCHEDULED_CALENDAR_NOTIFICATIONS)
+    const notifications = candidates.slice(0, MAX_SCHEDULED_CALENDAR_NOTIFICATIONS)
+
+    // A failed oversized schedule can leave alarms registered in Android before
+    // the Capacitor plugin persists them. getPending() cannot see those orphaned
+    // alarms, so proactively cancel every deterministic candidate id before
+    // rebuilding the bounded set.
+    if (candidates.length > MAX_SCHEDULED_CALENDAR_NOTIFICATIONS) {
+      await cancelNotificationIds(candidates.map((notification) => notification.id))
+    }
     await reconcileNotifications(CALENDAR_EVENT_SOURCE, notifications, (notification) => (
       (notification.extra?.source === CALENDAR_EVENT_SOURCE || notification.extra?.source === CALENDAR_SNOOZE_SOURCE)
       && typeof notification.extra.calendarEventId === 'string'

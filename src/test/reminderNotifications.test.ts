@@ -205,4 +205,25 @@ describe('sincronización de notificaciones locales', () => {
     expect(notificationPlugin.cancel.mock.invocationCallOrder[0]).toBeLessThan(notificationPlugin.update.mock.invocationCallOrder[0])
     expect(notificationPlugin.schedule).not.toHaveBeenCalled()
   })
+
+  it('recupera alarmas huérfanas aunque el plugin no las devuelva como pendientes', async () => {
+    const events = Array.from({ length: 500 }, (_, index): CalendarEvent => {
+      const date = new Date(Date.UTC(2099, 0, index + 1)).toISOString().slice(0, 10)
+      return {
+        id: `orphan-${index}`, source: 'google', accountId: 'google-1', calendarId: 'primary', externalId: `remote-${index}`, externalVersion: 'v1', syncStatus: 'synced',
+        type: 'event', recurrence: 'none', completed: false, title: `Huérfana ${index}`, date, endDate: date, startTime: '10:00', endTime: '11:00', allDay: false,
+        timeZone: 'Europe/Madrid', location: '', notes: '', color: 'blue', reminders: [{ id: `reminder-${index}`, date, time: '09:45' }],
+        createdAt: '2098-12-01T00:00:00.000Z', updatedAt: '2098-12-01T00:00:00.000Z',
+      }
+    })
+
+    await syncCalendarEventNotifications(events)
+
+    const cancelledIds = notificationPlugin.cancel.mock.calls.flatMap(([request]) => request.notifications.map(({ id }: { id: number }) => id))
+    expect(cancelledIds).toHaveLength(500)
+    expect(new Set(cancelledIds).size).toBe(500)
+    expect(notificationPlugin.cancel).toHaveBeenCalledTimes(4)
+    expect(notificationPlugin.schedule.mock.calls[0][0].notifications).toHaveLength(MAX_SCHEDULED_CALENDAR_NOTIFICATIONS)
+    expect(notificationPlugin.cancel.mock.invocationCallOrder.at(-1)).toBeLessThan(notificationPlugin.schedule.mock.invocationCallOrder[0])
+  })
 })
