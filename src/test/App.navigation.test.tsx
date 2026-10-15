@@ -42,6 +42,7 @@ describe('navegación y flujos principales', () => {
     expect(mobileAdminToggle).toHaveClass('settings-row', 'toggle-row')
     expect(readResponsesToggle.querySelector('.toggle')).toBeInTheDocument()
     expect(mobileAdminToggle.querySelector('.toggle')).toBeInTheDocument()
+    expect(screen.getByText('Permisos de Android')).toBeInTheDocument()
 
     const rotationToggle = screen.getByRole('switch', { name: /Rotación automática/ })
     expect(rotationToggle).toHaveAttribute('aria-checked', 'true')

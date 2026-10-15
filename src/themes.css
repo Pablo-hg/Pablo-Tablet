@@ -969,6 +969,7 @@
 
 /* Theme picker */
 .settings-subheading { align-items: center; border-top: 1px solid var(--theme-border, rgba(255,255,255,.12)); color: var(--theme-accent, #bcd0ff); display: flex; justify-content: space-between; margin-top: 18px; padding-top: 17px; }
+.app-update-settings .app-update-heading { border-top: 0; margin-top: 0; padding-top: 0; }
 .settings-subheading h2 { color: var(--theme-text, #f7f8ff); font-size: 1.05rem; margin: 0; }
 .settings-subheading .eyebrow { margin-bottom: 3px; }
 .theme-picker { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
