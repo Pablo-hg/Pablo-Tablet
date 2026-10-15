@@ -53,7 +53,7 @@ export function CalendarConnectionsPanel({ accounts, calendars, onConnected, onS
 
   return <section className="calendar-connections" data-swipe-block>
     <header><div><p className="eyebrow">Calendarios</p><h2>Cuentas y visibilidad</h2></div><span className="calendar-local-status"><Check size={14} />Local activo</span></header>
-    <p className="calendar-connections-help">El calendario local siempre funciona. Google y Outlook son opcionales y pueden usarse por separado o a la vez.</p>
+    <p className="calendar-connections-help">Marca o desmarca cada calendario para mostrar u ocultar sus eventos. La cuenta seguirá conectada.</p>
     <div className="calendar-provider-list">{(['google', 'outlook'] as const).map((provider) => {
       const account = accounts.find((item) => item.provider === provider)
       return <article key={provider} className={`calendar-provider ${account ? 'is-connected' : ''}`}>
