@@ -383,13 +383,13 @@
 .calendar-local-status { align-items: center; background: color-mix(in srgb, var(--ui-positive) 14%, var(--ui-panel-solid)); border: 1px solid var(--ui-positive); border-radius: 999px; color: var(--ui-text); display: flex; flex-shrink: 0; font-size: .68rem; font-weight: 800; gap: 5px; padding: 6px 9px; }
 .calendar-connections-help { color: var(--calendar-muted); font-size: .72rem; line-height: 1.5; margin: 10px 0 14px; }
 .calendar-provider-list { display: grid; gap: 7px; }
-.calendar-provider { align-items: start; background: var(--ui-control); border: var(--ui-outline-width) solid var(--ui-border); border-radius: var(--ui-radius-control); display: grid; gap: 8px; grid-template-columns: 32px minmax(0, 1fr); padding: 10px; }
+.calendar-provider { align-items: center; background: var(--ui-control); border: var(--ui-outline-width) solid var(--ui-border); border-radius: var(--ui-radius-control); display: grid; gap: 8px; grid-template-columns: 32px minmax(0, 1fr) auto; padding: 10px; }
 .calendar-provider-logo { align-items: center; background: #fff; border-radius: 9px; color: #2967d7; display: flex; font-weight: 900; height: 32px; justify-content: center; width: 32px; }
 .calendar-provider-logo.is-outlook { background: #1676d2; color: #fff; }
 .calendar-provider-copy { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
 .calendar-provider small { color: var(--calendar-muted); font-size: .7rem; line-height: 1.4; }
 .calendar-provider em { color: var(--calendar-danger); font-size: .7rem; font-style: normal; }
-.calendar-provider-actions { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; justify-content: flex-end; }
+.calendar-provider-actions { display: flex; flex-wrap: nowrap; gap: 8px; justify-content: flex-end; }
 .calendar-provider button { align-items: center; background: var(--ui-action-soft); border: var(--ui-outline-width) solid var(--ui-border-strong); border-radius: var(--ui-radius-control); color: var(--ui-text); cursor: pointer; display: flex; font: inherit; font-size: .72rem; gap: 5px; justify-content: center; min-height: 44px; min-width: 44px; padding: 8px 12px; }
 .calendar-provider button.is-danger { background: var(--ui-control); color: var(--calendar-danger); padding: 8px; }
 .calendar-provider button:disabled { background: var(--ui-control); border-color: var(--ui-border); color: var(--calendar-muted); cursor: wait; }
