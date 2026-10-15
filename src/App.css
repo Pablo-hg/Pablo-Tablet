@@ -499,6 +499,7 @@
 
 .settings-page { box-sizing: border-box; max-height: calc(100svh - clamp(52px, 8vw, 108px)); overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; padding: 2px 4px 100px; scrollbar-color: rgba(255,255,255,.24) transparent; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
 .settings-section { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 26px; margin-bottom: 20px; padding: clamp(18px, 3vw, 28px); }
+.settings-compact-grid { display: grid; }
 .section-heading { align-items: center; color: #bcd0ff; display: flex; justify-content: space-between; margin-bottom: 16px; }
 .section-heading h2 { color: #f7f8ff; font-size: 1.15rem; margin: 0; }
 .section-heading .eyebrow { margin-bottom: 4px; }
@@ -824,6 +825,12 @@
   .settings-header { margin-bottom: 20px; }
   .settings-header h1 { font-size: 2.3rem; }
   .settings-section { margin-bottom: 16px; padding: 18px; }
+  .settings-compact-grid { align-items: stretch; gap: 16px; grid-template-areas: "notifications system" "screensaver updates"; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 16px; }
+  .settings-compact-grid .settings-section { margin-bottom: 0; }
+  .compact-notifications { grid-area: notifications; }
+  .compact-screensaver { grid-area: screensaver; }
+  .compact-updates { grid-area: updates; }
+  .compact-system { grid-area: system; }
   .section-heading { margin-bottom: 10px; }
   .settings-section > .settings-row { border-radius: 16px; padding: 10px 12px; }
   .settings-section .settings-icon { height: 36px; width: 36px; }

@@ -98,28 +98,30 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
         <SettingToggle icon={<Volume2 size={20} />} title="Sonido al interactuar" detail="Reproduce un toque breve al pulsar controles." checked={preferences.interactionSoundsEnabled} onChange={(interactionSoundsEnabled) => { onPreferencesChange({ interactionSoundsEnabled }); if (interactionSoundsEnabled) void playInteractionSound(preferences.mediaVolume) }} />
       </section>
 
-      <section className="settings-section settings-list" data-swipe-block aria-labelledby="notification-settings-title">
-        <div className="section-heading"><div><p className="eyebrow">Avisos</p><h2 id="notification-settings-title">Notificaciones</h2></div><BellRing size={22} /></div>
-        <NotificationSettings />
-      </section>
+      <div className="settings-compact-grid">
+        <section className="settings-section settings-list compact-notifications" data-swipe-block aria-labelledby="notification-settings-title">
+          <div className="section-heading"><div><p className="eyebrow">Avisos</p><h2 id="notification-settings-title">Notificaciones</h2></div><BellRing size={22} /></div>
+          <NotificationSettings />
+        </section>
 
-      <section className="settings-section settings-list" data-swipe-block aria-labelledby="screensaver-settings-title">
-        <div className="section-heading"><div><p className="eyebrow">Inactividad</p><h2 id="screensaver-settings-title">Salvapantallas</h2></div><Images size={22} /></div>
-        <SettingToggle icon={<Images size={20} />} title="Salvapantallas de fotos" detail="Muestra las fotos elegidas cuando la tablet queda inactiva." checked={preferences.screensaverEnabled} onChange={(screensaverEnabled) => onPreferencesChange({ screensaverEnabled })} />
-        {preferences.screensaverEnabled ? <ScreensaverDelaySelect value={preferences.screensaverDelaySeconds} onChange={(screensaverDelaySeconds) => onPreferencesChange({ screensaverDelaySeconds })} /> : null}
-      </section>
+        <section className="settings-section settings-list compact-screensaver" data-swipe-block aria-labelledby="screensaver-settings-title">
+          <div className="section-heading"><div><p className="eyebrow">Inactividad</p><h2 id="screensaver-settings-title">Salvapantallas</h2></div><Images size={22} /></div>
+          <SettingToggle icon={<Images size={20} />} title="Salvapantallas de fotos" detail="Muestra las fotos elegidas cuando la tablet queda inactiva." checked={preferences.screensaverEnabled} onChange={(screensaverEnabled) => onPreferencesChange({ screensaverEnabled })} />
+          {preferences.screensaverEnabled ? <ScreensaverDelaySelect value={preferences.screensaverDelaySeconds} onChange={(screensaverDelaySeconds) => onPreferencesChange({ screensaverDelaySeconds })} /> : null}
+        </section>
 
-      <section className="settings-section" data-swipe-block aria-label="Actualizaciones">
-        <AppUpdateSettings />
-      </section>
+        <section className="settings-section compact-updates" data-swipe-block aria-label="Actualizaciones">
+          <AppUpdateSettings />
+        </section>
 
-      <section className="settings-section settings-list" data-swipe-block aria-labelledby="system-settings-title">
-        <div className="section-heading"><div><p className="eyebrow">Aplicación</p><h2 id="system-settings-title">Sistema</h2></div><LogOut size={22} /></div>
-        <button type="button" className="settings-row exit-app-row" onClick={() => void exitTabletApp()}>
-          <span className="settings-icon"><LogOut size={20} /></span>
-          <span className="settings-copy"><strong>Salir de la app</strong><small>Desbloquear Android y cerrar Pablo Tablet</small></span>
-        </button>
-      </section>
+        <section className="settings-section settings-list compact-system" data-swipe-block aria-labelledby="system-settings-title">
+          <div className="section-heading"><div><p className="eyebrow">Aplicación</p><h2 id="system-settings-title">Sistema</h2></div><LogOut size={22} /></div>
+          <button type="button" className="settings-row exit-app-row" onClick={() => void exitTabletApp()}>
+            <span className="settings-icon"><LogOut size={20} /></span>
+            <span className="settings-copy"><strong>Salir de la app</strong><small>Desbloquear Android y cerrar Pablo Tablet</small></span>
+          </button>
+        </section>
+      </div>
     </div>
   )
 }

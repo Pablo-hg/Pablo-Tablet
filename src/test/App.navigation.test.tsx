@@ -34,6 +34,7 @@ describe('navegación y flujos principales', () => {
     const categoryCards = categoryHeadings.map((name) => screen.getByRole('heading', { name }).closest('.settings-section'))
     expect(categoryCards.every(Boolean)).toBe(true)
     expect(new Set(categoryCards).size).toBe(categoryHeadings.length)
+    expect(document.querySelector('.settings-compact-grid')?.querySelectorAll(':scope > .settings-section')).toHaveLength(4)
 
     const readResponsesToggle = screen.getByRole('switch', { name: /Leer respuestas automáticamente/ })
     const mobileAdminToggle = screen.getByRole('switch', { name: /Permitir administración desde otros dispositivos/ })
