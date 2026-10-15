@@ -2,6 +2,14 @@
 
 > Documento relacionado: [OPERACION-REMOTA.md](OPERACION-REMOTA.md)
 
+## Preparado para la próxima publicación
+
+- **Calendario en horizontal:** la Agenda del día queda visible junto al calendario mensual y por encima de Cuentas y visibilidad.
+- **Cuentas externas:** Google y Outlook muestran identidad, sincronización y acciones en una sola fila.
+- **Visibilidad:** la interfaz aclara que los checks muestran u ocultan calendarios sin desconectar la cuenta.
+- **Validación completada:** lint, 60 pruebas, build web, sincronización Android, APK debug y comprobación visual a 1920×1200.
+- **Estado de entrega:** listo para integrar en `dev`; no tiene una versión asignada, no se ha publicado y no está instalado en la tablet. Debe incluirse en una futura Release firmada.
+
 El repositorio `Pablo-hg/Pablo-Tablet` es público para que cada instalación pueda descargarlo, revisarlo y adaptarlo. La aplicación no actualiza desde el código fuente: consulta la última Release publicada en este mismo repositorio, que contiene el APK firmado y su SHA-256. La versión actual es `0.1.0`. El número solo debe cambiar cuando Pablo lo indique expresamente, y una actualización únicamente se ofrece cuando el tag de la Release es superior a la versión instalada.
 
 ## Seguridad
