@@ -134,6 +134,24 @@ Archivo: `src/test/App.navigation.test.tsx`
 - Acceso a Notas, creación de una nota de texto, edición y persistencia local del contenido.
 - Activación de la selección múltiple de Galería y Papelera mediante pulsación larga o botón, selección adicional, selección de todas y cancelación sin borrar fotos.
 
+### Cuentas de calendario y temas (#19)
+
+Archivo: `src/test/CalendarConnectionsPanel.test.tsx`
+
+- Identidad de la cuenta y última sincronización en líneas independientes.
+- Acciones de sincronización/desconexión, estado deshabilitado y mensajes de error.
+- Nombres largos y cambios de visibilidad de calendarios.
+- Apertura y cierre del QR con el servicio y la imagen simulados, sin acceder a cuentas reales.
+
+Revisión visual web del 14/10/2026: Original, Cálido, AMOLED, Retro, Glass,
+Nórdico, Swiss, Mediterráneo, Monocromo y Brutalista, a 1200×750 y 750×1200.
+Se revisaron cuentas, errores, textos largos, visibilidad, QR y selector «Guardar en».
+El contraste calculado mínimo del texto comprobado en el panel fue 4,99:1;
+en el diálogo QR, 5,58:1. La vista vertical coloca las cuentas bajo el mes,
+con desplazamiento interno y sin desbordamiento horizontal.
+Las capturas y las comprobaciones locales están en `output/playwright/` (no versionado).
+Esta revisión no acredita la instalación del cambio ni su validación en Android.
+
 ## Qué no sustituye esta suite
 
 Las pruebas web no validan comportamientos exclusivos de Android. Antes de publicar una versión deben comprobarse en la Teclast T65:
