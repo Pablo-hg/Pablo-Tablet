@@ -30,6 +30,18 @@ describe('navegación y flujos principales', () => {
     expect(screen.getByRole('heading', { name: 'Ajustes' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Páginas' })).toBeInTheDocument()
 
+    const categoryHeadings = ['Apariencia', 'Páginas', 'Asistente', 'Administración móvil', 'Pantalla', 'Sonido', 'Notificaciones', 'Salvapantallas', 'Actualizaciones', 'Sistema']
+    const categoryCards = categoryHeadings.map((name) => screen.getByRole('heading', { name }).closest('.settings-section'))
+    expect(categoryCards.every(Boolean)).toBe(true)
+    expect(new Set(categoryCards).size).toBe(categoryHeadings.length)
+
+    const readResponsesToggle = screen.getByRole('switch', { name: /Leer respuestas automáticamente/ })
+    const mobileAdminToggle = screen.getByRole('switch', { name: /Permitir administración desde otros dispositivos/ })
+    expect(readResponsesToggle).toHaveClass('settings-row', 'toggle-row')
+    expect(mobileAdminToggle).toHaveClass('settings-row', 'toggle-row')
+    expect(readResponsesToggle.querySelector('.toggle')).toBeInTheDocument()
+    expect(mobileAdminToggle.querySelector('.toggle')).toBeInTheDocument()
+
     const rotationToggle = screen.getByRole('switch', { name: /Rotación automática/ })
     expect(rotationToggle).toHaveAttribute('aria-checked', 'true')
     await user.click(rotationToggle)
