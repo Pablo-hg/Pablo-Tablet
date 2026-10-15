@@ -15,10 +15,33 @@ describe('navegación y flujos principales', () => {
     expect(screen.getByText('Buenos días, Pablo')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
     expect(screen.getByText('Tu agenda')).toBeInTheDocument()
+    const upcomingHeading = screen.getByRole('heading', { name: 'Próximos eventos' })
+    const accountsHeading = screen.getByRole('heading', { name: 'Cuentas y visibilidad' })
+    expect(upcomingHeading.compareDocumentPosition(accountsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
     await user.click(screen.getByRole('button', { name: 'Ir a Tiempo' }))
     expect(screen.getByText('Añade tu primera ubicación')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Ir a Inicio' }))
     expect(screen.getByText('Buenos días, Pablo')).toBeInTheDocument()
+  })
+
+  it('permite recorrer Asistente ↔ Calendario con gestos horizontales', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Asistente' }))
+    const conversation = screen.getByRole('log', { name: 'Conversación del Asistente' })
+
+    fireEvent.touchStart(conversation, { changedTouches: [{ clientX: 900, clientY: 500 }] })
+    fireEvent.touchEnd(conversation, { changedTouches: [{ clientX: 500, clientY: 510 }] })
+
+    expect(screen.getByText('Tu agenda')).toBeInTheDocument()
+
+    const calendarPage = screen.getByText('Tu agenda').closest('.calendar-page')
+    expect(calendarPage).not.toBeNull()
+    fireEvent.touchStart(calendarPage!, { changedTouches: [{ clientX: 500, clientY: 500 }] })
+    fireEvent.touchEnd(calendarPage!, { changedTouches: [{ clientX: 900, clientY: 510 }] })
+
+    expect(screen.getByRole('log', { name: 'Conversación del Asistente' })).toBeInTheDocument()
   })
 
   it('abre Ajustes desde la navegación contextual y regresa al dashboard', async () => {

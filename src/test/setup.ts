@@ -30,4 +30,5 @@ Object.defineProperties(HTMLElement.prototype, {
   setPointerCapture: { configurable: true, value: vi.fn() },
   releasePointerCapture: { configurable: true, value: vi.fn() },
   hasPointerCapture: { configurable: true, value: vi.fn(() => false) },
+  scrollTo: { configurable: true, value: vi.fn() },
 })
