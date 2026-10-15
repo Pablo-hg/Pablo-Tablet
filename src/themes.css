@@ -382,6 +382,9 @@
   box-shadow: var(--theme-shadow);
 }
 
+/* Settings cards keep their border and fill without creating a second dark layer behind the page. */
+.tablet-shell[data-theme] .settings-section { box-shadow: none; }
+
 .tablet-shell[data-theme] :where(
   .status-pill,
   .back-button,
