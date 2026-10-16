@@ -26,7 +26,7 @@ describe('navegación y flujos principales', () => {
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
-    const connectionsPanel = screen.getByRole('heading', { name: 'Cuentas y visibilidad' }).closest('.calendar-connections')
+    const connectionsPanel = screen.getByRole('heading', { name: 'Cuentas sincronizadas' }).closest('.calendar-connections')
     expect(connectionsPanel).not.toHaveAttribute('data-swipe-block')
 
     fireEvent.touchStart(connectionsPanel!, { changedTouches: [{ clientX: 500, clientY: 200 }] })

@@ -106,6 +106,7 @@ export interface StopwatchState {
 export type CalendarEventColor = 'blue' | 'mint' | 'coral' | 'sun'
 export type CalendarEventType = 'event' | 'task' | 'birthday'
 export type CalendarEventRecurrence = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+export type NativeCalendarEventCategory = 'holiday' | 'observance' | 'clock-change'
 
 export interface CalendarEventReminder {
   id: string
@@ -116,6 +117,7 @@ export interface CalendarEventReminder {
 export interface CalendarEvent {
   id: string
   source: import('./calendarSync/contracts').CalendarSource
+  nativeCategory?: NativeCalendarEventCategory
   accountId: string | null
   calendarId: string | null
   externalId: string | null

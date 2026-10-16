@@ -69,10 +69,10 @@ describe('sincronización de calendarios', () => {
     expect(result.outbox[0]).toMatchObject({ attempts: 1, lastError: 'Conflicto' })
   })
 
-  it('no vuelve a mostrar un calendario ocultado al sincronizar', () => {
+  it('reactiva los calendarios sincronizados para mostrarlos siempre', () => {
     const account = { id: 'g1', provider: 'google' as const, email: 'p@example.com', displayName: 'P', status: 'syncing' as const, enabled: true, lastSyncedAt: null, error: null }
     const calendar = { id: 'google:g1:primary', accountId: 'g1', provider: 'google' as const, remoteId: 'primary', name: 'Principal', color: 'blue' as const, visible: false, readOnly: false }
     const result = applyCalendarSync([], [calendar], [], account, { calendars: [{ ...calendar, visible: true }], events: [], acknowledgedOutboxIds: [], createdEvents: [], failedOutbox: [], syncedAt: '2026-10-11T09:00:00Z' })
-    expect(result.calendars[0].visible).toBe(false)
+    expect(result.calendars[0].visible).toBe(true)
   })
 })

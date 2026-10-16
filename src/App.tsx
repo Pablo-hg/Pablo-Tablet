@@ -95,6 +95,7 @@ import { AppShell } from './app/AppShell'
 import { SettingsPage } from './pages/SettingsPage'
 import { AssistantPage } from './pages/AssistantPage'
 import { PageHeader } from './components/PageHeader'
+import { nativeCalendarEventsForYears } from './nativeCalendarDates'
 import './App.css'
 import './themes.css'
 
@@ -152,6 +153,11 @@ function App() {
   const activePage = enabledPages[activePageIndex] ?? enabledPages[0]
   const time = timeFormatter.format(now)
   const date = weekdayFormatter.format(now)
+  const currentYear = now.getFullYear()
+  const calendarEvents = useMemo(
+    () => [...dashboardState.calendarEvents, ...nativeCalendarEventsForYears([currentYear, currentYear + 1])],
+    [dashboardState.calendarEvents, currentYear],
+  )
   const screensaverPhoto = dashboardState.galleryPhotos.find((photo) => photo.id === screensaverPhotoId && photo.deletedAt === null)
   const homeWeatherLocation = dashboardState.weatherLocations.find((location) => location.id === dashboardState.homeWeatherLocationId) ?? dashboardState.weatherLocations[0] ?? null
   const selectedWeatherLocation = dashboardState.weatherLocations.find((location) => location.id === dashboardState.selectedWeatherLocationId) ?? homeWeatherLocation
@@ -660,10 +666,6 @@ function App() {
     }))
   }, [])
 
-  const setExternalCalendarVisibility = useCallback((calendarId: string, visible: boolean) => {
-    setDashboardState((current) => ({ ...current, externalCalendars: current.externalCalendars.map((calendar) => calendar.id === calendarId ? { ...calendar, visible } : calendar) }))
-  }, [])
-
   const calendarAccountIds = dashboardState.calendarAccounts.map((account) => account.id).sort().join('|')
   useEffect(() => {
     if (!calendarAccountIds) return
@@ -1000,7 +1002,7 @@ function App() {
             date={date}
             widgets={dashboardState.widgets}
             notes={dashboardState.notes}
-            calendarEvents={dashboardState.calendarEvents}
+            calendarEvents={calendarEvents}
             calendarAccounts={dashboardState.calendarAccounts}
             externalCalendars={dashboardState.externalCalendars}
             galleryPhotos={dashboardState.galleryPhotos}
@@ -1026,7 +1028,6 @@ function App() {
             onConnectCalendarAccount={connectCalendarAccount}
             onSyncCalendarAccount={syncCalendarAccount}
             onDisconnectCalendarAccount={disconnectCalendarAccount}
-            onExternalCalendarVisibilityChange={setExternalCalendarVisibility}
             onAddGalleryPhotos={() => void addGalleryPhotos()}
             onMoveGalleryPhotoToTrash={moveGalleryPhotoToTrash}
             onMoveGalleryPhotosToTrash={moveGalleryPhotosToTrash}
@@ -1069,7 +1070,7 @@ function App() {
 
       {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>Simulación web de aviso local</small></div><button type="button" onClick={() => setSimulatedAlert(null)} aria-label="Cerrar aviso"><X size={18} /></button></div> : null}
       {ringingAlert ? <RingingAlertOverlay alert={ringingAlert} snoozeMinutes={snoozeMinutes} onSnoozeMinutesChange={setSnoozeMinutes} onSnooze={snoozeRingingAlert} onStop={stopRinging} /> : null}
-      {screensaverVisible ? <GalleryScreensaver photo={screensaverPhoto} now={now} time={time} date={date} calendarEvents={dashboardState.calendarEvents} onDismiss={() => { setScreensaverVisible(false); registerInteraction() }} /> : null}
+      {screensaverVisible ? <GalleryScreensaver photo={screensaverPhoto} now={now} time={time} date={date} calendarEvents={calendarEvents} onDismiss={() => { setScreensaverVisible(false); registerInteraction() }} /> : null}
 
       <AppNavigation
         screen={screen}
@@ -1121,7 +1122,6 @@ function DashboardPage({
   onConnectCalendarAccount,
   onSyncCalendarAccount,
   onDisconnectCalendarAccount,
-  onExternalCalendarVisibilityChange,
   onAddGalleryPhotos,
   onMoveGalleryPhotoToTrash,
   onMoveGalleryPhotosToTrash,
@@ -1181,7 +1181,6 @@ function DashboardPage({
   onConnectCalendarAccount: (account: CalendarAccount, token: string) => Promise<void>
   onSyncCalendarAccount: (accountId: string) => Promise<void>
   onDisconnectCalendarAccount: (accountId: string) => Promise<void>
-  onExternalCalendarVisibilityChange: (calendarId: string, visible: boolean) => void
   onAddGalleryPhotos: () => void
   onMoveGalleryPhotoToTrash: (photoId: string) => void
   onMoveGalleryPhotosToTrash: (photoIds: string[]) => void
@@ -1210,7 +1209,7 @@ function DashboardPage({
   onEditingChange: (isEditing: boolean) => void
 }) {
   if (page.id === 'clock') return <ClockPage time={time} date={date} now={now} alarms={alarms} timers={timers} stopwatch={stopwatch} onCreateAlarm={onCreateAlarm} onUpdateAlarm={onUpdateAlarm} onDeleteAlarm={onDeleteAlarm} onCreateTimer={onCreateTimer} onUpdateTimer={onUpdateTimer} onDeleteTimer={onDeleteTimer} onToggleStopwatch={onToggleStopwatch} onResetStopwatch={onResetStopwatch} onPreviewNotification={onPreviewNotification} />
-  if (page.id === 'calendar') return <CalendarPage now={now} events={calendarEvents} accounts={calendarAccounts} calendars={externalCalendars} hideCompletedTasks={hideCompletedCalendarTasks} onHideCompletedTasksChange={onHideCompletedCalendarTasksChange} onCreate={onCreateCalendarEvent} onUpdate={onUpdateCalendarEvent} onDelete={onDeleteCalendarEvent} onSetDestination={onSetCalendarEventDestination} onConnected={onConnectCalendarAccount} onSync={onSyncCalendarAccount} onDisconnect={onDisconnectCalendarAccount} onCalendarVisibilityChange={onExternalCalendarVisibilityChange} onEditingChange={onEditingChange} />
+  if (page.id === 'calendar') return <CalendarPage now={now} events={calendarEvents} accounts={calendarAccounts} calendars={externalCalendars} hideCompletedTasks={hideCompletedCalendarTasks} onHideCompletedTasksChange={onHideCompletedCalendarTasksChange} onCreate={onCreateCalendarEvent} onUpdate={onUpdateCalendarEvent} onDelete={onDeleteCalendarEvent} onSetDestination={onSetCalendarEventDestination} onConnected={onConnectCalendarAccount} onSync={onSyncCalendarAccount} onDisconnect={onDisconnectCalendarAccount} onEditingChange={onEditingChange} />
   if (page.id === 'gallery') return <GalleryPage photos={galleryPhotos} onAddPhotos={onAddGalleryPhotos} onMoveToTrash={onMoveGalleryPhotoToTrash} onMoveSelectionToTrash={onMoveGalleryPhotosToTrash} onRestore={onRestoreGalleryPhoto} onPermanentlyDelete={onPermanentlyDeleteGalleryPhoto} onEditingChange={onEditingChange} />
   if (page.id === 'weather') return <WeatherPage locations={weatherLocations} homeLocationId={homeWeatherLocationId} selectedLocationId={selectedWeatherLocationId} forecasts={weatherForecasts} loading={weatherLoading} errors={weatherErrors} onAddLocation={onAddWeatherLocation} onRemoveLocation={onRemoveWeatherLocation} onSetHomeLocation={onSetHomeWeatherLocation} onSelectLocation={onSelectWeatherLocation} onRefresh={onRefreshWeather} onEditingChange={onEditingChange} />
   if (page.id === 'notes') return <NotesPage notes={notes} onCreateNote={onCreateNote} onUpdateNote={onUpdateNote} onArchiveNote={onArchiveNote} onRestoreNote={onRestoreNote} onDeleteNote={onDeleteNote} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} />
@@ -1231,7 +1230,7 @@ function GalleryScreensaver({ photo, now, time, date, calendarEvents, onDismiss 
     <aside className="gallery-screensaver-agenda" aria-label="Próximos eventos">
       <header><CalendarDays size={20} /><span>Próximos eventos</span></header>
       {upcomingEvents.length > 0
-        ? upcomingEvents.map((event) => <div key={event.id} className={`event-${event.color} kind-${event.type}`}><i /><span><strong><CalendarEventTypeMark type={event.type} />{event.title || 'Evento'}</strong><small>{formatCalendarEventTime(event, toLocalDateKey(now))}</small></span></div>)
+        ? upcomingEvents.map((event) => <div key={event.id} className={`event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`}><i /><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}</strong><small>{formatCalendarEventTime(event, toLocalDateKey(now))}</small></span></div>)
         : <p>No hay eventos próximos</p>}
     </aside>
   </div>
@@ -1820,11 +1819,11 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     <div className="calendar-widget-body">
       <section className="calendar-widget-month">
         <div className="calendar-widget-weekdays">{['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => <span key={day}>{day}</span>)}</div>
-        <div className="calendar-widget-month-grid">{monthCells.map((cell) => <span key={cell.key} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`}><strong>{cell.day}</strong>{cell.events.slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${event.completed ? 'is-completed' : ''} ${isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || 'Evento'}</small>)}</span>)}</div>
+        <div className="calendar-widget-month-grid">{monthCells.map((cell) => <span key={cell.key} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`}><strong>{cell.day}</strong>{cell.events.slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || 'Evento'}</small>)}</span>)}</div>
       </section>
       {(agendaCount[sizeKey] ?? 0) > 0 ? <aside className="calendar-widget-agenda">
         <p>Próximos eventos</p>
-        {upcomingEvents.length > 0 ? upcomingEvents.slice(0, agendaCount[sizeKey]).map((event) => <span key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type}`}><i /><b><CalendarEventTypeMark type={event.type} />{event.title}</b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span>) : <span className="calendar-widget-empty"><Compass size={19} />Sin eventos próximos</span>}
+        {upcomingEvents.length > 0 ? upcomingEvents.slice(0, agendaCount[sizeKey]).map((event) => <span key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`}><i /><b><CalendarEventTypeMark type={event.type} source={event.source} />{event.title}</b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span>) : <span className="calendar-widget-empty"><Compass size={19} />Sin eventos próximos</span>}
       </aside> : null}
     </div>
   </button></DashboardWidgetFrame>
@@ -1887,26 +1886,36 @@ const CALENDAR_RECURRENCES: { value: CalendarEventRecurrence; label: string }[] 
   { value: 'yearly', label: 'Cada año' },
 ]
 
-function CalendarEventTypeMark({ type, size = 14 }: { type: CalendarEventType; size?: number }) {
+function CalendarEventTypeMark({ type, source, size = 14 }: { type: CalendarEventType; source?: CalendarEvent['source']; size?: number }) {
+  if (source === 'native') return <span className="calendar-type-mark kind-native" title="Calendario de la tablet" aria-label="Calendario de la tablet"><Sparkles size={size} strokeWidth={2.2} /></span>
   const label = CALENDAR_EVENT_TYPES.find((option) => option.value === type)?.label ?? 'Evento'
   const Icon = type === 'task' ? ListTodo : type === 'birthday' ? CakeSlice : CalendarDays
   return <span className={`calendar-type-mark kind-${type}`} title={label} aria-label={label}><Icon size={size} strokeWidth={2.2} /></span>
 }
 
-function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, onHideCompletedTasksChange, onCreate, onUpdate, onDelete, onSetDestination, onConnected, onSync, onDisconnect, onCalendarVisibilityChange, onEditingChange }: { now: Date; events: CalendarEvent[]; accounts: CalendarAccount[]; calendars: SyncedCalendar[]; hideCompletedTasks: boolean; onHideCompletedTasksChange: (hidden: boolean) => void; onCreate: (date: string) => string; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onDelete: (eventId: string) => void; onSetDestination: (eventId: string, calendarId: string | null) => void; onConnected: (account: CalendarAccount, token: string) => Promise<void>; onSync: (accountId: string) => Promise<void>; onDisconnect: (accountId: string) => Promise<void>; onCalendarVisibilityChange: (calendarId: string, visible: boolean) => void; onEditingChange: (isEditing: boolean) => void }) {
+function nativeCalendarClass(event: CalendarEvent) {
+  return event.source === 'native' ? `is-native native-${event.nativeCategory ?? 'observance'}` : ''
+}
+
+function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, onHideCompletedTasksChange, onCreate, onUpdate, onDelete, onSetDestination, onConnected, onSync, onDisconnect, onEditingChange }: { now: Date; events: CalendarEvent[]; accounts: CalendarAccount[]; calendars: SyncedCalendar[]; hideCompletedTasks: boolean; onHideCompletedTasksChange: (hidden: boolean) => void; onCreate: (date: string) => string; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onDelete: (eventId: string) => void; onSetDestination: (eventId: string, calendarId: string | null) => void; onConnected: (account: CalendarAccount, token: string) => Promise<void>; onSync: (accountId: string) => Promise<void>; onDisconnect: (accountId: string) => Promise<void>; onEditingChange: (isEditing: boolean) => void }) {
   const todayKey = toLocalDateKey(now)
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState(todayKey)
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
-  const editingEvent = events.find((event) => event.id === editingEventId)
+  const visibleYear = visibleMonth.getFullYear()
+  const pageEvents = useMemo(
+    () => [...events.filter((event) => event.source !== 'native'), ...nativeCalendarEventsForYears([visibleYear, visibleYear + 1])],
+    [events, visibleYear],
+  )
+  const editingEvent = pageEvents.find((event) => event.id === editingEventId)
   const firstWeekday = (visibleMonth.getDay() + 6) % 7
   const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate()
   const monthCells = Array.from({ length: Math.ceil((firstWeekday + daysInMonth) / 7) * 7 }, (_, index) => {
     const day = index - firstWeekday + 1
     return day >= 1 && day <= daysInMonth ? new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day) : null
   })
-  const visibleCalendarIds = new Set(calendars.filter((calendar) => calendar.visible).map((calendar) => `${calendar.provider}:${calendar.accountId}:${calendar.remoteId}`))
-  const sourceVisibleEvents = events.filter((event) => event.source === 'local' || (event.calendarId !== null && event.accountId !== null && visibleCalendarIds.has(`${event.source}:${event.accountId}:${event.calendarId}`)))
+  const visibleCalendarIds = new Set(calendars.map((calendar) => `${calendar.provider}:${calendar.accountId}:${calendar.remoteId}`))
+  const sourceVisibleEvents = pageEvents.filter((event) => event.source === 'local' || event.source === 'native' || (event.calendarId !== null && event.accountId !== null && visibleCalendarIds.has(`${event.source}:${event.accountId}:${event.calendarId}`)))
   const visibleEvents = hideCompletedTasks ? sourceVisibleEvents.filter((event) => event.type !== 'task' || !event.completed) : sourceVisibleEvents
   const selectedEvents = visibleEvents.flatMap((event) => {
     const occurrence = calendarOccurrenceForDate(event, selectedDate)
@@ -1953,21 +1962,21 @@ function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, on
             const occurrence = calendarOccurrenceForDate(event, key)
             return occurrence ? [eventForOccurrence(event, occurrence)] : []
           }).filter((event) => !hideCompletedTasks || !isCalendarEventPast(event, now))
-          return <button key={key} type="button" className={`${key === selectedDate ? 'is-selected' : ''} ${key === todayKey ? 'is-today' : ''}`} onClick={() => setSelectedDate(key)}><strong>{day.getDate()}</strong>{dayEvents.length > 0 ? <span className="calendar-cell-events">{dayEvents.slice(0, 2).map((event) => <span key={event.id} className={`event-${event.color} kind-${event.type} ${event.completed ? 'is-completed' : ''} ${isCalendarEventPast(event, now) ? 'is-past' : ''}`}><CalendarEventTypeMark type={event.type} size={10} /><span>{event.title || 'Evento'}</span>{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={9} /> : null}</span>)}</span> : null}</button>
+          return <button key={key} type="button" className={`${key === selectedDate ? 'is-selected' : ''} ${key === todayKey ? 'is-today' : ''}`} onClick={() => setSelectedDate(key)}><strong>{day.getDate()}</strong>{dayEvents.length > 0 ? <span className="calendar-cell-events">{dayEvents.slice(0, 2).map((event) => <span key={event.id} className={`event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}><CalendarEventTypeMark type={event.type} source={event.source} size={10} /><span>{event.title || 'Evento'}</span>{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={9} /> : null}</span>)}</span> : null}</button>
         })}</div>
       </section>
       <div className="calendar-side-column">
+        <CalendarConnectionsPanel accounts={accounts} onConnected={onConnected} onSync={onSync} onDisconnect={onDisconnect} />
         <aside className="calendar-day-panel">
           <header><div><p className="eyebrow">Agenda del día</p><h2>{calendarDayFormatter.format(new Date(`${selectedDate}T12:00:00`))}</h2></div><button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />Nuevo</button></header>
           <div className="calendar-day-events">{selectedEvents.length > 0 ? selectedEvents.map((event) => {
             const isPast = isCalendarEventPast(event, now)
-            return <button key={event.id} type="button" className={`calendar-day-event event-${event.color} kind-${event.type} ${event.completed ? 'is-completed' : ''} ${isPast ? 'is-past' : ''}`} onClick={() => openEditor(event.id)}><span className="calendar-event-time">{formatCalendarEventTimeForDay(event, selectedDate)}</span><span><strong><CalendarEventTypeMark type={event.type} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.completed ? 'Tarea completada' : isPast ? `Finalizado · ${formatCalendarEventTime(event)}` : event.location || event.notes || (event.date !== event.endDate ? `${formatCalendarEventTime(event)}` : 'Sin detalles')}</small></span><ChevronRight size={18} /></button>
+            return <button key={event.id} type="button" disabled={event.source === 'native'} className={`calendar-day-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isPast ? 'is-past' : ''}`} onClick={() => openEditor(event.id)}><span className="calendar-event-time">{formatCalendarEventTimeForDay(event, selectedDate)}</span><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? 'Tarea completada' : isPast ? `Finalizado · ${formatCalendarEventTime(event)}` : event.location || event.notes || (event.date !== event.endDate ? `${formatCalendarEventTime(event)}` : 'Sin detalles')}</small></span>{event.source === 'native' ? <span className="native-calendar-badge">Tablet</span> : <ChevronRight size={18} />}</button>
           }) : <div className="calendar-day-empty"><CalendarDays size={27} /><strong>Este día está libre</strong><span>Añade una cita o recordatorio.</span><button type="button" onClick={createEvent}><Plus size={17} />Crear evento</button></div>}</div>
         </aside>
-        <CalendarConnectionsPanel accounts={accounts} calendars={calendars} onConnected={onConnected} onSync={onSync} onDisconnect={onDisconnect} onCalendarVisibilityChange={onCalendarVisibilityChange} />
         <aside className="calendar-upcoming-panel">
           <header><div><p className="eyebrow">Tu agenda</p><h2>Próximos eventos</h2></div><CalendarDays size={21} /></header>
-          <div className="calendar-upcoming-list">{upcomingEvents.length > 0 ? upcomingEvents.map((event) => <button key={event.id} type="button" className={`calendar-upcoming-event event-${event.color} kind-${event.type} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><i /><span><strong><CalendarEventTypeMark type={event.type} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.completed ? `Completada · ${formatCalendarEventTime(event, todayKey)}` : formatCalendarEventTime(event, todayKey)}</small></span><ChevronRight size={17} /></button>) : <div className="calendar-upcoming-empty"><span>No hay próximos eventos.</span></div>}</div>
+          <div className="calendar-upcoming-list">{upcomingEvents.length > 0 ? upcomingEvents.map((event) => <button key={event.id} type="button" disabled={event.source === 'native'} className={`calendar-upcoming-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><i /><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? `Completada · ${formatCalendarEventTime(event, todayKey)}` : formatCalendarEventTime(event, todayKey)}</small></span>{event.source === 'native' ? <span className="native-calendar-badge">Tablet</span> : <ChevronRight size={17} />}</button>) : <div className="calendar-upcoming-empty"><span>No hay próximos eventos.</span></div>}</div>
         </aside>
       </div>
     </div>
