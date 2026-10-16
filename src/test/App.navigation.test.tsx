@@ -21,6 +21,20 @@ describe('navegación y flujos principales', () => {
     expect(screen.getByText('Buenos días, Pablo')).toBeInTheDocument()
   })
 
+  it('permite deslizar desde la caja de cuentas y visibilidad del calendario', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+    const connectionsPanel = screen.getByRole('heading', { name: 'Cuentas y visibilidad' }).closest('.calendar-connections')
+    expect(connectionsPanel).not.toHaveAttribute('data-swipe-block')
+
+    fireEvent.touchStart(connectionsPanel!, { changedTouches: [{ clientX: 500, clientY: 200 }] })
+    fireEvent.touchEnd(connectionsPanel!, { changedTouches: [{ clientX: 350, clientY: 205 }] })
+
+    expect(screen.getByText('Reloj')).toBeInTheDocument()
+  })
+
   it('abre Ajustes desde la navegación contextual y regresa al dashboard', async () => {
     const user = userEvent.setup()
     render(<App />)

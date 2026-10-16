@@ -51,7 +51,7 @@ export function CalendarConnectionsPanel({ accounts, calendars, onConnected, onS
     }
   }
 
-  return <section className="calendar-connections" data-swipe-block>
+  return <section className="calendar-connections">
     <header><div><p className="eyebrow">Calendarios</p><h2>Cuentas y visibilidad</h2></div></header>
     <p className="calendar-connections-help">El calendario local siempre funciona. Google y Outlook son opcionales y pueden usarse por separado o a la vez.</p>
     <div className="calendar-provider-list">{(['google', 'outlook'] as const).map((provider) => {
@@ -64,6 +64,6 @@ export function CalendarConnectionsPanel({ accounts, calendars, onConnected, onS
     })}</div>
     {calendars.length > 0 ? <div className="calendar-visibility-list">{calendars.map((calendar) => <label key={calendar.id}><input type="checkbox" checked={calendar.visible} onChange={(event) => onCalendarVisibilityChange(calendar.id, event.target.checked)} /><i className={`event-${calendar.color}`} /><span>{calendar.name}{' '}<small>{providerLabel(calendar.provider)}</small></span></label>)}</div> : null}
     {error ? <p className="calendar-connection-error"><CloudOff size={16} />{error}</p> : null}
-    {pairing ? <div className="calendar-pairing" role="dialog" aria-modal="true" aria-label={`Conectar ${providerLabel(pairing.provider)}`}><section><button type="button" onClick={() => setPairing(null)} aria-label="Cerrar"><X size={19} /></button><CalendarDays size={28} /><h3>Conectar {providerLabel(pairing.provider)}</h3><p>Escanea el QR con tu móvil e inicia sesión con tu cuenta. La tablet detectará la conexión automáticamente.</p>{qr ? <img src={qr} alt="Código QR de conexión" /> : <RefreshCw className="is-spinning" size={26} />}<small>Caduca a las {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(pairing.expiresAt))}</small></section></div> : null}
+    {pairing ? <div className="calendar-pairing" data-swipe-block role="dialog" aria-modal="true" aria-label={`Conectar ${providerLabel(pairing.provider)}`}><section><button type="button" onClick={() => setPairing(null)} aria-label="Cerrar"><X size={19} /></button><CalendarDays size={28} /><h3>Conectar {providerLabel(pairing.provider)}</h3><p>Escanea el QR con tu móvil e inicia sesión con tu cuenta. La tablet detectará la conexión automáticamente.</p>{qr ? <img src={qr} alt="Código QR de conexión" /> : <RefreshCw className="is-spinning" size={26} />}<small>Caduca a las {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(pairing.expiresAt))}</small></section></div> : null}
   </section>
 }
