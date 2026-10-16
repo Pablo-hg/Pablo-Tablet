@@ -971,7 +971,7 @@ function App() {
       onClickCapture={handleClickCapture}
       onClick={handleClick}
     >
-      <section className="tablet-content" aria-label="Pablo Tablet">
+      <section className={`tablet-content ${screen === 'settings' ? 'is-settings' : ''}`} aria-label="Pablo Tablet">
         {screen === 'home' && activePage?.id === 'assistant' ? (
           <AssistantPage
             enabled={dashboardState.preferences.assistantEnabled}

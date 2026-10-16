@@ -9,6 +9,7 @@
 .orb-two { right: -20vw; bottom: -46vw; background: radial-gradient(circle, rgba(32, 211, 184, .35), rgba(32, 211, 184, 0) 68%); }
 .grid-glow { position: absolute; inset: 0; opacity: .18; background-image: linear-gradient(rgba(255,255,255,.18) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.18) 1px, transparent 1px); background-size: 48px 48px; mask-image: linear-gradient(to bottom, black, transparent 75%); }
 .tablet-content { box-sizing: border-box; height: 100svh; min-height: 100svh; overflow: hidden; padding: clamp(26px, 4vw, 54px); padding-bottom: calc(clamp(26px, 4vw, 54px) + env(safe-area-inset-bottom, 0px)); }
+.tablet-content.is-settings { padding-bottom: 0; }
 .dashboard-page, .settings-page { max-width: 1320px; margin: 0 auto; }
 .dashboard-header, .settings-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: clamp(24px, 4vh, 44px); }
 .eyebrow { color: var(--ui-text-subtle, #9dadcb); font-size: .76rem; font-weight: 700; letter-spacing: .12em; margin: 0 0 7px; text-transform: uppercase; }.welcome { font-size: clamp(1.25rem, 2vw, 1.6rem); font-weight: 600; margin: 0; }
@@ -497,7 +498,7 @@
 .notes-workspace textarea::placeholder { color: #8493af; }
 .notes-meta { color: #9eacc5; display: flex; font-size: .76rem; justify-content: space-between; }
 
-.settings-page { box-sizing: border-box; max-height: calc(100svh - clamp(52px, 8vw, 108px)); overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; padding: 20px 20px 110px; scrollbar-color: rgba(255,255,255,.24) transparent; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+.settings-page { box-sizing: border-box; max-height: calc(100svh - clamp(26px, 4vw, 54px)); overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; padding: 20px 20px calc(110px + env(safe-area-inset-bottom, 0px)); scrollbar-color: rgba(255,255,255,.24) transparent; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
 .settings-section { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 26px; margin-bottom: 20px; padding: clamp(18px, 3vw, 28px); }
 .settings-compact-grid { display: grid; }
 .section-heading { align-items: center; color: #bcd0ff; display: flex; justify-content: space-between; margin-bottom: 16px; }
@@ -821,7 +822,7 @@
 .revoke-all-devices:disabled { opacity: .48; }
 
 @media (min-width: 721px) and (orientation: landscape) {
-  .settings-page { height: 100%; max-height: 100%; max-width: 1020px; padding: 20px 20px 110px; }
+  .settings-page { height: 100%; max-height: 100%; max-width: 1020px; padding: 20px 20px calc(110px + env(safe-area-inset-bottom, 0px)); }
   .settings-header { margin-bottom: 20px; }
   .settings-header h1 { font-size: 2.3rem; }
   .settings-section { margin-bottom: 16px; padding: 18px; }
@@ -869,7 +870,7 @@
   .notes-workspace { min-height: 65svh; }
   .page-indicators { bottom: 31px; }
   .tablet-shell.has-navigation .page-indicators { bottom: 91px; }
-  .settings-page { box-sizing: border-box; contain: paint; height: 100%; max-height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 100px; -webkit-overflow-scrolling: touch; }
+  .settings-page { box-sizing: border-box; contain: paint; height: 100%; max-height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); -webkit-overflow-scrolling: touch; }
   .settings-header { align-items: center; background: rgba(18,31,58,.97); border: 1px solid rgba(255,255,255,.12); border-radius: 24px; box-shadow: 0 14px 30px rgba(5,13,30,.34); margin: 2px 0 26px; padding: 18px 20px; position: sticky; top: 2px; z-index: 5; }
   .settings-header h1 { font-size: clamp(2.1rem, 9vw, 3rem); }
   .settings-header .back-button { padding: 11px 15px; }
