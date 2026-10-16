@@ -21,7 +21,7 @@ describe('navegación y flujos principales', () => {
     expect(screen.getByText('Buenos días, Pablo')).toBeInTheDocument()
   })
 
-  it('permite deslizar desde la caja de cuentas y visibilidad del calendario', async () => {
+  it('permite deslizar desde la caja de cuentas sincronizadas del calendario', async () => {
     const user = userEvent.setup()
     render(<App />)
 
@@ -33,6 +33,27 @@ describe('navegación y flujos principales', () => {
     fireEvent.touchEnd(connectionsPanel!, { changedTouches: [{ clientX: 350, clientY: 205 }] })
 
     expect(screen.getByText('Reloj')).toBeInTheDocument()
+  })
+
+  it('resume las tareas del día y crea los eventos locales en naranja', async () => {
+    const user = userEvent.setup()
+    const now = new Date()
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const state = loadDashboardState()
+    state.calendarEvents = [{
+      id: 'task-today', source: 'local', accountId: null, calendarId: null, externalId: null, externalVersion: null, syncStatus: 'local',
+      type: 'task', recurrence: 'none', completed: false, title: 'Preparar informe', date, endDate: date,
+      startTime: '09:00', endTime: '10:00', allDay: false, timeZone: 'Europe/Madrid', location: '', notes: '', color: 'sun', reminders: [],
+      createdAt: `${date}T08:00:00.000Z`, updatedAt: `${date}T08:00:00.000Z`,
+    }]
+    window.localStorage.setItem('pablo-tablet.dashboard.v17', JSON.stringify(state))
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+    expect(screen.getByText('1 tarea')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Nuevo' }))
+    expect(document.querySelector('.calendar-color.event-sun')).toHaveClass('is-selected')
   })
 
   it('abre Ajustes desde la navegación contextual y regresa al dashboard', async () => {

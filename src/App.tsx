@@ -547,7 +547,7 @@ function App() {
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
       location: '',
       notes: '',
-      color: 'blue',
+      color: 'sun',
       reminders: [],
       createdAt,
       updatedAt: createdAt,
@@ -1819,7 +1819,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     <div className="calendar-widget-body">
       <section className="calendar-widget-month">
         <div className="calendar-widget-weekdays">{['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => <span key={day}>{day}</span>)}</div>
-        <div className="calendar-widget-month-grid">{monthCells.map((cell) => <span key={cell.key} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`}><strong>{cell.day}</strong>{cell.events.slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || 'Evento'}</small>)}</span>)}</div>
+        <div className="calendar-widget-month-grid">{monthCells.map((cell) => <span key={cell.key} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`}><strong>{cell.day}</strong>{summarizeCalendarCellEvents(cell.events, cell.key).slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || 'Evento'}</small>)}</span>)}</div>
       </section>
       {(agendaCount[sizeKey] ?? 0) > 0 ? <aside className="calendar-widget-agenda">
         <p>Próximos eventos</p>
@@ -1897,6 +1897,17 @@ function nativeCalendarClass(event: CalendarEvent) {
   return event.source === 'native' ? `is-native native-${event.nativeCategory ?? 'observance'}` : ''
 }
 
+function summarizeCalendarCellEvents(events: CalendarEvent[], date: string) {
+  const pendingTasks = events.filter((event) => event.type === 'task' && !event.completed)
+  if (pendingTasks.length === 0) return events
+  const taskSummary: CalendarEvent = {
+    ...pendingTasks[0],
+    id: `task-summary:${date}`,
+    title: `${pendingTasks.length} ${pendingTasks.length === 1 ? 'tarea' : 'tareas'}`,
+  }
+  return [taskSummary, ...events.filter((event) => event.type !== 'task')]
+}
+
 function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, onHideCompletedTasksChange, onCreate, onUpdate, onDelete, onSetDestination, onConnected, onSync, onDisconnect, onEditingChange }: { now: Date; events: CalendarEvent[]; accounts: CalendarAccount[]; calendars: SyncedCalendar[]; hideCompletedTasks: boolean; onHideCompletedTasksChange: (hidden: boolean) => void; onCreate: (date: string) => string; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onDelete: (eventId: string) => void; onSetDestination: (eventId: string, calendarId: string | null) => void; onConnected: (account: CalendarAccount, token: string) => Promise<void>; onSync: (accountId: string) => Promise<void>; onDisconnect: (accountId: string) => Promise<void>; onEditingChange: (isEditing: boolean) => void }) {
   const todayKey = toLocalDateKey(now)
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1))
@@ -1962,7 +1973,8 @@ function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, on
             const occurrence = calendarOccurrenceForDate(event, key)
             return occurrence ? [eventForOccurrence(event, occurrence)] : []
           }).filter((event) => !hideCompletedTasks || !isCalendarEventPast(event, now))
-          return <button key={key} type="button" className={`${key === selectedDate ? 'is-selected' : ''} ${key === todayKey ? 'is-today' : ''}`} onClick={() => setSelectedDate(key)}><strong>{day.getDate()}</strong>{dayEvents.length > 0 ? <span className="calendar-cell-events">{dayEvents.slice(0, 2).map((event) => <span key={event.id} className={`event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}><CalendarEventTypeMark type={event.type} source={event.source} size={10} /><span>{event.title || 'Evento'}</span>{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={9} /> : null}</span>)}</span> : null}</button>
+          const displayedEvents = summarizeCalendarCellEvents(dayEvents, key)
+          return <button key={key} type="button" className={`${key === selectedDate ? 'is-selected' : ''} ${key === todayKey ? 'is-today' : ''}`} onClick={() => setSelectedDate(key)}><strong>{day.getDate()}</strong>{displayedEvents.length > 0 ? <span className="calendar-cell-events">{displayedEvents.slice(0, 2).map((event) => <span key={event.id} className={`event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}><CalendarEventTypeMark type={event.type} source={event.source} size={10} /><span>{event.title || 'Evento'}</span>{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={9} /> : null}</span>)}</span> : null}</button>
         })}</div>
       </section>
       <div className="calendar-side-column">

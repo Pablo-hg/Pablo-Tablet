@@ -21,6 +21,11 @@ describe('sincronización de calendarios', () => {
     expect(mapOutlookEvent('m1', 'calendar', { id: 'e2', '@removed': { reason: 'deleted' } })?.deleted).toBe(true)
   })
 
+  it('muestra las reuniones sincronizadas sin color específico en azul', () => {
+    const event = mapOutlookEvent('m1', 'calendar', { id: 'meeting', subject: 'Reunión', start: { dateTime: '2026-10-20T10:00:00' }, end: { dateTime: '2026-10-20T11:00:00' } })
+    expect(event?.color).toBe('blue')
+  })
+
   it('mantiene el calendario local y permite Google y Outlook a la vez', () => {
     const account = { id: 'g1', provider: 'google' as const, email: 'p@example.com', displayName: 'P', status: 'syncing' as const, enabled: true, lastSyncedAt: null, error: null }
     const remote = mapGoogleEvent('g1', 'primary', { id: 'e1', summary: 'Google', start: { dateTime: '2026-10-12T10:00:00Z' }, end: { dateTime: '2026-10-12T11:00:00Z' } })!

@@ -10,6 +10,7 @@ describe('calendario nativo de la tablet', () => {
     expect(byTitle.get('Viernes Santo')).toMatchObject({ date: '2026-04-03', nativeCategory: 'holiday' })
     expect(byTitle.get('Día del Padre')).toMatchObject({ date: '2026-03-19', nativeCategory: 'observance' })
     expect(byTitle.get('Día de la Madre')).toMatchObject({ date: '2026-05-03', nativeCategory: 'observance' })
+    expect(new Set(events.map((event) => event.color))).toEqual(new Set(['mint']))
   })
 
   it('calcula automáticamente los dos cambios de hora de cada año', () => {

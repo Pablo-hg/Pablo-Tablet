@@ -62,8 +62,8 @@ function definitionsForYear(year: number): NativeDateDefinition[] {
 }
 
 const categoryColor: Record<NativeCalendarEventCategory, CalendarEventColor> = {
-  holiday: 'coral',
-  observance: 'sun',
+  holiday: 'mint',
+  observance: 'mint',
   'clock-change': 'mint',
 }
 
