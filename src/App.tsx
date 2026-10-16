@@ -873,6 +873,10 @@ function App() {
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return
+    if (screen !== 'home') {
+      pointerStart.current = null
+      return
+    }
     const target = event.target as HTMLElement
     const gestureBlocked = interactionLocked || target.closest('input, textarea, select, [data-swipe-block], .page-indicators, .navigation-reveal, .bottom-navigation')
     if (gestureBlocked) {
@@ -887,11 +891,12 @@ function App() {
 
   const handlePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return
-    if (!pointerStart.current || pointerStart.current.pointerId !== event.pointerId || screen !== 'home') return
+    if (!pointerStart.current || pointerStart.current.pointerId !== event.pointerId) return
     const deltaX = event.clientX - pointerStart.current.x
     const deltaY = event.clientY - pointerStart.current.y
     pointerStart.current = null
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (screen !== 'home') return
     if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
     suppressClick.current = true
     window.setTimeout(() => {
@@ -927,6 +932,10 @@ function App() {
   }
 
   const handleTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
+    if (screen !== 'home') {
+      touchStart.current = null
+      return
+    }
     const target = event.target as HTMLElement
     const isNoteTextarea = Boolean(target.closest('.note-editor textarea'))
     const gestureBlocked = (!isNoteTextarea && interactionLocked)
@@ -942,11 +951,12 @@ function App() {
   }
 
   const handleTouchEnd = (event: ReactTouchEvent<HTMLElement>) => {
-    if (!touchStart.current || screen !== 'home') return
+    if (!touchStart.current) return
     const touch = event.changedTouches[0]
     const deltaX = touch.clientX - touchStart.current.x
     const deltaY = touch.clientY - touchStart.current.y
     touchStart.current = null
+    if (screen !== 'home') return
     if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
     suppressClick.current = true
     window.setTimeout(() => {
