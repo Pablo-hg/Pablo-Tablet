@@ -381,7 +381,6 @@
 .calendar-connections { --calendar-muted: color-mix(in srgb, var(--ui-text-muted) 80%, var(--ui-text)); --calendar-danger: color-mix(in srgb, var(--ui-danger) 45%, var(--ui-text)); background: var(--ui-panel-solid); border: var(--ui-outline-width) solid var(--ui-border); border-radius: var(--ui-radius-panel); box-shadow: var(--ui-shadow); color: var(--ui-text); min-width: 0; padding: 16px; }
 .calendar-connections > header { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
 .calendar-connections h2 { font-size: 1rem; margin: 0; }
-.calendar-local-status { align-items: center; background: color-mix(in srgb, var(--ui-positive) 14%, var(--ui-panel-solid)); border: 1px solid var(--ui-positive); border-radius: 999px; color: var(--ui-text); display: flex; flex-shrink: 0; font-size: .68rem; font-weight: 800; gap: 5px; padding: 6px 9px; }
 .calendar-connections-help { color: var(--calendar-muted); font-size: .72rem; line-height: 1.5; margin: 10px 0 14px; }
 .calendar-provider-list { display: grid; gap: 7px; }
 .calendar-provider { align-items: center; background: var(--ui-control); border: var(--ui-outline-width) solid var(--ui-border); border-radius: var(--ui-radius-control); display: grid; gap: 8px; grid-template-columns: 32px minmax(0, 1fr) auto; padding: 10px; }

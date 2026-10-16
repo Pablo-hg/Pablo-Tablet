@@ -18,7 +18,7 @@ describe('panel de cuentas del calendario', () => {
     render(<CalendarConnectionsPanel accounts={[account]} calendars={[]} {...handlers} />)
     expect(screen.getByText(account.email)).toBeVisible()
     expect(screen.getByText(/Última sincronización:/)).toBeVisible()
-    expect(screen.getByText('Local activo')).toBeVisible()
+    expect(screen.queryByText('Local activo')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Sincronizar' }))
     expect(handlers.onSync).toHaveBeenCalledWith(account.id)
     fireEvent.click(screen.getByRole('button', { name: 'Desconectar Google' }))
