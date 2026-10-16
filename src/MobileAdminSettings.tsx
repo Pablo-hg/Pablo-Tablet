@@ -18,6 +18,7 @@ import {
   type PairingRequest,
   type PairingSession,
 } from './mobileAdmin'
+import { SettingToggle } from './components/settings/SettingsControls'
 
 const timeFormatter = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' })
 
@@ -219,10 +220,14 @@ export function MobileAdminSettings() {
         <Smartphone size={22} />
       </div>
 
-      <button type="button" className="mobile-access-toggle" role="switch" aria-checked={status?.enabled ?? false} disabled={busy || !status} onClick={() => void toggleAccess()}>
-        <span><strong>Permitir administración desde otros dispositivos</strong><small>Solo desde la red Wi-Fi privada activa.</small></span>
-        <i className={status?.enabled ? 'is-on' : ''} aria-hidden="true"><b /></i>
-      </button>
+      <SettingToggle
+        icon={<Wifi size={20} />}
+        title="Permitir administración desde otros dispositivos"
+        detail="Solo desde la red Wi-Fi privada activa."
+        checked={status?.enabled ?? false}
+        disabled={busy || !status}
+        onChange={() => void toggleAccess()}
+      />
 
       <div className={`mobile-server-status ${status?.running ? 'is-online' : 'is-offline'}`}>
         <span className="mobile-status-icon"><Wifi size={21} /></span>

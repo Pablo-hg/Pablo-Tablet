@@ -22,12 +22,12 @@ const recurrence = (value: unknown): CalendarEventRecurrence => {
   return 'none'
 }
 
-function colorFor(provider: CalendarProviderId, raw: unknown): CalendarEventColor {
+function colorFor(raw: unknown): CalendarEventColor {
   const value = text(raw).toLowerCase()
   if (value.includes('green') || value === '2' || value === '10') return 'mint'
   if (value.includes('red') || value.includes('orange') || value === '4' || value === '6') return 'coral'
   if (value.includes('yellow') || value === '5') return 'sun'
-  return provider === 'google' ? 'blue' : 'mint'
+  return 'blue'
 }
 
 export function mapGoogleEvent(accountId: string, calendarId: string, value: unknown): RemoteCalendarEvent | null {
@@ -54,7 +54,7 @@ export function mapGoogleEvent(accountId: string, calendarId: string, value: unk
     endDate: exclusiveEnd ? exclusiveEnd.toISOString().slice(0, 10) : datePart(endValue || startValue),
     startTime: allDay ? '00:00' : timePart(startValue), endTime: allDay ? '23:59' : timePart(endValue), allDay,
     timeZone: text(start.timeZone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid'),
-    location: text(raw.location), notes: text(raw.description), color: colorFor('google', raw.colorId),
+    location: text(raw.location), notes: text(raw.description), color: colorFor(raw.colorId),
     reminders,
     updatedAt: text(raw.updated, new Date().toISOString()),
   }
@@ -79,7 +79,7 @@ export function mapOutlookEvent(accountId: string, calendarId: string, value: un
     title: text(raw.subject, 'Sin título'), date: datePart(startValue), endDate: datePart(endValue || startValue),
     startTime: raw.isAllDay ? '00:00' : timePart(startValue), endTime: raw.isAllDay ? '23:59' : timePart(endValue), allDay: Boolean(raw.isAllDay),
     timeZone: text(start.timeZone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid'),
-    location: text(location.displayName), notes: text(body.contentPreview, text(raw.bodyPreview)), color: colorFor('outlook', raw.categories),
+    location: text(location.displayName), notes: text(body.contentPreview, text(raw.bodyPreview)), color: colorFor(raw.categories),
     reminders,
     updatedAt: text(raw.lastModifiedDateTime, new Date().toISOString()),
   }
@@ -93,7 +93,7 @@ export function mapRemoteCalendar(provider: CalendarProviderId, accountId: strin
     id: `${provider}:${encodeURIComponent(accountId)}:${encodeURIComponent(remoteId)}`,
     accountId, provider, remoteId,
     name: text(raw.summary, text(raw.name, 'Calendario')),
-    color: colorFor(provider, raw.backgroundColor ?? raw.color),
+    color: colorFor(raw.backgroundColor ?? raw.color),
     visible: true,
     readOnly: provider === 'google' ? text(raw.accessRole) === 'reader' : Boolean(raw.canEdit === false),
   }

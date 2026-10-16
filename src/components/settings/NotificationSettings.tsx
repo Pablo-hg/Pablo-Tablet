@@ -49,7 +49,7 @@ export function NotificationSettings() {
   }
 
   if (!status.supported) {
-    return <div className="settings-row notification-permission-row"><span className="settings-icon"><BellRing size={20} /></span><span className="settings-copy"><strong>Notificaciones</strong><small>Los permisos se comprueban en la aplicación Android.</small></span></div>
+    return <div className="settings-row notification-permission-row"><span className="settings-icon"><BellRing size={20} /></span><span className="settings-copy"><strong>Permisos de Android</strong><small>Comprueba al abrir la app que alarmas, temporizadores y recordatorios puedan avisar.</small></span></div>
   }
 
   if (status.display !== 'granted') {

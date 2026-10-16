@@ -1,7 +1,7 @@
 import type { CalendarEvent, CalendarEventColor, CalendarEventRecurrence, CalendarEventReminder, CalendarEventType } from '../dashboardState'
 
 export type CalendarProviderId = 'google' | 'outlook'
-export type CalendarSource = 'local' | CalendarProviderId
+export type CalendarSource = 'local' | 'native' | CalendarProviderId
 export type CalendarConnectionStatus = 'connecting' | 'connected' | 'syncing' | 'offline' | 'reauthorize' | 'error'
 export type CalendarEventSyncStatus = 'local' | 'synced' | 'pending-create' | 'pending-update' | 'pending-delete' | 'conflict' | 'error'
 

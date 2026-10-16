@@ -21,6 +21,53 @@ describe('navegación y flujos principales', () => {
     expect(screen.getByText('Buenos días, Pablo')).toBeInTheDocument()
   })
 
+  it('permite deslizar desde la caja de cuentas sincronizadas del calendario', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+    const connectionsPanel = screen.getByRole('heading', { name: 'Cuentas sincronizadas' }).closest('.calendar-connections')
+    expect(connectionsPanel).not.toHaveAttribute('data-swipe-block')
+
+    fireEvent.touchStart(connectionsPanel!, { changedTouches: [{ clientX: 500, clientY: 200 }] })
+    fireEvent.touchEnd(connectionsPanel!, { changedTouches: [{ clientX: 350, clientY: 205 }] })
+
+    expect(screen.getByText('Reloj')).toBeInTheDocument()
+  })
+
+  it('resume las tareas del día y crea los eventos locales en naranja', async () => {
+    const user = userEvent.setup()
+    const now = new Date()
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const state = loadDashboardState()
+    state.calendarEvents = [{
+      id: 'task-today', source: 'local', accountId: null, calendarId: null, externalId: null, externalVersion: null, syncStatus: 'local',
+      type: 'task', recurrence: 'none', completed: false, title: 'Preparar informe', date, endDate: date,
+      startTime: '09:00', endTime: '10:00', allDay: false, timeZone: 'Europe/Madrid', location: '', notes: '', color: 'sun', reminders: [],
+      createdAt: `${date}T08:00:00.000Z`, updatedAt: `${date}T08:00:00.000Z`,
+    }]
+    window.localStorage.setItem('pablo-tablet.dashboard.v17', JSON.stringify(state))
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+    expect(screen.getByText('1 tarea')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Nuevo' }))
+    expect(document.querySelector('.calendar-color.event-sun')).toHaveClass('is-selected')
+  })
+
+  it('agrupa los próximos eventos por mes sin mostrar la etiqueta Tablet', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-16T10:00:00'))
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+
+    expect(screen.getByText('noviembre de 2026')).toBeVisible()
+    expect(screen.getByText('diciembre de 2026')).toBeVisible()
+    expect(screen.queryByText('Tablet')).not.toBeInTheDocument()
+  })
+
   it('abre Ajustes desde la navegación contextual y regresa al dashboard', async () => {
     const user = userEvent.setup()
     render(<App />)
@@ -29,6 +76,20 @@ describe('navegación y flujos principales', () => {
     await user.click(screen.getByRole('button', { name: 'Ajustes' }))
     expect(screen.getByRole('heading', { name: 'Ajustes' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Páginas' })).toBeInTheDocument()
+
+    const categoryHeadings = ['Apariencia', 'Páginas', 'Asistente', 'Administración móvil', 'Pantalla', 'Sonido', 'Notificaciones', 'Salvapantallas', 'Actualizaciones', 'Sistema']
+    const categoryCards = categoryHeadings.map((name) => screen.getByRole('heading', { name }).closest('.settings-section'))
+    expect(categoryCards.every(Boolean)).toBe(true)
+    expect(new Set(categoryCards).size).toBe(categoryHeadings.length)
+    expect(document.querySelector('.settings-compact-grid')?.querySelectorAll(':scope > .settings-section')).toHaveLength(4)
+
+    const readResponsesToggle = screen.getByRole('switch', { name: /Leer respuestas automáticamente/ })
+    const mobileAdminToggle = screen.getByRole('switch', { name: /Permitir administración desde otros dispositivos/ })
+    expect(readResponsesToggle).toHaveClass('settings-row', 'toggle-row')
+    expect(mobileAdminToggle).toHaveClass('settings-row', 'toggle-row')
+    expect(readResponsesToggle.querySelector('.toggle')).toBeInTheDocument()
+    expect(mobileAdminToggle.querySelector('.toggle')).toBeInTheDocument()
+    expect(screen.getByText('Permisos de Android')).toBeInTheDocument()
 
     const rotationToggle = screen.getByRole('switch', { name: /Rotación automática/ })
     expect(rotationToggle).toHaveAttribute('aria-checked', 'true')

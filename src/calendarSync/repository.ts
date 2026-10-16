@@ -55,7 +55,7 @@ export function applyCalendarSync(
   }
   const nextCalendars = [
     ...calendars.filter((calendar) => calendar.accountId !== account.id),
-    ...result.calendars.map((calendar) => ({ ...calendar, visible: calendars.find((current) => current.id === calendar.id)?.visible ?? calendar.visible })),
+    ...result.calendars.map((calendar) => ({ ...calendar, visible: true })),
   ]
   const acknowledged = new Set(result.acknowledgedOutboxIds)
   const failed = new Map(result.failedOutbox.map((entry) => [entry.entryId, entry]))

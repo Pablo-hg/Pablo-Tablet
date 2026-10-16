@@ -1,20 +1,18 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
-import { CalendarDays, Check, CloudOff, RefreshCw, Unplug, X } from 'lucide-react'
-import type { CalendarAccount, CalendarPairing, CalendarProviderId, SyncedCalendar } from './contracts'
+import { CalendarDays, CloudOff, RefreshCw, Unplug, X } from 'lucide-react'
+import type { CalendarAccount, CalendarPairing, CalendarProviderId } from './contracts'
 import { calendarRelay } from './relayClient'
 import { providerLabel } from './repository'
 
 interface Props {
   accounts: CalendarAccount[]
-  calendars: SyncedCalendar[]
   onConnected: (account: CalendarAccount, token: string) => Promise<void>
   onSync: (accountId: string) => Promise<void>
   onDisconnect: (accountId: string) => Promise<void>
-  onCalendarVisibilityChange: (calendarId: string, visible: boolean) => void
 }
 
-export function CalendarConnectionsPanel({ accounts, calendars, onConnected, onSync, onDisconnect, onCalendarVisibilityChange }: Props) {
+export function CalendarConnectionsPanel({ accounts, onConnected, onSync, onDisconnect }: Props) {
   const [pairing, setPairing] = useState<CalendarPairing | null>(null)
   const [qr, setQr] = useState('')
   const [error, setError] = useState('')
@@ -51,9 +49,9 @@ export function CalendarConnectionsPanel({ accounts, calendars, onConnected, onS
     }
   }
 
-  return <section className="calendar-connections" data-swipe-block>
-    <header><div><p className="eyebrow">Calendarios</p><h2>Cuentas y visibilidad</h2></div><span className="calendar-local-status"><Check size={14} />Local activo</span></header>
-    <p className="calendar-connections-help">Marca o desmarca cada calendario para mostrar u ocultar sus eventos. La cuenta seguirá conectada.</p>
+  return <section className="calendar-connections">
+    <header><div><p className="eyebrow">Calendarios</p><h2>Cuentas sincronizadas</h2></div></header>
+    <p className="calendar-connections-help">El calendario local siempre funciona. Google y Outlook son opcionales y pueden usarse por separado o a la vez.</p>
     <div className="calendar-provider-list">{(['google', 'outlook'] as const).map((provider) => {
       const account = accounts.find((item) => item.provider === provider)
       return <article key={provider} className={`calendar-provider ${account ? 'is-connected' : ''}`}>
@@ -62,8 +60,7 @@ export function CalendarConnectionsPanel({ accounts, calendars, onConnected, onS
         <div className="calendar-provider-actions">{account ? <>{account.status === 'reauthorize' ? <button type="button" onClick={() => void onDisconnect(account.id).then(() => connect(provider))}>Reconectar</button> : <button type="button" disabled={account.status === 'syncing'} onClick={() => void onSync(account.id)}><RefreshCw className={account.status === 'syncing' ? 'is-spinning' : ''} size={15} />Sincronizar</button>}<button type="button" className="is-danger" onClick={() => void onDisconnect(account.id)} aria-label={`Desconectar ${providerLabel(provider)}`}><Unplug size={15} /></button></> : <button type="button" onClick={() => void connect(provider)}>Conectar</button>}</div>
       </article>
     })}</div>
-    {calendars.length > 0 ? <div className="calendar-visibility-list">{calendars.map((calendar) => <label key={calendar.id}><input type="checkbox" checked={calendar.visible} onChange={(event) => onCalendarVisibilityChange(calendar.id, event.target.checked)} /><i className={`event-${calendar.color}`} /><span>{calendar.name}{' '}<small>{providerLabel(calendar.provider)}</small></span></label>)}</div> : null}
     {error ? <p className="calendar-connection-error"><CloudOff size={16} />{error}</p> : null}
-    {pairing ? <div className="calendar-pairing" role="dialog" aria-modal="true" aria-label={`Conectar ${providerLabel(pairing.provider)}`}><section><button type="button" onClick={() => setPairing(null)} aria-label="Cerrar"><X size={19} /></button><CalendarDays size={28} /><h3>Conectar {providerLabel(pairing.provider)}</h3><p>Escanea el QR con tu móvil e inicia sesión con tu cuenta. La tablet detectará la conexión automáticamente.</p>{qr ? <img src={qr} alt="Código QR de conexión" /> : <RefreshCw className="is-spinning" size={26} />}<small>Caduca a las {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(pairing.expiresAt))}</small></section></div> : null}
+    {pairing ? <div className="calendar-pairing" data-swipe-block role="dialog" aria-modal="true" aria-label={`Conectar ${providerLabel(pairing.provider)}`}><section><button type="button" onClick={() => setPairing(null)} aria-label="Cerrar"><X size={19} /></button><CalendarDays size={28} /><h3>Conectar {providerLabel(pairing.provider)}</h3><p>Escanea el QR con tu móvil e inicia sesión con tu cuenta. La tablet detectará la conexión automáticamente.</p>{qr ? <img src={qr} alt="Código QR de conexión" /> : <RefreshCw className="is-spinning" size={26} />}<small>Caduca a las {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(pairing.expiresAt))}</small></section></div> : null}
   </section>
 }
