@@ -386,7 +386,6 @@
 .tablet-shell[data-theme] .settings-section { box-shadow: none; }
 
 .tablet-shell[data-theme] :where(
-  .status-pill,
   .back-button,
   .settings-row,
   .alarm-row,
@@ -843,7 +842,7 @@
   color: var(--theme-accent-contrast);
 }
 
-.tablet-shell[data-theme] :is(.btn.back-button, .btn.theme-option, .badge.status-pill) {
+.tablet-shell[data-theme] :is(.btn.back-button, .btn.theme-option) {
   --btn-color: transparent;
   color: var(--theme-text);
 }
@@ -897,7 +896,6 @@
 .tablet-shell[data-theme="brutalist"] .note-preview { background: #fffaf0; border: 3px solid #070707; color: #070707; }
 .tablet-shell[data-theme="brutalist"] .note-preview-drawing { border: 2px solid #070707; }
 
-.tablet-shell[data-theme="brutalist"] .status-pill { background: #c7b2ff; }
 .tablet-shell[data-theme="brutalist"] .navigation-reveal { background: #0758f8; color: #fff; }
 .tablet-shell[data-theme="brutalist"] .bottom-navigation { background: #fffaf0; }
 .tablet-shell[data-theme="brutalist"] .page-indicators button.is-home { background: #0758f8; border-color: #070707; color: #fff; }
@@ -970,7 +968,7 @@
 .tablet-shell[data-theme="brutalist"] .theme-option { background: #fffaf0; color: #070707; }
 .tablet-shell[data-theme="brutalist"] .theme-option.is-selected { background: #c7b2ff; border-color: #0758f8; }
 .tablet-shell[data-theme="brutalist"] :is(.welcome, .temperature, .focus-clock time, .clock-card .time) { font-weight: 900; letter-spacing: -.07em; }
-.tablet-shell[data-theme="brutalist"] :is(.status-pill, .back-button, .bottom-navigation, .navigation-reveal, .settings-row, .theme-option, .primary-action, .text-action) { border-width: 3px; box-shadow: 4px 5px 0 #070707; }
+.tablet-shell[data-theme="brutalist"] :is(.back-button, .bottom-navigation, .navigation-reveal, .settings-row, .theme-option, .primary-action, .text-action) { border-width: 3px; box-shadow: 4px 5px 0 #070707; }
 
 /* Theme picker */
 .settings-subheading { align-items: center; border-top: 1px solid var(--theme-border, rgba(255,255,255,.12)); color: var(--theme-accent, #bcd0ff); display: flex; justify-content: space-between; margin-top: 18px; padding-top: 17px; }

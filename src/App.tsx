@@ -22,7 +22,6 @@ import {
   FileText,
   Images,
   Home,
-  LockKeyhole,
   ListTodo,
   MapPin,
   Minus,
@@ -1645,10 +1644,6 @@ function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWe
         <div>
           <p className="eyebrow">Pablo Tablet</p>
           <p className="welcome">Buenos días, Pablo</p>
-        </div>
-        <div className="badge status-pill" aria-label="Estado de la tablet">
-          <LockKeyhole size={14} />
-          <span>Modo hogar</span>
         </div>
       </header>
       {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>Arrastra para mover · arrastra los bordes para ajustar</span><button type="button" onClick={finishEditing}><Check size={17} />Listo</button></div> : null}
