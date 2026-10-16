@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import {
@@ -1935,6 +1935,7 @@ function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, on
     .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.startTime.localeCompare(b.startTime))
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   const upcomingEvents = getUpcomingCalendarEvents(visibleEvents, now, currentTime, 5)
+  const currentMonthKey = todayKey.slice(0, 7)
 
   const changeMonth = (offset: number) => {
     const next = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1)
@@ -1983,12 +1984,17 @@ function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, on
           <header><div><p className="eyebrow">Agenda del día</p><h2>{calendarDayFormatter.format(new Date(`${selectedDate}T12:00:00`))}</h2></div><button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />Nuevo</button></header>
           <div className="calendar-day-events">{selectedEvents.length > 0 ? selectedEvents.map((event) => {
             const isPast = isCalendarEventPast(event, now)
-            return <button key={event.id} type="button" disabled={event.source === 'native'} className={`calendar-day-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isPast ? 'is-past' : ''}`} onClick={() => openEditor(event.id)}><span className="calendar-event-time">{formatCalendarEventTimeForDay(event, selectedDate)}</span><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? 'Tarea completada' : isPast ? `Finalizado · ${formatCalendarEventTime(event)}` : event.location || event.notes || (event.date !== event.endDate ? `${formatCalendarEventTime(event)}` : 'Sin detalles')}</small></span>{event.source === 'native' ? <span className="native-calendar-badge">Tablet</span> : <ChevronRight size={18} />}</button>
+            return <button key={event.id} type="button" disabled={event.source === 'native'} className={`calendar-day-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isPast ? 'is-past' : ''}`} onClick={() => openEditor(event.id)}><span className="calendar-event-time">{formatCalendarEventTimeForDay(event, selectedDate)}</span><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? 'Tarea completada' : isPast ? `Finalizado · ${formatCalendarEventTime(event)}` : event.location || event.notes || (event.date !== event.endDate ? `${formatCalendarEventTime(event)}` : 'Sin detalles')}</small></span>{event.source !== 'native' ? <ChevronRight size={18} /> : null}</button>
           }) : <div className="calendar-day-empty"><CalendarDays size={27} /><strong>Este día está libre</strong><span>Añade una cita o recordatorio.</span><button type="button" onClick={createEvent}><Plus size={17} />Crear evento</button></div>}</div>
         </aside>
         <aside className="calendar-upcoming-panel">
           <header><div><p className="eyebrow">Tu agenda</p><h2>Próximos eventos</h2></div><CalendarDays size={21} /></header>
-          <div className="calendar-upcoming-list">{upcomingEvents.length > 0 ? upcomingEvents.map((event) => <button key={event.id} type="button" disabled={event.source === 'native'} className={`calendar-upcoming-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><i /><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? `Completada · ${formatCalendarEventTime(event, todayKey)}` : formatCalendarEventTime(event, todayKey)}</small></span>{event.source === 'native' ? <span className="native-calendar-badge">Tablet</span> : <ChevronRight size={17} />}</button>) : <div className="calendar-upcoming-empty"><span>No hay próximos eventos.</span></div>}</div>
+          <div className="calendar-upcoming-list">{upcomingEvents.length > 0 ? upcomingEvents.map((event, index) => {
+            const eventMonthKey = event.date.slice(0, 7)
+            const previousMonthKey = index === 0 ? currentMonthKey : upcomingEvents[index - 1].date.slice(0, 7)
+            const showMonthSeparator = eventMonthKey !== previousMonthKey
+            return <Fragment key={event.id}>{showMonthSeparator ? <div className="calendar-upcoming-month"><span>{calendarMonthFormatter.format(new Date(`${eventMonthKey}-01T12:00:00`))}</span></div> : null}<button type="button" disabled={event.source === 'native'} className={`calendar-upcoming-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><i /><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? `Completada · ${formatCalendarEventTime(event, todayKey)}` : formatCalendarEventTime(event, todayKey)}</small></span>{event.source !== 'native' ? <ChevronRight size={17} /> : null}</button></Fragment>
+          }) : <div className="calendar-upcoming-empty"><span>No hay próximos eventos.</span></div>}</div>
         </aside>
       </div>
     </div>

@@ -56,6 +56,18 @@ describe('navegación y flujos principales', () => {
     expect(document.querySelector('.calendar-color.event-sun')).toHaveClass('is-selected')
   })
 
+  it('agrupa los próximos eventos por mes sin mostrar la etiqueta Tablet', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-16T10:00:00'))
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+
+    expect(screen.getByText('noviembre de 2026')).toBeVisible()
+    expect(screen.getByText('diciembre de 2026')).toBeVisible()
+    expect(screen.queryByText('Tablet')).not.toBeInTheDocument()
+  })
+
   it('abre Ajustes desde la navegación contextual y regresa al dashboard', async () => {
     const user = userEvent.setup()
     render(<App />)
