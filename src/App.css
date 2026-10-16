@@ -505,8 +505,9 @@
 .section-heading h2 { color: #f7f8ff; font-size: 1.15rem; margin: 0; }
 .section-heading .eyebrow { margin-bottom: 4px; }
 .settings-section .settings-row { background: rgba(255,255,255,.075); }
-.night-mode-settings { border: 1px solid rgba(143,169,224,.16); border-radius: 20px; display: grid; gap: 9px; padding: 8px; }
-.night-mode-settings.is-active { background: rgba(25,31,46,.72); border-color: rgba(155,177,222,.34); box-shadow: inset 0 0 30px rgba(0,0,0,.2); }
+.night-mode-settings { border: 0; border-radius: 0; display: grid; gap: 10px; padding: 0 0 0 16px; position: relative; }
+.night-mode-settings::before { background: var(--ui-action, #688eff); border-radius: 999px; bottom: 12px; content: ""; left: 0; opacity: .72; position: absolute; top: 12px; width: 3px; }
+.night-mode-settings.is-active { background: transparent; border: 0; box-shadow: none; }
 .night-mode-settings > .settings-row { margin: 0 !important; }
 .night-mode-settings.is-active > .settings-row .settings-icon { background: rgba(144,164,207,.18); color: #d9e2f5; }
 .night-mode-controls { display: grid; gap: 8px; }

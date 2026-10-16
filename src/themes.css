@@ -810,11 +810,12 @@
   .calendar-notes-field textarea::placeholder
 ) { color: var(--theme-subtle); }
 
-.tablet-shell[data-theme] .night-mode-settings { border-color: var(--theme-border); }
+.tablet-shell[data-theme] .night-mode-settings { border: 0; }
+.tablet-shell[data-theme] .night-mode-settings::before { background: var(--theme-accent); }
 .tablet-shell[data-theme] .night-mode-settings.is-active {
-  background: var(--theme-surface-soft);
-  border-color: var(--theme-border-strong);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-border) 45%, transparent);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 .tablet-shell[data-theme] .night-mode-settings.is-active > .settings-row .settings-icon {
   background: var(--theme-accent-soft);
@@ -961,7 +962,8 @@
 .tablet-shell[data-theme="brutalist"] :is(.mobile-server-status, .authorized-device, .pairing-request, .pairing-panel) { background: #fffaf0; border: 3px solid #070707; color: #070707; }
 .tablet-shell[data-theme="brutalist"] .mobile-server-status.is-online .mobile-status-icon { background: #73e7b7; border: 2px solid #070707; color: #070707; }
 .tablet-shell[data-theme="brutalist"] .authorized-devices-heading span { background: #ffdc2f; border: 2px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .night-mode-settings.is-active { background: #fff4a8; border: 4px solid #070707; box-shadow: 8px 9px 0 #070707; }
+.tablet-shell[data-theme="brutalist"] .night-mode-settings.is-active { background: transparent; border: 0; box-shadow: none; }
+.tablet-shell[data-theme="brutalist"] .night-mode-settings::before { background: #070707; width: 4px; }
 .tablet-shell[data-theme="brutalist"] .night-mode-settings.is-active > .settings-row { background: #fffaf0; }
 .tablet-shell[data-theme="brutalist"] .settings-list > .settings-row { background: #fffaf0; }
 .tablet-shell[data-theme="brutalist"] .settings-row { border-color: #070707; }
