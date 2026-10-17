@@ -13,8 +13,12 @@ describe('navegación y flujos principales', () => {
     render(<App />)
 
     expect(screen.getByText('Buenos días, Pablo')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Páginas del dashboard' }).querySelectorAll('svg')).toHaveLength(8)
     await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
     expect(screen.getByText('Tu agenda')).toBeInTheDocument()
+    const upcomingHeading = screen.getByRole('heading', { name: 'Próximos eventos' })
+    const connectionsHeading = screen.getByRole('heading', { name: 'Cuentas sincronizadas' })
+    expect(upcomingHeading.compareDocumentPosition(connectionsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Ir a Tiempo' }))
     expect(screen.getByText('Añade tu primera ubicación')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Ir a Inicio' }))
@@ -32,7 +36,7 @@ describe('navegación y flujos principales', () => {
     fireEvent.touchStart(connectionsPanel!, { changedTouches: [{ clientX: 500, clientY: 200 }] })
     fireEvent.touchEnd(connectionsPanel!, { changedTouches: [{ clientX: 350, clientY: 205 }] })
 
-    expect(screen.getByText('Reloj')).toBeInTheDocument()
+    expect(screen.getByText('Reloj', { selector: '.welcome' })).toBeInTheDocument()
   })
 
   it('resume las tareas del día y crea los eventos locales en naranja', async () => {
@@ -56,6 +60,53 @@ describe('navegación y flujos principales', () => {
     expect(document.querySelector('.calendar-color.event-sun')).toHaveClass('is-selected')
   })
 
+  it('abre el día seleccionado en una agenda horaria con el día anterior y posterior', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-16T08:00:00'))
+    const state = loadDashboardState()
+    state.calendarEvents = [{
+      id: 'event-next-day', source: 'local', accountId: null, calendarId: null, externalId: null, externalVersion: null, syncStatus: 'local',
+      type: 'event', recurrence: 'none', completed: false, title: 'Revisión médica', date: '2026-10-17', endDate: '2026-10-17',
+      startTime: '09:30', endTime: '10:45', allDay: false, timeZone: 'Europe/Madrid', location: 'Consulta 2', notes: '', color: 'coral', reminders: [],
+      createdAt: '2026-10-16T08:00:00.000Z', updatedAt: '2026-10-16T08:00:00.000Z',
+    }]
+    window.localStorage.setItem('pablo-tablet.dashboard.v17', JSON.stringify(state))
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+    const dayButton = screen.getByRole('button', { name: /^17.*Revisión médica/ })
+    const pointerCapture = vi.mocked(HTMLElement.prototype.setPointerCapture)
+    pointerCapture.mockClear()
+    fireEvent.pointerDown(dayButton, { button: 0, pointerId: 1, clientX: 120, clientY: 120 })
+    fireEvent.pointerUp(dayButton, { button: 0, pointerId: 1, clientX: 120, clientY: 120 })
+    fireEvent.click(dayButton)
+
+    expect(pointerCapture).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: /sábado, 17 de octubre/i })).toBeVisible()
+    expect(screen.getByLabelText('Agenda por horas del 2026-10-16 al 2026-10-18')).toBeVisible()
+    expect(screen.getByRole('button', { name: /Revisión médica.*09:30–10:45.*Consulta 2/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Día anterior' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Día siguiente' })).toBeVisible()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Volver al mes' }))
+    expect(screen.getByRole('heading', { name: 'octubre de 2026' })).toBeVisible()
+  })
+
+  it('abre directamente desde el widget del dashboard el día pulsado', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-17T10:00:00'))
+    render(<App />)
+
+    const dayButton = screen.getByRole('button', { name: /Abrir domingo, 25 de octubre/i })
+    fireEvent.pointerDown(dayButton, { button: 0, pointerId: 1, clientX: 120, clientY: 120 })
+    fireEvent.pointerUp(dayButton, { button: 0, pointerId: 1, clientX: 120, clientY: 120 })
+    fireEvent.click(dayButton)
+
+    expect(screen.getByRole('heading', { name: /domingo, 25 de octubre/i })).toBeVisible()
+    expect(screen.getByLabelText('Agenda por horas del 2026-10-24 al 2026-10-26')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Volver al mes' })).toBeVisible()
+  })
+
   it('agrupa los próximos eventos por mes sin mostrar la etiqueta Tablet', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-16T10:00:00'))
@@ -68,16 +119,15 @@ describe('navegación y flujos principales', () => {
     expect(screen.queryByText('Tablet')).not.toBeInTheDocument()
   })
 
-  it('abre Ajustes desde la navegación contextual y regresa al dashboard', async () => {
+  it('abre Ajustes directamente desde el dock y regresa al dashboard', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar navegación' }))
-    await user.click(screen.getByRole('button', { name: 'Ajustes' }))
+    await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
     expect(screen.getByRole('heading', { name: 'Ajustes' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Páginas' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Widgets y páginas' })).toBeInTheDocument()
 
-    const categoryHeadings = ['Apariencia', 'Páginas', 'Asistente', 'Administración móvil', 'Pantalla', 'Sonido', 'Notificaciones', 'Salvapantallas', 'Actualizaciones', 'Sistema']
+    const categoryHeadings = ['Apariencia', 'Widgets y páginas', 'Asistente', 'Administración móvil', 'Pantalla', 'Sonido', 'Notificaciones', 'Salvapantallas', 'Actualizaciones', 'Sistema']
     const categoryCards = categoryHeadings.map((name) => screen.getByRole('heading', { name }).closest('.settings-section'))
     expect(categoryCards.every(Boolean)).toBe(true)
     expect(new Set(categoryCards).size).toBe(categoryHeadings.length)
@@ -96,6 +146,12 @@ describe('navegación y flujos principales', () => {
     await user.click(rotationToggle)
     expect(rotationToggle).toHaveAttribute('aria-checked', 'false')
 
+    const nightModeToggle = screen.getByRole('switch', { name: /Modo nocturno/ })
+    const nightModeSettings = document.querySelector('.night-mode-settings')
+    expect(nightModeSettings).toHaveClass('is-enabled')
+    await user.click(nightModeToggle)
+    expect(nightModeSettings).not.toHaveClass('is-enabled')
+
     await user.click(screen.getByRole('radio', { name: /1\. Cálido/ }))
     expect(document.querySelector('.tablet-shell')).toHaveAttribute('data-theme', 'warm')
 
@@ -104,6 +160,69 @@ describe('navegación y flujos principales', () => {
 
     await user.click(screen.getByRole('button', { name: 'Volver al inicio' }))
     expect(screen.getByText('Buenos días, Pablo')).toBeInTheDocument()
+  })
+
+  it('permite activar widgets y páginas de forma independiente', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
+
+    const calendarWidget = screen.getByRole('switch', { name: /Widget Calendario/ })
+    const calendarPage = screen.getByRole('switch', { name: /Página Calendario/ })
+    const assistantWidget = screen.getByRole('switch', { name: /Widget Asistente/ })
+    expect(calendarWidget.closest('.dashboard-visibility-row')).toBe(calendarPage.closest('.dashboard-visibility-row'))
+    expect(calendarWidget).toHaveAttribute('aria-checked', 'true')
+    expect(calendarPage).toHaveAttribute('aria-checked', 'true')
+    expect(assistantWidget).toHaveAttribute('aria-checked', 'false')
+
+    await user.click(calendarWidget)
+    await user.click(assistantWidget)
+    expect(calendarWidget).toHaveAttribute('aria-checked', 'false')
+    expect(calendarPage).toHaveAttribute('aria-checked', 'true')
+    expect(assistantWidget).toHaveAttribute('aria-checked', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'Volver al inicio' }))
+    expect(document.querySelector('.calendar-widget')).not.toBeInTheDocument()
+    expect(document.querySelector('.assistant-widget')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ir a Calendario' })).toBeInTheDocument()
+  })
+
+  it('permite elegir el diseño, los nombres y la posición del paginador', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
+    await user.selectOptions(screen.getByLabelText('Diseño del paginador'), 'segmented')
+    await user.selectOptions(screen.getByLabelText('Posición del dock'), 'left')
+    await user.click(screen.getByRole('switch', { name: /Mostrar nombre de la página/ }))
+    await user.click(screen.getByRole('button', { name: 'Volver al inicio' }))
+
+    const paginator = screen.getByRole('navigation', { name: 'Páginas del dashboard' })
+    expect(paginator).toHaveClass('page-indicators--segmented', 'is-position-left', 'show-labels')
+    expect(paginator).toContainElement(screen.getByRole('button', { name: 'Ir a Ajustes' }))
+    expect(document.querySelector('.tablet-shell')).toHaveClass('page-nav-style-segmented', 'page-nav-position-left', 'page-nav-has-labels')
+    expect(screen.getByRole('button', { name: 'Ir a Calendario' })).toHaveTextContent('Calendario')
+    await waitFor(() => {
+      const stored = JSON.parse(window.localStorage.getItem('pablo-tablet.dashboard.v17')!)
+      expect(stored.preferences).toMatchObject({
+        pageNavigationStyle: 'segmented',
+        pageNavigationPosition: 'left',
+        showPageNavigationLabels: true,
+      })
+    })
+  })
+
+  it('mantiene el paginador visible en Ajustes y abre la página elegida', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
+    expect(screen.getByRole('navigation', { name: 'Páginas del dashboard' })).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+    expect(screen.queryByRole('heading', { name: 'Ajustes' })).not.toBeInTheDocument()
+    expect(screen.getByText('Tu agenda', { selector: '.eyebrow' })).toBeVisible()
   })
 
   it('crea y persiste una nota desde el flujo de navegación', async () => {

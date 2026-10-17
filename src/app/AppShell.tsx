@@ -1,17 +1,19 @@
 import type { HTMLAttributes, ReactNode } from 'react'
-import type { DashboardThemeId } from '../dashboardState'
+import type { DashboardThemeId, PageNavigationPosition, PageNavigationStyle } from '../dashboardState'
 
 interface AppShellProps extends Pick<HTMLAttributes<HTMLElement>, 'onPointerDown' | 'onPointerUp' | 'onPointerCancel' | 'onTouchStart' | 'onTouchEnd' | 'onTouchCancel' | 'onClickCapture' | 'onClick'> {
   themeId: DashboardThemeId
-  navigationVisible: boolean
   nightModeActive: boolean
+  pageNavigationStyle: PageNavigationStyle
+  pageNavigationPosition: PageNavigationPosition
+  showPageNavigationLabels: boolean
   children: ReactNode
 }
 
-export function AppShell({ themeId, navigationVisible, nightModeActive, children, ...eventHandlers }: AppShellProps) {
+export function AppShell({ themeId, nightModeActive, pageNavigationStyle, pageNavigationPosition, showPageNavigationLabels, children, ...eventHandlers }: AppShellProps) {
   return (
     <main
-      className={`tablet-shell ${navigationVisible ? 'has-navigation' : ''} ${nightModeActive ? 'is-night-mode' : ''}`}
+      className={`tablet-shell ${nightModeActive ? 'is-night-mode' : ''} page-nav-style-${pageNavigationStyle} page-nav-position-${pageNavigationPosition} ${showPageNavigationLabels ? 'page-nav-has-labels' : ''}`}
       data-theme={themeId}
       {...eventHandlers}
     >

@@ -4,18 +4,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppUpdateSettings } from '../components/settings/AppUpdateSettings'
 
 const updater = vi.hoisted(() => ({
+  simulated: false,
   checkForAppUpdate: vi.fn(),
+  confirmSimulatedWebInstallation: vi.fn(),
   downloadAppUpdate: vi.fn(),
   getInstalledAppVersion: vi.fn(),
   installDownloadedAppUpdate: vi.fn(),
+  resetSimulatedWebInstallation: vi.fn(),
 }))
 
 vi.mock('../appUpdater', () => ({
   appUpdatesSupported: () => true,
   checkForAppUpdate: updater.checkForAppUpdate,
+  confirmSimulatedWebInstallation: updater.confirmSimulatedWebInstallation,
   downloadAppUpdate: updater.downloadAppUpdate,
   getInstalledAppVersion: updater.getInstalledAppVersion,
   installDownloadedAppUpdate: updater.installDownloadedAppUpdate,
+  resetSimulatedWebInstallation: updater.resetSimulatedWebInstallation,
+  webUpdateSimulationEnabled: () => updater.simulated,
 }))
 
 const availableUpdate = {
@@ -35,6 +41,7 @@ const availableUpdate = {
 
 describe('AppUpdateSettings', () => {
   beforeEach(() => {
+    updater.simulated = false
     updater.checkForAppUpdate.mockReset().mockResolvedValue(availableUpdate)
     updater.downloadAppUpdate.mockReset().mockImplementation(async (_update, onProgress) => {
       onProgress?.({ phase: 'downloading', bytesDownloaded: 5 * 1024 * 1024, totalBytes: 10 * 1024 * 1024, percent: 50 })
@@ -44,6 +51,8 @@ describe('AppUpdateSettings', () => {
     })
     updater.getInstalledAppVersion.mockReset().mockResolvedValue({ currentVersionName: '0.2.0', currentVersionCode: 1001 })
     updater.installDownloadedAppUpdate.mockReset().mockResolvedValue({ permissionRequired: false, installerOpened: true })
+    updater.confirmSimulatedWebInstallation.mockReset()
+    updater.resetSimulatedWebInstallation.mockReset()
   })
 
   it('muestra la versión pública y separa descarga e instalación', async () => {
@@ -72,5 +81,23 @@ describe('AppUpdateSettings', () => {
 
     expect(await screen.findByText('Instalador abierto. Pulsa “Actualizar” en Android; al volver comprobaremos el resultado.')).toBeInTheDocument()
     expect(window.localStorage.getItem('pablo-tablet.pending-update-version')).toBe('0.2.0')
+  })
+
+  it('permite completar en web la instalación simulada y verificar la nueva versión', async () => {
+    updater.simulated = true
+    const user = userEvent.setup()
+    render(<AppUpdateSettings />)
+
+    await user.click(screen.getByRole('button', { name: 'Buscar actualizaciones' }))
+    await user.click(await screen.findByRole('button', { name: 'Descargar' }))
+    await user.click(await screen.findByRole('button', { name: 'Continuar con la instalación' }))
+
+    expect(screen.getByRole('dialog', { name: '¿Quieres actualizar esta aplicación?' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }))
+    expect(updater.confirmSimulatedWebInstallation).toHaveBeenCalledWith('0.2.0')
+
+    await user.click(screen.getByRole('button', { name: 'Comprobar instalación' }))
+    expect(await screen.findByText('Actualización completada. Versión instalada: 0.2.0.')).toBeInTheDocument()
+    expect(updater.installDownloadedAppUpdate).not.toHaveBeenCalled()
   })
 })

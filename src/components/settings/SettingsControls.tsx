@@ -47,6 +47,27 @@ export function SettingsSelect({
   )
 }
 
+export function SettingsTextSelect<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
+}) {
+  return (
+    <label className="settings-select-row">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value as T)}>
+        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+    </label>
+  )
+}
+
 export function SettingsRange({ icon, label, value, minimum, maximum = 100, disabled = false, onChange }: { icon: ReactNode; label: string; value: number; minimum: number; maximum?: number; disabled?: boolean; onChange: (value: number) => void }) {
   return (
     <label className={`settings-row settings-range-row ${disabled ? 'is-disabled' : ''}`}>
