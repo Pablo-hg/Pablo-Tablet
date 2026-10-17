@@ -107,13 +107,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION_NAME="${GITHUB_REF_NAME#v}"
+          RELEASE_NOTES_FILE=".github/release-notes/${GITHUB_REF_NAME}.md"
+          test -f "$RELEASE_NOTES_FILE" || { echo "Faltan las novedades en español: $RELEASE_NOTES_FILE" >&2; exit 1; }
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             "Pablo-Tablet-${VERSION_NAME}.apk" \
             "Pablo-Tablet-${VERSION_NAME}.apk.sha256" \
             "Pablo-Tablet-${VERSION_NAME}.apk.metadata.txt" \
             --verify-tag \
-            --generate-notes \
+            --notes-file "$RELEASE_NOTES_FILE" \
             --title "Pablo Tablet ${VERSION_NAME}"
 
       - name: Eliminar la clave temporal
