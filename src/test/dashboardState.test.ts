@@ -53,6 +53,30 @@ describe('migraciones del estado', () => {
     expect(loadDashboardState(JSON.stringify({ preferences: { themeId: 'inexistente' } })).preferences.themeId).toBe('original')
   })
 
+  it('conserva opciones válidas del paginador y descarta valores desconocidos', () => {
+    const configured = loadDashboardState(JSON.stringify({ preferences: {
+      pageNavigationStyle: 'labels',
+      pageNavigationPosition: 'right',
+      showPageNavigationLabels: true,
+    } }))
+    expect(configured.preferences).toMatchObject({
+      pageNavigationStyle: 'labels',
+      pageNavigationPosition: 'right',
+      showPageNavigationLabels: true,
+    })
+
+    const invalid = loadDashboardState(JSON.stringify({ preferences: {
+      pageNavigationStyle: 'unknown',
+      pageNavigationPosition: 'center',
+      showPageNavigationLabels: 'yes',
+    } }))
+    expect(invalid.preferences).toMatchObject({
+      pageNavigationStyle: 'dock',
+      pageNavigationPosition: 'bottom',
+      showPageNavigationLabels: false,
+    })
+  })
+
   it('mantiene el catálogo de diez temas con Original en quinta posición', () => {
     expect(DASHBOARD_THEMES).toHaveLength(10)
     expect(DASHBOARD_THEMES[4]).toMatchObject({ id: 'original', label: 'Original' })

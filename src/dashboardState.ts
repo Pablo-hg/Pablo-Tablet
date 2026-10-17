@@ -7,6 +7,10 @@ export type DashboardPageKind = 'grid' | 'fullscreen'
 
 export type DashboardThemeId = 'original' | 'warm' | 'amoled' | 'retro' | 'glass' | 'nordic' | 'swiss' | 'mediterranean' | 'monochrome' | 'brutalist'
 
+export type PageNavigationStyle = 'dock' | 'labels' | 'segmented' | 'minimal'
+
+export type PageNavigationPosition = 'bottom' | 'top' | 'left' | 'right'
+
 export interface DashboardThemeDefinition {
   id: DashboardThemeId
   label: string
@@ -22,6 +26,9 @@ export interface DashboardPageDefinition {
 export interface DashboardPreferences {
   themeId: DashboardThemeId
   navigationSeconds: number
+  pageNavigationStyle: PageNavigationStyle
+  pageNavigationPosition: PageNavigationPosition
+  showPageNavigationLabels: boolean
   enabledPageIds: DashboardPageId[]
   autoBrightness: boolean
   brightness: number
@@ -206,6 +213,9 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
   preferences: {
     themeId: 'original',
     navigationSeconds: 5,
+    pageNavigationStyle: 'dock',
+    pageNavigationPosition: 'bottom',
+    showPageNavigationLabels: false,
     enabledPageIds: DASHBOARD_PAGES.map((page) => page.id),
     autoBrightness: false,
     brightness: 75,
@@ -250,6 +260,8 @@ const PREVIOUS_STORAGE_KEYS = [
   'pablo-tablet.dashboard.v1',
 ] as const
 const NAVIGATION_OPTIONS = new Set([3, 5, 8])
+const PAGE_NAVIGATION_STYLES = new Set<PageNavigationStyle>(['dock', 'labels', 'segmented', 'minimal'])
+const PAGE_NAVIGATION_POSITIONS = new Set<PageNavigationPosition>(['bottom', 'top', 'left', 'right'])
 
 function readTime(value: unknown, fallback: string) {
   if (typeof value !== 'string') return fallback
@@ -636,6 +648,15 @@ export function loadDashboardState(serializedState?: string): DashboardState {
         navigationSeconds: NAVIGATION_OPTIONS.has(parsedPreferences.navigationSeconds ?? 0)
           ? parsedPreferences.navigationSeconds as number
           : DEFAULT_DASHBOARD_STATE.preferences.navigationSeconds,
+        pageNavigationStyle: PAGE_NAVIGATION_STYLES.has(parsedPreferences.pageNavigationStyle as PageNavigationStyle)
+          ? parsedPreferences.pageNavigationStyle as PageNavigationStyle
+          : DEFAULT_DASHBOARD_STATE.preferences.pageNavigationStyle,
+        pageNavigationPosition: PAGE_NAVIGATION_POSITIONS.has(parsedPreferences.pageNavigationPosition as PageNavigationPosition)
+          ? parsedPreferences.pageNavigationPosition as PageNavigationPosition
+          : DEFAULT_DASHBOARD_STATE.preferences.pageNavigationPosition,
+        showPageNavigationLabels: typeof parsedPreferences.showPageNavigationLabels === 'boolean'
+          ? parsedPreferences.showPageNavigationLabels
+          : DEFAULT_DASHBOARD_STATE.preferences.showPageNavigationLabels,
         autoBrightness: typeof parsedPreferences.autoBrightness === 'boolean'
           ? parsedPreferences.autoBrightness
           : DEFAULT_DASHBOARD_STATE.preferences.autoBrightness,

@@ -3,9 +3,12 @@ import { CheckCircle2, Download, LoaderCircle, RefreshCw, ShieldCheck, Smartphon
 import {
   appUpdatesSupported,
   checkForAppUpdate,
+  confirmSimulatedWebInstallation,
   downloadAppUpdate,
   getInstalledAppVersion,
   installDownloadedAppUpdate,
+  resetSimulatedWebInstallation,
+  webUpdateSimulationEnabled,
   type AppUpdateInfo,
   type AppUpdateProgress,
 } from '../../appUpdater'
@@ -40,12 +43,14 @@ function versionIsAtLeast(current: string, expected: string) {
 
 export function AppUpdateSettings() {
   const supported = appUpdatesSupported()
+  const simulated = webUpdateSimulationEnabled()
   const [update, setUpdate] = useState<AppUpdateInfo | null>(null)
   const [step, setStep] = useState<UpdateStep>('idle')
   const stepRef = useRef<UpdateStep>('idle')
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<AppUpdateProgress | null>(null)
+  const [showSimulatedInstaller, setShowSimulatedInstaller] = useState(false)
 
   const changeStep = (nextStep: UpdateStep) => {
     stepRef.current = nextStep
@@ -142,6 +147,12 @@ export function AppUpdateSettings() {
     setMessage('Preparando Android. En la siguiente pantalla pulsa “Actualizar”.')
     setError(null)
     try {
+      if (simulated) {
+        setShowSimulatedInstaller(true)
+        changeStep('awaiting-result')
+        setMessage('Instalador simulado abierto. Pulsa “Actualizar” en la ventana de Android.')
+        return
+      }
       const result = await installDownloadedAppUpdate()
       if (result.permissionRequired) {
         changeStep('awaiting-permission')
@@ -156,6 +167,30 @@ export function AppUpdateSettings() {
     }
   }
 
+  const completeSimulatedInstallation = () => {
+    if (!update?.latestVersionName) return
+    confirmSimulatedWebInstallation(update.latestVersionName)
+    setShowSimulatedInstaller(false)
+    setMessage('La instalación simulada ha terminado. Pulsa “Comprobar instalación”.')
+  }
+
+  const cancelSimulatedInstallation = () => {
+    setShowSimulatedInstaller(false)
+    changeStep('ready')
+    setMessage('Instalación cancelada. Puedes volver a intentarlo cuando quieras.')
+  }
+
+  const resetSimulation = () => {
+    resetSimulatedWebInstallation()
+    window.localStorage.removeItem(PENDING_UPDATE_VERSION_KEY)
+    setUpdate(null)
+    setProgress(null)
+    setMessage(null)
+    setError(null)
+    setShowSimulatedInstaller(false)
+    changeStep('idle')
+  }
+
   const busy = step === 'checking' || step === 'downloading' || step === 'verifying' || step === 'opening-installer' || step === 'checking-result'
   const downloadPercent = progress?.percent ?? null
   const progressBytes = progress && progress.totalBytes
@@ -168,7 +203,10 @@ export function AppUpdateSettings() {
     <div className="app-update-settings" aria-labelledby="app-update-title">
       <div className="settings-subheading app-update-heading">
         <div><p className="eyebrow">Sistema</p><h2 id="app-update-title">Actualizaciones</h2></div>
-        <ShieldCheck size={20} />
+        <div className="app-update-heading-actions">
+          {simulated ? <span className="app-update-demo-badge">Demo web</span> : null}
+          <ShieldCheck size={20} />
+        </div>
       </div>
 
       <div className="app-update-card">
@@ -217,10 +255,27 @@ export function AppUpdateSettings() {
           ) : null}
           {(step === 'ready' || step === 'awaiting-permission' || step === 'awaiting-result') ? <button type="button" onClick={() => void download()}>Volver a descargar</button> : null}
           {step === 'awaiting-result' ? <button type="button" onClick={() => void verifyPendingInstallation()}>Comprobar instalación</button> : null}
+          {simulated ? <button type="button" onClick={resetSimulation}>Reiniciar simulación</button> : null}
         </div>
         {message ? <p className="app-update-message">{message}</p> : null}
         {error ? <p className="app-update-message is-error" role="alert">{error}</p> : null}
       </div>
+      {showSimulatedInstaller ? (
+        <div className="simulated-installer-backdrop" role="presentation">
+          <section className="simulated-installer" role="dialog" aria-modal="true" aria-labelledby="simulated-installer-title">
+            <span className="simulated-installer-icon"><Smartphone size={28} /></span>
+            <div>
+              <p className="eyebrow">Instalador de Android · Simulación</p>
+              <h3 id="simulated-installer-title">¿Quieres actualizar esta aplicación?</h3>
+              <p>Se actualizará Pablo Tablet de la versión 0.3.6 a la 0.3.7. Tus datos se conservarán.</p>
+            </div>
+            <div className="simulated-installer-actions">
+              <button type="button" onClick={cancelSimulatedInstallation}>Cancelar</button>
+              <button type="button" className="is-primary" onClick={completeSimulatedInstallation}>Actualizar</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   )
 }
