@@ -74,7 +74,7 @@ import type { AssistantCommand } from './assistant/contracts'
 import { executeAssistantCommand } from './assistant/executor'
 import { DEFAULT_ALARM_SOUND, getDeviceAlarmSounds, previewAlarmSound, stopAlarmSoundPreview, type DeviceAlarmSound } from './alarmSounds'
 import { snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
-import { arrangeWidgets, DASHBOARD_COLUMNS, DASHBOARD_ROWS, placeWidgets, resizeWidgets, type DashboardOrientation, type DashboardWidgetId, type PlacedWidget, type WidgetPosition } from './widgetLayout'
+import { arrangeWidgets, DASHBOARD_COLUMNS, DASHBOARD_ROWS, DEFAULT_WIDGETS, placeWidgets, resizeWidgets, type DashboardOrientation, type DashboardWidgetId, type PlacedWidget, type WidgetPosition } from './widgetLayout'
 import { playInteractionSound } from './deviceSettings'
 import { deleteGalleryPhotoFile, galleryPhotoSource, pickGalleryPhotos } from './gallery'
 import { compactCalendarOutbox, createCalendarOutboxEntry } from './calendarSync/repository'
@@ -105,6 +105,12 @@ type CalendarEventPatch = Partial<Pick<CalendarEvent, 'type' | 'recurrence' | 'c
 type NotePatch = Partial<Pick<Note, 'title' | 'content' | 'drawing' | 'color' | 'pinned' | 'reminderAt'>>
 type WidgetResizeDirection = 'left' | 'right' | 'top' | 'bottom'
 
+function safeWidgetPosition(widgetId: DashboardWidgetId, orientation: DashboardOrientation): WidgetPosition {
+  const fallback = DEFAULT_WIDGETS.find((widget) => widget.id === widgetId)?.layouts[orientation] ?? { x: 0, y: 0, width: 1, height: 1 }
+  if (orientation === 'portrait' && widgetId === 'agenda') return { x: 0, y: 0, width: 3, height: 2 }
+  return { ...fallback }
+}
+
 const weekdayFormatter = new Intl.DateTimeFormat('es-ES', {
   weekday: 'long',
   day: 'numeric',
@@ -124,10 +130,10 @@ function createLocalId() {
 
 function App() {
   const [screen, setScreen] = useState<AppScreen>('home')
-  const [navigationVisible, setNavigationVisible] = useState(false)
   const [now, setNow] = useState(() => new Date())
   const [dashboardState, setDashboardState] = useState(loadDashboardState)
   const [activePageId, setActivePageId] = useState<DashboardPageId>('dashboard')
+  const [calendarInitialDate, setCalendarInitialDate] = useState<string | null>(null)
   const [interactionVersion, setInteractionVersion] = useState(0)
   const [interactionLocked, setInteractionLocked] = useState(false)
   const [simulatedAlert, setSimulatedAlert] = useState<SimulatedAlert | null>(null)
@@ -319,21 +325,11 @@ function App() {
   }, [registerInteraction, startRinging])
 
   useEffect(() => {
-    if (!navigationVisible) return
-    const timeout = window.setTimeout(
-      () => setNavigationVisible(false),
-      dashboardState.preferences.navigationSeconds * 1000,
-    )
-    return () => window.clearTimeout(timeout)
-  }, [dashboardState.preferences.navigationSeconds, interactionVersion, navigationVisible])
-
-  useEffect(() => {
     const preferences = dashboardState.preferences
     if (!preferences.screensaverEnabled || screen !== 'home' || interactionLocked || ringingAlert || simulatedAlert) {
       return
     }
     const timeout = window.setTimeout(() => {
-      setNavigationVisible(false)
       setScreensaverVisible(true)
     }, preferences.screensaverDelaySeconds * 1_000)
     return () => window.clearTimeout(timeout)
@@ -384,7 +380,6 @@ function App() {
   const goTo = (nextScreen: AppScreen) => {
     setScreensaverVisible(false)
     setScreen(nextScreen)
-    setNavigationVisible(false)
     setInteractionLocked(false)
     if (nextScreen === 'home') setActivePageId('dashboard')
   }
@@ -799,7 +794,7 @@ function App() {
     registerInteraction()
   }
 
-  const openCalendar = () => {
+  const openCalendar = (date?: string) => {
     if (!dashboardState.preferences.enabledPageIds.includes('calendar')) {
       updatePreferences({
         enabledPageIds: DASHBOARD_PAGES
@@ -807,6 +802,7 @@ function App() {
           .filter((id) => dashboardState.preferences.enabledPageIds.includes(id) || id === 'calendar'),
       })
     }
+    setCalendarInitialDate(date ?? null)
     setActivePageId('calendar')
     registerInteraction()
   }
@@ -835,24 +831,30 @@ function App() {
     registerInteraction()
   }
 
-  const setAssistantWidgetVisible = (visible: boolean) => {
+  const setWidgetVisible = (widgetId: DashboardWidgetId, visible: boolean) => {
     setDashboardState((current) => {
-      let widgets = current.widgets.map((widget) => widget.id === 'assistant' ? { ...widget, visible } : widget)
+      let widgets = current.widgets.map((widget) => widget.id === widgetId ? { ...widget, visible } : widget)
       if (!visible) return { ...current, widgets }
 
-      const assistant = widgets.find((widget) => widget.id === 'assistant')
-      if (!assistant) return current
-      const landscape = arrangeWidgets(widgets, 'landscape', 'assistant', assistant.layouts.landscape)
-      if (landscape) widgets = landscape
+      for (const orientation of ['landscape', 'portrait'] as const) {
+        const target = widgets.find((widget) => widget.id === widgetId)
+        if (!target) return current
+        const arranged = arrangeWidgets(widgets, orientation, widgetId, target.layouts[orientation])
+        if (arranged) {
+          widgets = arranged
+          continue
+        }
 
-      let portrait = arrangeWidgets(widgets, 'portrait', 'assistant', assistant.layouts.portrait)
-      if (!portrait) {
-        widgets = widgets.map((widget) => widget.id === 'agenda'
-          ? { ...widget, layouts: { ...widget.layouts, portrait: { ...widget.layouts.portrait, x: 0, y: 0, width: 3, height: 2 } } }
-          : widget)
-        portrait = arrangeWidgets(widgets, 'portrait', 'assistant', assistant.layouts.portrait)
+        const safeWidgets = widgets.map((widget) => ({
+          ...widget,
+          layouts: { ...widget.layouts, [orientation]: safeWidgetPosition(widget.id, orientation) },
+        }))
+        const safeTarget = safeWidgets.find((widget) => widget.id === widgetId)
+        widgets = safeTarget
+          ? arrangeWidgets(safeWidgets, orientation, widgetId, safeTarget.layouts[orientation]) ?? safeWidgets
+          : safeWidgets
       }
-      return { ...current, widgets: portrait ?? widgets }
+      return { ...current, widgets }
     })
   }
 
@@ -879,7 +881,7 @@ function App() {
       return
     }
     const target = event.target as HTMLElement
-    const gestureBlocked = interactionLocked || target.closest('input, textarea, select, [data-swipe-block], .page-indicators, .navigation-reveal, .bottom-navigation')
+    const gestureBlocked = interactionLocked || target.closest('button, a, input, textarea, select, [role="button"], [data-swipe-block], .page-indicators')
     if (gestureBlocked) {
       pointerStart.current = null
       return
@@ -922,7 +924,7 @@ function App() {
   const handleClick = (event: ReactMouseEvent<HTMLElement>) => {
     if (screen !== 'home') return
     const target = event.target as HTMLElement
-    if (target.closest('.page-indicators, .navigation-reveal, .bottom-navigation')) return
+    if (target.closest('.page-indicators')) return
     registerInteraction()
   }
 
@@ -940,7 +942,7 @@ function App() {
     const target = event.target as HTMLElement
     const isNoteTextarea = Boolean(target.closest('.note-editor textarea'))
     const gestureBlocked = (!isNoteTextarea && interactionLocked)
-      || target.closest('input, select, [data-swipe-block], .page-indicators, .navigation-reveal, .bottom-navigation')
+      || target.closest('button, a, input, select, [role="button"], [data-swipe-block], .page-indicators')
       || (!isNoteTextarea && target.closest('textarea'))
     if (gestureBlocked) {
       touchStart.current = null
@@ -971,8 +973,10 @@ function App() {
   return (
     <AppShell
       themeId={activeThemeId}
-      navigationVisible={navigationVisible}
       nightModeActive={nightModeActive}
+      pageNavigationStyle={dashboardState.preferences.pageNavigationStyle}
+      pageNavigationPosition={dashboardState.preferences.pageNavigationPosition}
+      showPageNavigationLabels={dashboardState.preferences.showPageNavigationLabels}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
@@ -1051,6 +1055,7 @@ function App() {
             onOpenNotes={openNotes}
             onOpenWeather={openWeather}
             onOpenCalendar={openCalendar}
+            calendarInitialDate={calendarInitialDate}
             onOpenAssistant={openAssistant}
             onChangeWidgetLayout={updateWidgetLayout}
             onEditingChange={setInteractionLocked}
@@ -1058,11 +1063,11 @@ function App() {
         ) : (
           <SettingsPage
             preferences={dashboardState.preferences}
+            widgets={dashboardState.widgets}
             onBack={() => goTo('home')}
             onPreferencesChange={updatePreferences}
             onTogglePage={togglePage}
-            assistantWidgetVisible={dashboardState.widgets.find((widget) => widget.id === 'assistant')?.visible ?? false}
-            onAssistantWidgetVisibilityChange={setAssistantWidgetVisible}
+            onWidgetVisibilityChange={setWidgetVisible}
             nightModeActive={nightModeActive}
           />
         )}
@@ -1076,13 +1081,15 @@ function App() {
         screen={screen}
         enabledPages={enabledPages}
         activePageIndex={activePageIndex}
-        navigationVisible={navigationVisible}
-        onMoveToPage={moveToPage}
-        onToggleNavigation={() => {
-          setNavigationVisible((visible) => !visible)
-          setInteractionVersion((version) => version + 1)
+        pageNavigationStyle={dashboardState.preferences.pageNavigationStyle}
+        pageNavigationPosition={dashboardState.preferences.pageNavigationPosition}
+        showPageNavigationLabels={dashboardState.preferences.showPageNavigationLabels}
+        onMoveToPage={(index) => {
+          if (screen === 'settings') {
+            setScreen('home')
+          }
+          moveToPage(index)
         }}
-        onGoHome={() => goTo('home')}
         onGoSettings={() => goTo('settings')}
       />
     </AppShell>
@@ -1145,6 +1152,7 @@ function DashboardPage({
   onOpenNotes,
   onOpenWeather,
   onOpenCalendar,
+  calendarInitialDate,
   onOpenAssistant,
   onChangeWidgetLayout,
   onEditingChange,
@@ -1203,13 +1211,14 @@ function DashboardPage({
   onPreviewNotification: (title: string, body: string) => void
   onOpenNotes: (noteId?: string) => void
   onOpenWeather: () => void
-  onOpenCalendar: () => void
+  onOpenCalendar: (date?: string) => void
+  calendarInitialDate: string | null
   onOpenAssistant: () => void
   onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void
   onEditingChange: (isEditing: boolean) => void
 }) {
   if (page.id === 'clock') return <ClockPage time={time} date={date} now={now} alarms={alarms} timers={timers} stopwatch={stopwatch} onCreateAlarm={onCreateAlarm} onUpdateAlarm={onUpdateAlarm} onDeleteAlarm={onDeleteAlarm} onCreateTimer={onCreateTimer} onUpdateTimer={onUpdateTimer} onDeleteTimer={onDeleteTimer} onToggleStopwatch={onToggleStopwatch} onResetStopwatch={onResetStopwatch} onPreviewNotification={onPreviewNotification} />
-  if (page.id === 'calendar') return <CalendarPage now={now} events={calendarEvents} accounts={calendarAccounts} calendars={externalCalendars} hideCompletedTasks={hideCompletedCalendarTasks} onHideCompletedTasksChange={onHideCompletedCalendarTasksChange} onCreate={onCreateCalendarEvent} onUpdate={onUpdateCalendarEvent} onDelete={onDeleteCalendarEvent} onSetDestination={onSetCalendarEventDestination} onConnected={onConnectCalendarAccount} onSync={onSyncCalendarAccount} onDisconnect={onDisconnectCalendarAccount} onEditingChange={onEditingChange} />
+  if (page.id === 'calendar') return <CalendarPage now={now} initialDate={calendarInitialDate} events={calendarEvents} accounts={calendarAccounts} calendars={externalCalendars} hideCompletedTasks={hideCompletedCalendarTasks} onHideCompletedTasksChange={onHideCompletedCalendarTasksChange} onCreate={onCreateCalendarEvent} onUpdate={onUpdateCalendarEvent} onDelete={onDeleteCalendarEvent} onSetDestination={onSetCalendarEventDestination} onConnected={onConnectCalendarAccount} onSync={onSyncCalendarAccount} onDisconnect={onDisconnectCalendarAccount} onEditingChange={onEditingChange} />
   if (page.id === 'gallery') return <GalleryPage photos={galleryPhotos} onAddPhotos={onAddGalleryPhotos} onMoveToTrash={onMoveGalleryPhotoToTrash} onMoveSelectionToTrash={onMoveGalleryPhotosToTrash} onRestore={onRestoreGalleryPhoto} onPermanentlyDelete={onPermanentlyDeleteGalleryPhoto} onEditingChange={onEditingChange} />
   if (page.id === 'weather') return <WeatherPage locations={weatherLocations} homeLocationId={homeWeatherLocationId} selectedLocationId={selectedWeatherLocationId} forecasts={weatherForecasts} loading={weatherLoading} errors={weatherErrors} onAddLocation={onAddWeatherLocation} onRemoveLocation={onRemoveWeatherLocation} onSetHomeLocation={onSetHomeWeatherLocation} onSelectLocation={onSelectWeatherLocation} onRefresh={onRefreshWeather} onEditingChange={onEditingChange} />
   if (page.id === 'notes') return <NotesPage notes={notes} onCreateNote={onCreateNote} onUpdateNote={onUpdateNote} onArchiveNote={onArchiveNote} onRestoreNote={onRestoreNote} onDeleteNote={onDeleteNote} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} />
@@ -1418,7 +1427,7 @@ function resizeWidgetFromEdge(initial: WidgetPosition, direction: WidgetResizeDi
   return { ...initial, height: initial.height + delta }
 }
 
-function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: () => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
+function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: (date?: string) => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
   const orientation = useDashboardOrientation()
   const [isEditing, setIsEditing] = useState(false)
   const [selectedWidgetId, setSelectedWidgetId] = useState<DashboardWidgetId | null>(null)
@@ -1660,7 +1669,7 @@ function DashboardEmptyState({ time, date }: { time: string; date: string }) {
     <p>Panel sin módulos</p>
     <time>{time}</time>
     <span>{date}</span>
-    <small>Configura los widgets desde el móvil vinculado.</small>
+    <small>Activa al menos un widget desde Ajustes.</small>
   </section>
 }
 
@@ -1730,7 +1739,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   onActivate: (action?: () => void) => void
   onOpenNotes: (noteId?: string) => void
   onOpenWeather: () => void
-  onOpenCalendar: () => void
+  onOpenCalendar: (date?: string) => void
   onOpenAssistant: () => void
 }) {
   const style = {
@@ -1811,22 +1820,22 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     ? new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(now)
     : `${visibleDayCount} días desde hoy`
 
-  return <DashboardWidgetFrame {...frameProps}><button type="button" className="agenda-card calendar-widget responsive-calendar-widget widget-card interactive-card" onClick={() => onActivate(onOpenCalendar)}>
-    <div className="calendar-widget-header">
+  return <DashboardWidgetFrame {...frameProps}><article className="agenda-card calendar-widget responsive-calendar-widget widget-card">
+    <button type="button" className="calendar-widget-header calendar-widget-open" onPointerDown={(event) => event.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar())}>
       <div className="widget-heading"><div className="heading-icon blue"><CalendarDays size={18} /></div><div><p className="widget-title">Calendario</p><p className="widget-subtitle">{calendarSubtitle}</p></div></div>
       <span>Ver calendario <ChevronRight size={17} /></span>
-    </div>
+    </button>
     <div className="calendar-widget-body">
       <section className="calendar-widget-month">
         <div className="calendar-widget-weekdays">{['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => <span key={day}>{day}</span>)}</div>
-        <div className="calendar-widget-month-grid">{monthCells.map((cell) => <span key={cell.key} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`}><strong>{cell.day}</strong>{summarizeCalendarCellEvents(cell.events, cell.key).slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || 'Evento'}</small>)}</span>)}</div>
+        <div className="calendar-widget-month-grid">{monthCells.map((cell) => <button key={cell.key} type="button" aria-label={`Abrir ${calendarDayFormatter.format(new Date(`${cell.key}T12:00:00`))}`} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(cell.key))}><strong>{cell.day}</strong>{summarizeCalendarCellEvents(cell.events, cell.key).slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || 'Evento'}</small>)}</button>)}</div>
       </section>
       {(agendaCount[sizeKey] ?? 0) > 0 ? <aside className="calendar-widget-agenda">
         <p>Próximos eventos</p>
-        {upcomingEvents.length > 0 ? upcomingEvents.slice(0, agendaCount[sizeKey]).map((event) => <span key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`}><i /><b><CalendarEventTypeMark type={event.type} source={event.source} />{event.title}</b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span>) : <span className="calendar-widget-empty"><Compass size={19} />Sin eventos próximos</span>}
+        {upcomingEvents.length > 0 ? upcomingEvents.slice(0, agendaCount[sizeKey]).map((event) => <button type="button" key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><CalendarEventTypeMark type={event.type} source={event.source} /><span>{event.title || 'Evento'}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>) : <span className="calendar-widget-empty"><Compass size={19} />Sin eventos próximos</span>}
       </aside> : null}
     </div>
-  </button></DashboardWidgetFrame>
+  </article></DashboardWidgetFrame>
 }
 
 function getUpcomingCalendarEvents(calendarEvents: CalendarEvent[], now: Date, time: string, limit = 3) {
@@ -1871,6 +1880,23 @@ function formatCalendarEventTimeForDay(event: CalendarEvent, selectedDate: strin
 
 const calendarMonthFormatter = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' })
 const calendarDayFormatter = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+const calendarDayColumnFormatter = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
+const CALENDAR_HOUR_HEIGHT = 64
+
+function calendarTimeMinutes(time: string) {
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+function calendarTimelineStyle(event: CalendarEvent, date: string): CSSProperties {
+  const startMinutes = event.date < date ? 0 : calendarTimeMinutes(event.startTime)
+  const endMinutes = event.endDate > date ? 24 * 60 : calendarTimeMinutes(event.endTime)
+  const durationMinutes = Math.max(30, endMinutes - startMinutes)
+  return {
+    top: `${(startMinutes / 60) * CALENDAR_HOUR_HEIGHT}px`,
+    height: `${Math.max(36, (durationMinutes / 60) * CALENDAR_HOUR_HEIGHT)}px`,
+  }
+}
 
 const CALENDAR_EVENT_TYPES: { value: CalendarEventType; label: string }[] = [
   { value: 'event', label: 'Evento' },
@@ -1908,14 +1934,20 @@ function summarizeCalendarCellEvents(events: CalendarEvent[], date: string) {
   return [taskSummary, ...events.filter((event) => event.type !== 'task')]
 }
 
-function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, onHideCompletedTasksChange, onCreate, onUpdate, onDelete, onSetDestination, onConnected, onSync, onDisconnect, onEditingChange }: { now: Date; events: CalendarEvent[]; accounts: CalendarAccount[]; calendars: SyncedCalendar[]; hideCompletedTasks: boolean; onHideCompletedTasksChange: (hidden: boolean) => void; onCreate: (date: string) => string; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onDelete: (eventId: string) => void; onSetDestination: (eventId: string, calendarId: string | null) => void; onConnected: (account: CalendarAccount, token: string) => Promise<void>; onSync: (accountId: string) => Promise<void>; onDisconnect: (accountId: string) => Promise<void>; onEditingChange: (isEditing: boolean) => void }) {
+function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompletedTasks, onHideCompletedTasksChange, onCreate, onUpdate, onDelete, onSetDestination, onConnected, onSync, onDisconnect, onEditingChange }: { now: Date; initialDate: string | null; events: CalendarEvent[]; accounts: CalendarAccount[]; calendars: SyncedCalendar[]; hideCompletedTasks: boolean; onHideCompletedTasksChange: (hidden: boolean) => void; onCreate: (date: string) => string; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onDelete: (eventId: string) => void; onSetDestination: (eventId: string, calendarId: string | null) => void; onConnected: (account: CalendarAccount, token: string) => Promise<void>; onSync: (accountId: string) => Promise<void>; onDisconnect: (accountId: string) => Promise<void>; onEditingChange: (isEditing: boolean) => void }) {
   const todayKey = toLocalDateKey(now)
-  const [visibleMonth, setVisibleMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1))
-  const [selectedDate, setSelectedDate] = useState(todayKey)
+  const initialDateKey = initialDate ?? todayKey
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const value = new Date(`${initialDateKey}T12:00:00`)
+    return new Date(value.getFullYear(), value.getMonth(), 1)
+  })
+  const [selectedDate, setSelectedDate] = useState(initialDateKey)
+  const [calendarView, setCalendarView] = useState<'month' | 'day'>(initialDate ? 'day' : 'month')
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
+  const dayViewScrollRef = useRef<HTMLDivElement>(null)
   const visibleYear = visibleMonth.getFullYear()
   const pageEvents = useMemo(
-    () => [...events.filter((event) => event.source !== 'native'), ...nativeCalendarEventsForYears([visibleYear, visibleYear + 1])],
+    () => [...events.filter((event) => event.source !== 'native'), ...nativeCalendarEventsForYears([visibleYear - 1, visibleYear, visibleYear + 1])],
     [events, visibleYear],
   )
   const editingEvent = pageEvents.find((event) => event.id === editingEventId)
@@ -1934,8 +1966,25 @@ function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, on
   }).filter((event) => !hideCompletedTasks || !isCalendarEventPast(event, now))
     .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.startTime.localeCompare(b.startTime))
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  const currentHour = now.getHours()
   const upcomingEvents = getUpcomingCalendarEvents(visibleEvents, now, currentTime, 5)
   const currentMonthKey = todayKey.slice(0, 7)
+  const dayViewDates = [-1, 0, 1].map((offset) => addDaysToDateKey(selectedDate, offset))
+  const dayViewEvents = dayViewDates.map((date) => visibleEvents.flatMap((event) => {
+    const occurrence = calendarOccurrenceForDate(event, date)
+    return occurrence ? [eventForOccurrence(event, occurrence)] : []
+  }).filter((event) => !hideCompletedTasks || !isCalendarEventPast(event, now))
+    .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.startTime.localeCompare(b.startTime)))
+  const calendarHours = Array.from({ length: 24 }, (_, hour) => hour)
+
+  useEffect(() => {
+    if (calendarView !== 'day') return
+    const animationFrame = window.requestAnimationFrame(() => {
+      const initialHour = selectedDate === todayKey ? Math.max(0, currentHour - 2) : 7
+      if (dayViewScrollRef.current) dayViewScrollRef.current.scrollTop = initialHour * CALENDAR_HOUR_HEIGHT
+    })
+    return () => window.cancelAnimationFrame(animationFrame)
+  }, [calendarView, currentHour, selectedDate, todayKey])
 
   const changeMonth = (offset: number) => {
     const next = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1)
@@ -1947,6 +1996,15 @@ function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, on
     setVisibleMonth(new Date(now.getFullYear(), now.getMonth(), 1))
     setSelectedDate(todayKey)
   }
+
+  const showDay = (date: string) => {
+    const value = new Date(`${date}T12:00:00`)
+    setSelectedDate(date)
+    setVisibleMonth(new Date(value.getFullYear(), value.getMonth(), 1))
+    setCalendarView('day')
+  }
+
+  const changeDay = (offset: number) => showDay(addDaysToDateKey(selectedDate, offset))
 
   const openEditor = (eventId: string) => {
     setEditingEventId(eventId)
@@ -1960,7 +2018,37 @@ function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, on
 
   return <div className="fullscreen-page calendar-page page-enter">
     <PageHeader pageLabel="Calendario" />
-    <div className="calendar-layout">
+    {calendarView === 'day' ? <section className="calendar-three-day-panel">
+      <header className="calendar-three-day-toolbar">
+        <button type="button" className="calendar-back-to-month" onClick={() => setCalendarView('month')}><ChevronLeft size={18} />Volver al mes</button>
+        <div className="calendar-three-day-title"><p className="eyebrow">Vista por horas</p><h1>{calendarDayFormatter.format(new Date(`${selectedDate}T12:00:00`))}</h1></div>
+        <div className="calendar-three-day-actions">
+          <button type="button" onClick={() => changeDay(-1)} aria-label="Día anterior"><ChevronLeft size={19} /></button>
+          <button type="button" className="calendar-today-button" onClick={() => showDay(todayKey)}>Hoy</button>
+          <button type="button" onClick={() => changeDay(1)} aria-label="Día siguiente"><ChevronRight size={19} /></button>
+          <button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />Nuevo</button>
+        </div>
+      </header>
+      <div className="calendar-three-day-viewport" aria-label={`Agenda por horas del ${dayViewDates[0]} al ${dayViewDates[2]}`}>
+        <div className="calendar-three-day-date-row">
+          <span className="calendar-time-corner">Todo el día</span>
+          {dayViewDates.map((date) => <button key={date} type="button" className={`${date === selectedDate ? 'is-selected' : ''} ${date === todayKey ? 'is-today' : ''}`} onClick={() => showDay(date)}><span>{calendarDayColumnFormatter.format(new Date(`${date}T12:00:00`))}</span>{date === todayKey ? <small>Hoy</small> : null}</button>)}
+        </div>
+        <div className="calendar-three-day-all-day">
+          <span />
+          {dayViewDates.map((date, columnIndex) => <div key={date}>{dayViewEvents[columnIndex].filter((event) => event.allDay).map((event) => <button key={event.id} type="button" disabled={event.source === 'native'} className={`calendar-timeline-all-day event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`} onClick={() => openEditor(event.id)}><CalendarEventTypeMark type={event.type} source={event.source} size={12} /><span>{event.title || 'Evento'}</span></button>)}</div>)}
+        </div>
+        <div ref={dayViewScrollRef} className="calendar-three-day-scroll">
+          <div className="calendar-three-day-grid">
+            <div className="calendar-time-axis">{calendarHours.map((hour) => <time key={hour}>{String(hour).padStart(2, '0')}:00</time>)}</div>
+            {dayViewDates.map((date, columnIndex) => <div key={date} className={`calendar-timeline-column ${date === selectedDate ? 'is-selected' : ''} ${date === todayKey ? 'is-today' : ''}`} aria-label={calendarDayFormatter.format(new Date(`${date}T12:00:00`))}>
+              {calendarHours.map((hour) => <span key={hour} className="calendar-hour-cell" />)}
+              {dayViewEvents[columnIndex].filter((event) => !event.allDay).map((event) => <button key={event.id} type="button" disabled={event.source === 'native'} style={calendarTimelineStyle(event, date)} className={`calendar-timeline-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><strong><CalendarEventTypeMark type={event.type} source={event.source} size={12} /><span>{event.title || 'Evento'}</span></strong><small>{formatCalendarEventTimeForDay(event, date)}{event.location ? ` · ${event.location}` : event.notes ? ` · ${event.notes}` : ''}</small></button>)}
+            </div>)}
+          </div>
+        </div>
+      </div>
+    </section> : <div className="calendar-layout">
       <section className="calendar-month-panel">
         <header className="calendar-toolbar">
           <div><p className="eyebrow">Agenda unificada</p><h1>{calendarMonthFormatter.format(visibleMonth)}</h1></div>
@@ -1975,11 +2063,10 @@ function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, on
             return occurrence ? [eventForOccurrence(event, occurrence)] : []
           }).filter((event) => !hideCompletedTasks || !isCalendarEventPast(event, now))
           const displayedEvents = summarizeCalendarCellEvents(dayEvents, key)
-          return <button key={key} type="button" className={`${key === selectedDate ? 'is-selected' : ''} ${key === todayKey ? 'is-today' : ''}`} onClick={() => setSelectedDate(key)}><strong>{day.getDate()}</strong>{displayedEvents.length > 0 ? <span className="calendar-cell-events">{displayedEvents.slice(0, 2).map((event) => <span key={event.id} className={`event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}><CalendarEventTypeMark type={event.type} source={event.source} size={10} /><span>{event.title || 'Evento'}</span>{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={9} /> : null}</span>)}</span> : null}</button>
+          return <button key={key} type="button" className={`${key === selectedDate ? 'is-selected' : ''} ${key === todayKey ? 'is-today' : ''}`} onClick={() => showDay(key)}><strong>{day.getDate()}</strong>{displayedEvents.length > 0 ? <span className="calendar-cell-events">{displayedEvents.slice(0, 2).map((event) => <span key={event.id} className={`event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}><CalendarEventTypeMark type={event.type} source={event.source} size={10} /><span>{event.title || 'Evento'}</span>{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={9} /> : null}</span>)}</span> : null}</button>
         })}</div>
       </section>
       <div className="calendar-side-column">
-        <CalendarConnectionsPanel accounts={accounts} onConnected={onConnected} onSync={onSync} onDisconnect={onDisconnect} />
         <aside className="calendar-day-panel">
           <header><div><p className="eyebrow">Agenda del día</p><h2>{calendarDayFormatter.format(new Date(`${selectedDate}T12:00:00`))}</h2></div><button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />Nuevo</button></header>
           <div className="calendar-day-events">{selectedEvents.length > 0 ? selectedEvents.map((event) => {
@@ -1996,8 +2083,9 @@ function CalendarPage({ now, events, accounts, calendars, hideCompletedTasks, on
             return <Fragment key={event.id}>{showMonthSeparator ? <div className="calendar-upcoming-month"><span>{calendarMonthFormatter.format(new Date(`${eventMonthKey}-01T12:00:00`))}</span></div> : null}<button type="button" disabled={event.source === 'native'} className={`calendar-upcoming-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><i /><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? `Completada · ${formatCalendarEventTime(event, todayKey)}` : formatCalendarEventTime(event, todayKey)}</small></span>{event.source !== 'native' ? <ChevronRight size={17} /> : null}</button></Fragment>
           }) : <div className="calendar-upcoming-empty"><span>No hay próximos eventos.</span></div>}</div>
         </aside>
+        <CalendarConnectionsPanel accounts={accounts} onConnected={onConnected} onSync={onSync} onDisconnect={onDisconnect} />
       </div>
-    </div>
+    </div>}
     {editingEvent ? <CalendarEventEditor event={editingEvent} calendars={calendars} onUpdate={onUpdate} onSetDestination={onSetDestination} onDelete={() => { onDelete(editingEvent.id); closeEditor() }} onClose={closeEditor} /> : null}
   </div>
 }

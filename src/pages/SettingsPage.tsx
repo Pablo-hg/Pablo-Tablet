@@ -1,24 +1,50 @@
-import { BellRing, Bot, CalendarDays, Clock3, CloudSun, FileText, Home, Images, LogOut, Mic, Moon, Palette, RotateCw, Sparkles, SunMedium, Volume2 } from 'lucide-react'
-import { DASHBOARD_PAGES, type DashboardPageId, type DashboardPreferences } from '../dashboardState'
+import { BellRing, Bot, CalendarDays, Clock3, CloudSun, FileText, Home, Images, LogOut, Mic, Moon, Palette, RotateCw, Sparkles, SunMedium, Type, Volume2 } from 'lucide-react'
+import { type DashboardPageId, type DashboardPreferences, type PageNavigationPosition, type PageNavigationStyle } from '../dashboardState'
+import type { DashboardWidget, DashboardWidgetId } from '../widgetLayout'
 import { playInteractionSound, previewDeviceVolume } from '../deviceSettings'
 import { exitTabletApp } from '../kioskMode'
 import { MobileAdminSettings } from '../MobileAdminSettings'
-import { ScreensaverDelaySelect, ScreenTimeoutSelect, SettingsRange, SettingsSelect, SettingToggle, TimeSetting } from '../components/settings/SettingsControls'
+import { ScreensaverDelaySelect, ScreenTimeoutSelect, SettingsRange, SettingsTextSelect, SettingToggle, TimeSetting } from '../components/settings/SettingsControls'
 import { ThemePicker } from '../components/settings/ThemePicker'
 import { AppUpdateSettings } from '../components/settings/AppUpdateSettings'
 import { NotificationSettings } from '../components/settings/NotificationSettings'
 
 export interface SettingsPageProps {
   preferences: DashboardPreferences
+  widgets: DashboardWidget[]
   onBack: () => void
   onPreferencesChange: (patch: Partial<DashboardPreferences>) => void
   onTogglePage: (pageId: DashboardPageId) => void
   nightModeActive: boolean
-  assistantWidgetVisible: boolean
-  onAssistantWidgetVisibilityChange: (visible: boolean) => void
+  onWidgetVisibilityChange: (widgetId: DashboardWidgetId, visible: boolean) => void
 }
 
-export function SettingsPage({ preferences, onBack, onPreferencesChange, onTogglePage, nightModeActive, assistantWidgetVisible, onAssistantWidgetVisibilityChange }: SettingsPageProps) {
+interface DashboardVisibilitySetting {
+  label: string
+  pageId: Exclude<DashboardPageId, 'dashboard'>
+  widgetId?: DashboardWidgetId
+  widgetDetail?: string
+}
+
+const DASHBOARD_VISIBILITY_SETTINGS: DashboardVisibilitySetting[] = [
+  { label: 'Calendario', pageId: 'calendar', widgetId: 'agenda', widgetDetail: 'Resumen del mes y próximos eventos.' },
+  { label: 'Reloj', pageId: 'clock', widgetId: 'clock', widgetDetail: 'Hora y fecha en el panel de inicio.' },
+  { label: 'Tiempo', pageId: 'weather', widgetId: 'weather', widgetDetail: 'Previsión de la ubicación marcada como Casa.' },
+  { label: 'Notas', pageId: 'notes', widgetId: 'notes', widgetDetail: 'Acceso a la nota destacada.' },
+  { label: 'Asistente', pageId: 'assistant', widgetId: 'assistant', widgetDetail: 'Acceso directo al asistente local.' },
+  { label: 'Galería', pageId: 'gallery' },
+]
+
+function dashboardIcon(id: DashboardWidgetId | DashboardPageId) {
+  if (id === 'clock') return <Clock3 size={20} />
+  if (id === 'calendar' || id === 'agenda') return <CalendarDays size={20} />
+  if (id === 'gallery') return <Images size={20} />
+  if (id === 'weather') return <CloudSun size={20} />
+  if (id === 'assistant') return <Sparkles size={20} />
+  return <FileText size={20} />
+}
+
+export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange, onTogglePage, nightModeActive, onWidgetVisibilityChange }: SettingsPageProps) {
   return (
     <div className="settings-page page-enter">
       <header className="settings-header">
@@ -35,18 +61,58 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
       </section>
 
       <section className="settings-section" data-swipe-block aria-labelledby="dashboard-settings-title">
-        <div className="section-heading"><div><p className="eyebrow">Dashboard</p><h2 id="dashboard-settings-title">Páginas</h2></div><Home size={22} /></div>
-        <SettingsSelect label="Ocultar navegación tras" value={preferences.navigationSeconds} options={[3, 5, 8]} suffix="s" onChange={(navigationSeconds) => onPreferencesChange({ navigationSeconds })} />
-        <div className="page-toggle-list">
-          {DASHBOARD_PAGES.filter((page) => page.id !== 'dashboard').map((page) => (
-            <SettingToggle
-              key={page.id}
-              icon={page.id === 'clock' ? <Clock3 size={20} /> : page.id === 'calendar' ? <CalendarDays size={20} /> : page.id === 'gallery' ? <Images size={20} /> : page.id === 'weather' ? <CloudSun size={20} /> : page.id === 'assistant' ? <Sparkles size={20} /> : <FileText size={20} />}
-              title={`Página ${page.label}`}
-              detail="Página fullscreen disponible mediante swipe y navegación."
-              checked={preferences.enabledPageIds.includes(page.id)}
-              onChange={() => onTogglePage(page.id)}
-            />
+        <div className="section-heading"><div><p className="eyebrow">Dashboard</p><h2 id="dashboard-settings-title">Widgets y páginas</h2></div><Home size={22} /></div>
+        <div className="page-navigation-settings">
+          <SettingsTextSelect<PageNavigationStyle>
+            label="Diseño del paginador"
+            value={preferences.pageNavigationStyle}
+            options={[
+              { value: 'dock', label: 'Dock compacto' },
+              { value: 'labels', label: 'Barra con nombres' },
+              { value: 'segmented', label: 'Segmentado' },
+              { value: 'minimal', label: 'Línea mínima' },
+            ]}
+            onChange={(pageNavigationStyle) => onPreferencesChange({ pageNavigationStyle })}
+          />
+          <SettingsTextSelect<PageNavigationPosition>
+            label="Posición del dock"
+            value={preferences.pageNavigationPosition}
+            options={[
+              { value: 'bottom', label: 'Abajo' },
+              { value: 'top', label: 'Arriba' },
+              { value: 'left', label: 'Izquierda' },
+              { value: 'right', label: 'Derecha' },
+            ]}
+            onChange={(pageNavigationPosition) => onPreferencesChange({ pageNavigationPosition })}
+          />
+          <SettingToggle
+            icon={<Type size={20} />}
+            title="Mostrar nombre de la página"
+            detail="Añade el nombre junto al icono en el paginador."
+            checked={preferences.showPageNavigationLabels}
+            onChange={(showPageNavigationLabels) => onPreferencesChange({ showPageNavigationLabels })}
+          />
+        </div>
+        <div className="dashboard-visibility-list">
+          {DASHBOARD_VISIBILITY_SETTINGS.map((setting) => (
+            <div key={setting.pageId} className={`dashboard-visibility-row ${setting.widgetId ? '' : 'is-page-only'}`}>
+              {setting.widgetId ? (
+                <SettingToggle
+                  icon={dashboardIcon(setting.widgetId)}
+                  title={`Widget ${setting.label}`}
+                  detail={setting.widgetDetail ?? ''}
+                  checked={widgets.find((current) => current.id === setting.widgetId)?.visible ?? false}
+                  onChange={(visible) => onWidgetVisibilityChange(setting.widgetId!, visible)}
+                />
+              ) : null}
+              <SettingToggle
+                icon={dashboardIcon(setting.pageId)}
+                title={`Página ${setting.label}`}
+                detail="Disponible mediante swipe y navegación."
+                checked={preferences.enabledPageIds.includes(setting.pageId)}
+                onChange={() => onTogglePage(setting.pageId)}
+              />
+            </div>
           ))}
         </div>
       </section>
@@ -55,7 +121,6 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
         <div className="section-heading"><div><p className="eyebrow">Privacidad</p><h2 id="assistant-settings-title">Asistente</h2></div><Bot size={22} /></div>
         <div className="page-toggle-list assistant-settings-list">
           <SettingToggle icon={<Sparkles size={20} />} title="Activar Asistente" detail="Procesamiento local seguro; no envía datos ni guarda la conversación." checked={preferences.assistantEnabled} onChange={(assistantEnabled) => onPreferencesChange({ assistantEnabled })} />
-          <SettingToggle icon={<Home size={20} />} title="Widget Asistente" detail="Añade un acceso configurable sin cambiar la cuadrícula 3 × 4." checked={assistantWidgetVisible} onChange={onAssistantWidgetVisibilityChange} />
           <SettingToggle icon={<Mic size={20} />} title="Entrada por voz" detail="El micrófono solo se activa al pulsar el botón." checked={preferences.assistantVoiceEnabled} disabled={!preferences.assistantEnabled} onChange={(assistantVoiceEnabled) => onPreferencesChange({ assistantVoiceEnabled })} />
           <SettingToggle icon={<Volume2 size={20} />} title="Leer respuestas automáticamente" detail="También puedes leer cada respuesta manualmente." checked={preferences.assistantReadAloud} disabled={!preferences.assistantEnabled} onChange={(assistantReadAloud) => onPreferencesChange({ assistantReadAloud })} />
         </div>
@@ -66,7 +131,7 @@ export function SettingsPage({ preferences, onBack, onPreferencesChange, onToggl
 
       <section className="settings-section settings-list" data-swipe-block aria-labelledby="display-settings-title">
         <div className="section-heading"><div><p className="eyebrow">Dispositivo</p><h2 id="display-settings-title">Pantalla</h2></div><SunMedium size={22} /></div>
-        <div className={`night-mode-settings ${nightModeActive ? 'is-active' : ''}`}>
+        <div className={`night-mode-settings ${preferences.nightModeEnabled ? 'is-enabled' : ''} ${nightModeActive ? 'is-active' : ''}`}>
           <SettingToggle
             icon={<Moon size={20} />}
             title={nightModeActive ? 'Modo nocturno activo' : 'Modo nocturno automático'}
