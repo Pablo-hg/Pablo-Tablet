@@ -20,6 +20,7 @@ vi.mock('../appUpdater', () => ({
   downloadAppUpdate: updater.downloadAppUpdate,
   getInstalledAppVersion: updater.getInstalledAppVersion,
   installDownloadedAppUpdate: updater.installDownloadedAppUpdate,
+  releaseNotesForUpdate: (update: { releaseNotes: string | null }) => update.releaseNotes,
   resetSimulatedWebInstallation: updater.resetSimulatedWebInstallation,
   webUpdateSimulationEnabled: () => updater.simulated,
 }))

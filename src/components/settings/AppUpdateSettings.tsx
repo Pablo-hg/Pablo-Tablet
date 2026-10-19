@@ -7,6 +7,7 @@ import {
   downloadAppUpdate,
   getInstalledAppVersion,
   installDownloadedAppUpdate,
+  releaseNotesForUpdate,
   resetSimulatedWebInstallation,
   webUpdateSimulationEnabled,
   type AppUpdateInfo,
@@ -198,6 +199,7 @@ export function AppUpdateSettings() {
     : progress ? formatBytes(progress.bytesDownloaded) : null
   const showProgress = ['downloading', 'verifying', 'ready', 'opening-installer', 'awaiting-permission', 'awaiting-result', 'checking-result'].includes(step)
   const versionLabel = update ? `Versión instalada: ${update.currentVersionName}` : 'Pulsa Buscar actualizaciones para comprobar el estado.'
+  const updateNotes = update ? releaseNotesForUpdate(update) : null
 
   return (
     <div className="app-update-settings" aria-labelledby="app-update-title">
@@ -219,7 +221,7 @@ export function AppUpdateSettings() {
         {update && !update.updateAvailable ? <CheckCircle2 className="app-update-ok" size={22} aria-label="Aplicación actualizada" /> : null}
       </div>
 
-      {update?.updateAvailable && update.releaseNotes ? <details className="app-update-notes"><summary>Ver novedades</summary><p>{update.releaseNotes}</p></details> : null}
+      {update?.updateAvailable && updateNotes ? <details className="app-update-notes"><summary>Ver novedades</summary><p>{updateNotes}</p></details> : null}
       {showProgress ? (
         <section className="app-update-progress" aria-label="Proceso de actualización">
           <ol className="app-update-steps">
