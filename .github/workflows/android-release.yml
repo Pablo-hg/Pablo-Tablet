@@ -102,6 +102,19 @@ jobs:
             --output "Pablo-Tablet-${VERSION_NAME}.apk.metadata.txt"
           sha256sum --check "Pablo-Tablet-${VERSION_NAME}.apk.sha256"
 
+      - name: Crear manifiesto de actualización
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          RELEASE_NOTES_FILE=".github/release-notes/${GITHUB_REF_NAME}.md"
+          test -f "$RELEASE_NOTES_FILE" || { echo "Faltan las novedades en español: $RELEASE_NOTES_FILE" >&2; exit 1; }
+          node scripts/create-update-manifest.mjs \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$GITHUB_REF_NAME" \
+            --apk "Pablo-Tablet-${VERSION_NAME}.apk" \
+            --sha256-file "Pablo-Tablet-${VERSION_NAME}.apk.sha256" \
+            --notes-file "$RELEASE_NOTES_FILE" \
+            --output "Pablo-Tablet-update.json"
+
       - name: Crear GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -114,6 +127,7 @@ jobs:
             "Pablo-Tablet-${VERSION_NAME}.apk" \
             "Pablo-Tablet-${VERSION_NAME}.apk.sha256" \
             "Pablo-Tablet-${VERSION_NAME}.apk.metadata.txt" \
+            "Pablo-Tablet-update.json" \
             --verify-tag \
             --notes-file "$RELEASE_NOTES_FILE" \
             --title "Pablo Tablet ${VERSION_NAME}"

@@ -34,6 +34,7 @@ import java.util.Locale;
 @CapacitorPlugin(name = "AppUpdater")
 public class AppUpdaterPlugin extends Plugin {
     private static final String RELEASE_API = "https://api.github.com/repos/Pablo-hg/Pablo-Tablet/releases/latest";
+    private static final String RELEASE_MANIFEST = "https://github.com/Pablo-hg/Pablo-Tablet/releases/latest/download/Pablo-Tablet-update.json";
     private static final String RELEASE_DOWNLOAD_PREFIX = "/Pablo-hg/Pablo-Tablet/releases/download/";
     private static final String UPDATE_FILE = "pablo-tablet-update.apk";
     private static final long MAX_APK_BYTES = 500L * 1024L * 1024L;
@@ -50,12 +51,10 @@ public class AppUpdaterPlugin extends Plugin {
     @PluginMethod
     public void checkForUpdate(PluginCall call) {
         new Thread(() -> {
-            HttpURLConnection connection = null;
             try {
                 JSObject response = installedVersionResponse();
-                connection = openConnection(new URL(RELEASE_API));
-                int status = connection.getResponseCode();
-                if (status == HttpURLConnection.HTTP_NOT_FOUND) {
+                ReleaseInfo release = readLatestRelease();
+                if (release == null) {
                     response.put("releaseAvailable", false);
                     response.put("updateAvailable", false);
                     response.put("latestVersionName", JSONObject.NULL);
@@ -69,38 +68,21 @@ public class AppUpdaterPlugin extends Plugin {
                     call.resolve(response);
                     return;
                 }
-                if (status != HttpURLConnection.HTTP_OK) {
-                    call.reject("GitHub respondió con el código " + status + ".");
-                    return;
-                }
 
-                JSONObject release = new JSONObject(readText(connection.getInputStream()));
-                String tagName = release.optString("tag_name", "").trim();
-                if (tagName.isEmpty()) throw new IllegalStateException("La Release no tiene una versión válida.");
-
-                JSONObject apkAsset = findApkAsset(release.optJSONArray("assets"));
-                String downloadUrl = apkAsset.optString("browser_download_url", "");
-                String digest = normalizeDigest(apkAsset.optString("digest", ""));
-                if (downloadUrl.isEmpty()) throw new IllegalStateException("La Release no contiene una URL de descarga.");
-                if (digest == null) throw new IllegalStateException("El APK publicado no incluye una huella SHA-256.");
-                validateReleaseUrl(downloadUrl);
-
-                String latestVersion = normalizeVersion(tagName);
+                String latestVersion = normalizeVersion(release.versionName);
                 response.put("releaseAvailable", true);
                 response.put("updateAvailable", compareVersions(latestVersion, response.getString("currentVersionName")) > 0);
                 response.put("latestVersionName", latestVersion);
-                response.put("releaseName", release.optString("name", tagName));
-                response.put("releaseNotes", release.optString("body", ""));
-                response.put("publishedAt", release.optString("published_at", ""));
-                response.put("downloadUrl", downloadUrl);
-                response.put("sha256", digest);
-                response.put("assetName", apkAsset.optString("name", "Pablo-Tablet.apk"));
-                response.put("assetSize", apkAsset.optLong("size", 0));
+                response.put("releaseName", release.releaseName);
+                response.put("releaseNotes", release.releaseNotes);
+                response.put("publishedAt", release.publishedAt);
+                response.put("downloadUrl", release.downloadUrl);
+                response.put("sha256", release.sha256);
+                response.put("assetName", release.assetName);
+                response.put("assetSize", release.assetSize);
                 call.resolve(response);
             } catch (Exception error) {
                 call.reject(message(error, "No se pudo consultar la última versión."), error);
-            } finally {
-                if (connection != null) connection.disconnect();
             }
         }, "pablo-tablet-update-check").start();
     }
@@ -214,10 +196,107 @@ public class AppUpdaterPlugin extends Plugin {
         connection.setConnectTimeout(15_000);
         connection.setReadTimeout(60_000);
         connection.setInstanceFollowRedirects(true);
-        connection.setRequestProperty("Accept", "application/vnd.github+json");
-        connection.setRequestProperty("X-GitHub-Api-Version", "2026-03-10");
+        connection.setUseCaches(false);
+        if ("api.github.com".equalsIgnoreCase(url.getHost())) {
+            connection.setRequestProperty("Accept", "application/vnd.github+json");
+            connection.setRequestProperty("X-GitHub-Api-Version", "2026-03-10");
+        } else if (url.getPath().endsWith(".json")) {
+            connection.setRequestProperty("Accept", "application/json");
+        } else {
+            connection.setRequestProperty("Accept", "application/octet-stream");
+        }
         connection.setRequestProperty("User-Agent", "Pablo-Tablet-AppUpdater/1.0");
         return connection;
+    }
+
+    private ReleaseInfo readLatestRelease() throws Exception {
+        HttpURLConnection connection = openConnection(new URL(RELEASE_MANIFEST));
+        try {
+            int status = connection.getResponseCode();
+            if (status == HttpURLConnection.HTTP_OK) {
+                return releaseFromManifest(new JSONObject(readText(connection.getInputStream())));
+            }
+            if (status != HttpURLConnection.HTTP_NOT_FOUND) {
+                throw new IllegalStateException(githubErrorMessage(connection, status));
+            }
+        } finally {
+            connection.disconnect();
+        }
+        return readLatestReleaseFromApi();
+    }
+
+    private ReleaseInfo readLatestReleaseFromApi() throws Exception {
+        HttpURLConnection connection = openConnection(new URL(RELEASE_API));
+        try {
+            int status = connection.getResponseCode();
+            if (status == HttpURLConnection.HTTP_NOT_FOUND) return null;
+            if (status != HttpURLConnection.HTTP_OK) {
+                throw new IllegalStateException(githubErrorMessage(connection, status));
+            }
+
+            JSONObject release = new JSONObject(readText(connection.getInputStream()));
+            String tagName = release.optString("tag_name", "").trim();
+            JSONObject apkAsset = findApkAsset(release.optJSONArray("assets"));
+            return validatedReleaseInfo(
+                tagName,
+                release.optString("name", tagName),
+                release.optString("body", ""),
+                release.optString("published_at", ""),
+                apkAsset.optString("browser_download_url", ""),
+                apkAsset.optString("digest", ""),
+                apkAsset.optString("name", "Pablo-Tablet.apk"),
+                apkAsset.optLong("size", 0)
+            );
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private ReleaseInfo releaseFromManifest(JSONObject manifest) throws Exception {
+        return validatedReleaseInfo(
+            manifest.optString("versionName", ""),
+            manifest.optString("releaseName", ""),
+            manifest.optString("releaseNotes", ""),
+            manifest.optString("publishedAt", ""),
+            manifest.optString("downloadUrl", ""),
+            manifest.optString("sha256", ""),
+            manifest.optString("assetName", "Pablo-Tablet.apk"),
+            manifest.optLong("assetSize", 0)
+        );
+    }
+
+    private ReleaseInfo validatedReleaseInfo(
+        String versionName,
+        String releaseName,
+        String releaseNotes,
+        String publishedAt,
+        String downloadUrl,
+        String digestValue,
+        String assetName,
+        long assetSize
+    ) throws Exception {
+        String version = versionName.trim();
+        if (version.isEmpty()) throw new IllegalStateException("La Release no tiene una versión válida.");
+        if (downloadUrl.isEmpty()) throw new IllegalStateException("La Release no contiene una URL de descarga.");
+        String digest = normalizeDigest(digestValue);
+        if (digest == null) throw new IllegalStateException("El APK publicado no incluye una huella SHA-256.");
+        validateReleaseUrl(downloadUrl);
+        if (!assetName.toLowerCase(Locale.ROOT).endsWith(".apk")) {
+            throw new IllegalStateException("El manifiesto de actualización no apunta a un APK.");
+        }
+        if (assetSize < 0 || assetSize > MAX_APK_BYTES) {
+            throw new IllegalStateException("El manifiesto de actualización contiene un tamaño de APK inválido.");
+        }
+        String name = releaseName.trim().isEmpty() ? version : releaseName;
+        return new ReleaseInfo(version, name, releaseNotes, publishedAt, downloadUrl, digest, assetName, assetSize);
+    }
+
+    private String githubErrorMessage(HttpURLConnection connection, int status) {
+        String remaining = connection.getHeaderField("X-RateLimit-Remaining");
+        if ((status == HttpURLConnection.HTTP_FORBIDDEN || status == 429) && "0".equals(remaining)) {
+            return "GitHub ha limitado temporalmente las consultas. Vuelve a intentarlo dentro de unos minutos.";
+        }
+        return "GitHub respondió con el código " + status + ".";
     }
 
     private JSObject installedVersionResponse() throws PackageManager.NameNotFoundException {
@@ -324,5 +403,36 @@ public class AppUpdaterPlugin extends Plugin {
     private String message(Exception error, String fallback) {
         String value = error.getMessage();
         return value == null || value.trim().isEmpty() ? fallback : value;
+    }
+
+    private static final class ReleaseInfo {
+        final String versionName;
+        final String releaseName;
+        final String releaseNotes;
+        final String publishedAt;
+        final String downloadUrl;
+        final String sha256;
+        final String assetName;
+        final long assetSize;
+
+        ReleaseInfo(
+            String versionName,
+            String releaseName,
+            String releaseNotes,
+            String publishedAt,
+            String downloadUrl,
+            String sha256,
+            String assetName,
+            long assetSize
+        ) {
+            this.versionName = versionName;
+            this.releaseName = releaseName;
+            this.releaseNotes = releaseNotes;
+            this.publishedAt = publishedAt;
+            this.downloadUrl = downloadUrl;
+            this.sha256 = sha256;
+            this.assetName = assetName;
+            this.assetSize = assetSize;
+        }
     }
 }
