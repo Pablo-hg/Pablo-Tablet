@@ -60,6 +60,7 @@ public class AppUpdaterPlugin extends Plugin {
                     response.put("latestVersionName", JSONObject.NULL);
                     response.put("releaseName", JSONObject.NULL);
                     response.put("releaseNotes", JSONObject.NULL);
+                    response.put("releaseHistory", JSONObject.NULL);
                     response.put("publishedAt", JSONObject.NULL);
                     response.put("downloadUrl", JSONObject.NULL);
                     response.put("sha256", JSONObject.NULL);
@@ -75,6 +76,7 @@ public class AppUpdaterPlugin extends Plugin {
                 response.put("latestVersionName", latestVersion);
                 response.put("releaseName", release.releaseName);
                 response.put("releaseNotes", release.releaseNotes);
+                response.put("releaseHistory", release.releaseHistory == null ? JSONObject.NULL : release.releaseHistory);
                 response.put("publishedAt", release.publishedAt);
                 response.put("downloadUrl", release.downloadUrl);
                 response.put("sha256", release.sha256);
@@ -245,7 +247,8 @@ public class AppUpdaterPlugin extends Plugin {
                 apkAsset.optString("browser_download_url", ""),
                 apkAsset.optString("digest", ""),
                 apkAsset.optString("name", "Pablo-Tablet.apk"),
-                apkAsset.optLong("size", 0)
+                apkAsset.optLong("size", 0),
+                null
             );
         } finally {
             connection.disconnect();
@@ -261,7 +264,8 @@ public class AppUpdaterPlugin extends Plugin {
             manifest.optString("downloadUrl", ""),
             manifest.optString("sha256", ""),
             manifest.optString("assetName", "Pablo-Tablet.apk"),
-            manifest.optLong("assetSize", 0)
+            manifest.optLong("assetSize", 0),
+            manifest.optJSONArray("releaseHistory")
         );
     }
 
@@ -273,7 +277,8 @@ public class AppUpdaterPlugin extends Plugin {
         String downloadUrl,
         String digestValue,
         String assetName,
-        long assetSize
+        long assetSize,
+        JSONArray releaseHistory
     ) throws Exception {
         String version = versionName.trim();
         if (version.isEmpty()) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_release_version));
@@ -288,7 +293,7 @@ public class AppUpdaterPlugin extends Plugin {
             throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_manifest_size));
         }
         String name = releaseName.trim().isEmpty() ? version : releaseName;
-        return new ReleaseInfo(version, name, releaseNotes, publishedAt, downloadUrl, digest, assetName, assetSize);
+        return new ReleaseInfo(version, name, releaseNotes, publishedAt, downloadUrl, digest, assetName, assetSize, releaseHistory);
     }
 
     private String githubErrorMessage(HttpURLConnection connection, int status) {
@@ -409,6 +414,7 @@ public class AppUpdaterPlugin extends Plugin {
         final String versionName;
         final String releaseName;
         final String releaseNotes;
+        final JSONArray releaseHistory;
         final String publishedAt;
         final String downloadUrl;
         final String sha256;
@@ -423,11 +429,13 @@ public class AppUpdaterPlugin extends Plugin {
             String downloadUrl,
             String sha256,
             String assetName,
-            long assetSize
+            long assetSize,
+            JSONArray releaseHistory
         ) {
             this.versionName = versionName;
             this.releaseName = releaseName;
             this.releaseNotes = releaseNotes;
+            this.releaseHistory = releaseHistory;
             this.publishedAt = publishedAt;
             this.downloadUrl = downloadUrl;
             this.sha256 = sha256;

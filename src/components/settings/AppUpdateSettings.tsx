@@ -7,6 +7,7 @@ import {
   downloadAppUpdate,
   getInstalledAppVersion,
   installDownloadedAppUpdate,
+  releaseNotesForUpdate,
   resetSimulatedWebInstallation,
   webUpdateSimulationEnabled,
   type AppUpdateInfo,
@@ -216,6 +217,7 @@ export function AppUpdateSettings() {
   const versionLabel = currentVersion
     ? tx('Versión instalada: {{version}}', { version: currentVersion })
     : tx('Consultando la versión instalada…')
+  const updateNotes = update ? releaseNotesForUpdate(update) : null
 
   return (
     <div className="app-update-settings" aria-labelledby="app-update-title">
@@ -237,7 +239,7 @@ export function AppUpdateSettings() {
         {update && !update.updateAvailable ? <CheckCircle2 className="app-update-ok" size={22} aria-label={tx('Aplicación actualizada')} /> : null}
       </div>
 
-      {update?.updateAvailable && update.releaseNotes ? <details className="app-update-notes"><summary>{tx('Ver novedades')}</summary><p>{update.releaseNotes}</p></details> : null}
+      {update?.updateAvailable && updateNotes ? <details className="app-update-notes"><summary>{tx('Ver novedades')}</summary><p>{updateNotes}</p></details> : null}
       {showProgress ? (
         <section className="app-update-progress" aria-label={tx('Proceso de actualización')}>
           <ol className="app-update-steps">
