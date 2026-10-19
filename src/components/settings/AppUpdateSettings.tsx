@@ -267,7 +267,7 @@ export function AppUpdateSettings() {
             <div>
               <p className="eyebrow">Instalador de Android · Simulación</p>
               <h3 id="simulated-installer-title">¿Quieres actualizar esta aplicación?</h3>
-              <p>Se actualizará Pablo Tablet de la versión 0.3.6 a la 0.3.7. Tus datos se conservarán.</p>
+              <p>Se actualizará Pablo Tablet de la versión 0.3.7 a la 0.4.1. Tus datos se conservarán.</p>
             </div>
             <div className="simulated-installer-actions">
               <button type="button" onClick={cancelSimulatedInstallation}>Cancelar</button>
