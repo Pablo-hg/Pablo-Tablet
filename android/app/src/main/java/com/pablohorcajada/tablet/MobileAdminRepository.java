@@ -1,6 +1,7 @@
 package com.pablohorcajada.tablet;
 
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Base64;
@@ -23,10 +24,12 @@ final class MobileAdminRepository {
     private static final Set<String> FEEDBACK_TYPES = new HashSet<>(Arrays.asList("error", "improvement", "feature"));
     private static final Set<String> FEEDBACK_PRIORITIES = new HashSet<>(Arrays.asList("low", "normal", "high", "blocking"));
     private static final Set<String> FEEDBACK_STATUSES = new HashSet<>(Arrays.asList("sent", "seen", "in_progress", "implemented"));
+    private final Context context;
     private final PabloTabletDatabase database;
     private final SecureRandom random = new SecureRandom();
 
-    MobileAdminRepository(PabloTabletDatabase database) {
+    MobileAdminRepository(Context context, PabloTabletDatabase database) {
+        this.context = context.getApplicationContext();
         this.database = database;
     }
 
@@ -84,13 +87,13 @@ final class MobileAdminRepository {
         writable.beginTransaction();
         try {
             String sessionId = findActiveSessionId(writable, pairingToken, now);
-            if (sessionId == null) throw new SecurityException("El QR ha caducado o ya no es válido.");
+            if (sessionId == null) throw new SecurityException(AppLocale.text(context, R.string.error_pairing_qr_expired));
 
             long earliestExpiry = earliestPendingExpiry(writable, now);
             int pendingCount = activePendingCount(writable, now);
             if (pendingCount >= MAX_PENDING_PAIRINGS) {
                 int retryAfter = (int) Math.max(1L, (earliestExpiry - now + 999L) / 1000L);
-                throw new PairingCapacityException(retryAfter);
+                throw new PairingCapacityException(retryAfter, AppLocale.text(context, R.string.error_pairing_capacity));
             }
 
             String requestId = UUID.randomUUID().toString();
@@ -119,7 +122,7 @@ final class MobileAdminRepository {
             "FROM pairing_requests r JOIN pairing_sessions s ON s.session_id = r.session_id " +
             "WHERE r.request_id = ? AND s.token_hash = ? LIMIT 1";
         try (Cursor cursor = database.getReadableDatabase().rawQuery(sql, new String[] { requestId, tokenHash })) {
-            if (!cursor.moveToFirst()) throw new SecurityException("La solicitud de vinculación no existe.");
+            if (!cursor.moveToFirst()) throw new SecurityException(AppLocale.text(context, R.string.error_pairing_request_missing));
             String status = cursor.getString(0);
             long expiresAt = cursor.getLong(1);
             if (expiresAt <= now && "pending".equals(status)) status = "expired";
@@ -166,7 +169,7 @@ final class MobileAdminRepository {
             "1"
         )) {
             if (!cursor.moveToFirst() || !"pending".equals(cursor.getString(4)) || cursor.getLong(3) <= now) {
-                throw new IllegalStateException("La solicitud ya no está disponible.");
+                throw new IllegalStateException(AppLocale.text(context, R.string.error_pairing_request_unavailable));
             }
             String sessionId = cursor.getString(0);
             String credential = randomToken();
@@ -318,16 +321,16 @@ final class MobileAdminRepository {
     }
 
     JSONObject createFeedback(Device device, JSONObject input, String appVersion, String tabletModel) throws Exception {
-        String type = requiredChoice(input, "type", FEEDBACK_TYPES, "El tipo de reporte no es válido.");
-        String priority = requiredChoice(input, "priority", FEEDBACK_PRIORITIES, "La importancia no es válida.");
-        String title = requiredText(input, "title", 100, "Escribe un título.");
-        String area = requiredText(input, "area", 60, "Selecciona el apartado afectado.");
-        String description = requiredText(input, "description", 4000, "Describe el comentario o problema.");
+        String type = requiredChoice(input, "type", FEEDBACK_TYPES, AppLocale.text(context, R.string.error_feedback_type));
+        String priority = requiredChoice(input, "priority", FEEDBACK_PRIORITIES, AppLocale.text(context, R.string.error_feedback_priority));
+        String title = requiredText(input, "title", 100, AppLocale.text(context, R.string.error_feedback_title));
+        String area = requiredText(input, "area", 60, AppLocale.text(context, R.string.error_feedback_area));
+        String description = requiredText(input, "description", 4000, AppLocale.text(context, R.string.error_feedback_description));
         String steps = optionalText(input, "steps", 3000);
         String actualResult = optionalText(input, "actualResult", 2000);
         String expectedResult = optionalText(input, "expectedResult", 2000);
         if (!input.optBoolean("privacyAccepted", false)) {
-            throw new IllegalArgumentException("Confirma que el reporte no contiene datos personales que no quieras enviar.");
+            throw new IllegalArgumentException(AppLocale.text(context, R.string.error_feedback_privacy));
         }
 
         String id = UUID.randomUUID().toString();
@@ -383,7 +386,7 @@ final class MobileAdminRepository {
             null,
             "1"
         )) {
-            if (!cursor.moveToFirst()) throw new IllegalArgumentException("El reporte no existe.");
+            if (!cursor.moveToFirst()) throw new IllegalArgumentException(AppLocale.text(context, R.string.error_feedback_missing));
             JSONObject item = new JSONObject();
             item.put("id", cursor.getString(0));
             item.put("type", cursor.getString(1));
@@ -422,43 +425,43 @@ final class MobileAdminRepository {
     void markFeedbackFailed(String feedbackId, String deviceId, String message) {
         ContentValues row = new ContentValues();
         row.put("status", "failed");
-        row.put("last_error", message == null ? "No se pudo enviar el reporte." : message.substring(0, Math.min(message.length(), 300)));
+        row.put("last_error", message == null ? AppLocale.text(context, R.string.error_feedback_send) : message.substring(0, Math.min(message.length(), 300)));
         database.getWritableDatabase().execSQL(
             "UPDATE feedback_reports SET status = ?, last_error = ?, attempts = attempts + 1, status_updated_at = ? WHERE feedback_id = ? AND source_device_id = ?",
             new Object[] { "failed", row.getAsString("last_error"), System.currentTimeMillis(), feedbackId, deviceId }
         );
     }
 
-    private static String requiredChoice(JSONObject input, String key, Set<String> allowed, String message) {
+    private String requiredChoice(JSONObject input, String key, Set<String> allowed, String message) {
         String value = input.optString(key, "").trim();
         if (!allowed.contains(value)) throw new IllegalArgumentException(message);
         return value;
     }
 
-    private static String requiredText(JSONObject input, String key, int maximum, String message) {
+    private String requiredText(JSONObject input, String key, int maximum, String message) {
         String value = optionalText(input, key, maximum);
         if (value.isEmpty()) throw new IllegalArgumentException(message);
         return value;
     }
 
-    private static String optionalText(JSONObject input, String key, int maximum) {
+    private String optionalText(JSONObject input, String key, int maximum) {
         String value = input.optString(key, "").trim();
-        if (value.length() > maximum) throw new IllegalArgumentException("El campo " + key + " es demasiado largo.");
+        if (value.length() > maximum) throw new IllegalArgumentException(AppLocale.text(context, R.string.error_feedback_field_length, key));
         return value;
     }
 
-    private static String feedbackMarkdown(String type, String title, String area, String description, String steps, String actualResult, String expectedResult, String priority, String appVersion, String tabletModel, String deviceName, long createdAt) {
-        String label = "error".equals(type) ? "Error" : "feature".equals(type) ? "Nueva función" : "Mejora";
+    private String feedbackMarkdown(String type, String title, String area, String description, String steps, String actualResult, String expectedResult, String priority, String appVersion, String tabletModel, String deviceName, long createdAt) {
+        String label = AppLocale.text(context, "error".equals(type) ? R.string.feedback_label_error : "feature".equals(type) ? R.string.feedback_label_feature : R.string.feedback_label_improvement);
         StringBuilder result = new StringBuilder();
         result.append("# [").append(label).append("] ").append(title).append("\n\n");
-        result.append("- Estado: pendiente-envio\n");
-        result.append("- Apartado: ").append(area).append("\n");
-        result.append("- Importancia: ").append(priority).append("\n");
-        result.append("- Versión: ").append(appVersion).append("\n");
-        result.append("- Tablet: ").append(tabletModel).append("\n");
-        result.append("- Móvil autorizado: ").append(deviceName).append("\n");
-        result.append("- Fecha: ").append(UtcTimestamp.format(createdAt)).append("\n\n");
-        result.append("## Descripción\n\n").append(description).append("\n");
+        result.append(AppLocale.text(context, R.string.feedback_markdown_status));
+        result.append(AppLocale.text(context, R.string.feedback_markdown_area, area));
+        result.append(AppLocale.text(context, R.string.feedback_markdown_priority, priority));
+        result.append(AppLocale.text(context, R.string.feedback_markdown_version, appVersion));
+        result.append(AppLocale.text(context, R.string.feedback_markdown_tablet, tabletModel));
+        result.append(AppLocale.text(context, R.string.feedback_markdown_device, deviceName));
+        result.append(AppLocale.text(context, R.string.feedback_markdown_date, UtcTimestamp.format(createdAt)));
+        result.append(AppLocale.text(context, R.string.feedback_markdown_description, description));
         return result.toString();
     }
 
@@ -575,14 +578,15 @@ final class MobileAdminRepository {
         return result.toString();
     }
 
-    private static String cleanName(String value) {
-        String clean = value == null ? "Móvil sin nombre" : value.trim();
-        if (clean.isEmpty()) clean = "Móvil sin nombre";
+    private String cleanName(String value) {
+        String fallback = AppLocale.text(context, R.string.mobile_device_unnamed);
+        String clean = value == null ? fallback : value.trim();
+        if (clean.isEmpty()) clean = fallback;
         return clean.substring(0, Math.min(clean.length(), 60));
     }
 
-    private static String cleanUserAgent(String value) {
-        String clean = value == null ? "Navegador desconocido" : value.trim();
+    private String cleanUserAgent(String value) {
+        String clean = value == null ? AppLocale.text(context, R.string.mobile_browser_unknown) : value.trim();
         return clean.substring(0, Math.min(clean.length(), 240));
     }
 
@@ -599,8 +603,8 @@ final class MobileAdminRepository {
     static final class PairingCapacityException extends Exception {
         final int retryAfterSeconds;
 
-        PairingCapacityException(int retryAfterSeconds) {
-            super("Se ha alcanzado el máximo de solicitudes de vinculación pendientes.");
+        PairingCapacityException(int retryAfterSeconds, String message) {
+            super(message);
             this.retryAfterSeconds = retryAfterSeconds;
         }
     }

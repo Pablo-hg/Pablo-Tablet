@@ -38,6 +38,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppUpdaterPlugin.class);
         registerPlugin(AssistantVoicePlugin.class);
         registerPlugin(CalendarSecretsPlugin.class);
+        registerPlugin(AppLocalePlugin.class);
         super.onCreate(savedInstanceState);
         getOnBackPressedDispatcher().addCallback(this, kioskBackCallback);
         MobileAdminServiceController.reconcile(this);

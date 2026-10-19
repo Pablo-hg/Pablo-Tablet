@@ -15,6 +15,37 @@ describe('administración móvil', () => {
     window.localStorage.clear()
   })
 
+  it('aplica en la administración móvil el idioma elegido en la tablet', async () => {
+    const html = readFileSync(resolve(process.cwd(), 'public/mobile/index.html'), 'utf8')
+    const script = readFileSync(resolve(process.cwd(), 'public/mobile/app.js'), 'utf8')
+    document.open()
+    document.write(html)
+    document.close()
+    const view = within(document.body)
+    window.localStorage.setItem('pablo-tablet.mobile-token.v1', 'english-credential')
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ state: { preferences: { language: 'en' } }, device: { name: 'Test phone' } }),
+    }))
+    class WebSocketStub {
+      addEventListener() {}
+      close() {}
+    }
+    Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock })
+    Object.defineProperty(window, 'WebSocket', { configurable: true, value: WebSocketStub })
+
+    Object.assign(window, { calendarEventTiming })
+    window.eval(script.replace("import { calendarEventTiming } from './calendarTiming.js'", ''))
+
+    await waitFor(() => expect(view.getByRole('button', { name: 'Settings' })).toBeInTheDocument())
+    expect(view.getByRole('heading', { name: 'Your dashboard' })).toBeInTheDocument()
+    expect(view.getByText('Sync active')).toBeInTheDocument()
+    expect(document.documentElement.lang).toBe('en')
+  })
+
   it('edita y guarda los ajustes nocturnos de la tablet', async () => {
     const html = readFileSync(resolve(process.cwd(), 'public/mobile/index.html'), 'utf8')
     const script = readFileSync(resolve(process.cwd(), 'public/mobile/app.js'), 'utf8')

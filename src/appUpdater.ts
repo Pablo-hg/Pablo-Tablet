@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+import { tx } from './i18n'
 
 export interface InstalledAppVersion {
   currentVersionName: string
@@ -53,11 +54,11 @@ const SIMULATED_PREVIOUS_VERSION = '0.3.7'
 const SIMULATED_LATEST_VERSION = '0.4.1'
 const SIMULATED_VERSION_CODE = 1041
 const SIMULATED_ASSET_SIZE = 3_463_652
-const SIMULATED_RELEASE_NOTES = [
-  'Notas con modos de texto, dibujo y lista interactiva reordenable.',
-  'Festivos separados de las citas y eventos personales de Tu agenda.',
-  'Fila Todo el día en la vista horaria y próximos festivos configurables.',
-  'Indicador del dock animado al navegar entre páginas adyacentes.',
+const simulatedReleaseNotes = () => [
+  tx('Notas con modos de texto, dibujo y lista interactiva reordenable.'),
+  tx('Festivos separados de las citas y eventos personales de Tu agenda.'),
+  tx('Fila Todo el día en la vista horaria y próximos festivos configurables.'),
+  tx('Indicador del dock animado al navegar entre páginas adyacentes.'),
 ].join('\n')
 
 function simulatedStartingVersion() {
@@ -117,7 +118,7 @@ export async function checkForAppUpdate(): Promise<AppUpdateInfo> {
       updateAvailable,
       latestVersionName: SIMULATED_LATEST_VERSION,
       releaseName: 'Pablo Tablet 0.4.1',
-      releaseNotes: SIMULATED_RELEASE_NOTES,
+      releaseNotes: simulatedReleaseNotes(),
       publishedAt: '2026-10-19T00:00:00Z',
       downloadUrl: 'https://github.com/Pablo-hg/Pablo-Tablet/releases/download/v0.4.1/Pablo-Tablet-0.4.1.apk',
       sha256: 'simulation-only',

@@ -6,6 +6,7 @@ import {
   requestNotificationDisplayPermission,
   type NotificationPermissionStatus,
 } from '../../notificationPermissions'
+import { tx } from '../../i18n'
 
 type ViewState = NotificationPermissionStatus & { loading: boolean; error: boolean }
 
@@ -25,7 +26,7 @@ export function NotificationSettings() {
       const next = await checkNotificationPermissionStatus()
       setStatus({ ...next, loading: false, error: false })
     } catch (error) {
-      console.warn('No se pudo consultar el estado de las notificaciones.', error)
+      console.warn(tx('No se pudo consultar el estado de las notificaciones.'), error)
       setStatus((current) => ({ ...current, loading: false, error: true }))
     }
   }, [])
@@ -41,15 +42,15 @@ export function NotificationSettings() {
   }, [refresh])
 
   if (status.loading) {
-    return <div className="settings-row notification-permission-row" aria-live="polite"><span className="settings-icon"><BellRing size={20} /></span><span className="settings-copy"><strong>Notificaciones</strong><small>Comprobando permisos de Android…</small></span></div>
+    return <div className="settings-row notification-permission-row" aria-live="polite"><span className="settings-icon"><BellRing size={20} /></span><span className="settings-copy"><strong>{tx('Notificaciones')}</strong><small>{tx('Comprobando permisos de Android…')}</small></span></div>
   }
 
   if (status.error) {
-    return <button type="button" className="settings-row notification-permission-row is-warning" onClick={() => void refresh()}><span className="settings-icon"><TriangleAlert size={20} /></span><span className="settings-copy"><strong>No se pudo comprobar el permiso</strong><small>Toca para volver a intentarlo.</small></span></button>
+    return <button type="button" className="settings-row notification-permission-row is-warning" onClick={() => void refresh()}><span className="settings-icon"><TriangleAlert size={20} /></span><span className="settings-copy"><strong>{tx('No se pudo comprobar el permiso')}</strong><small>{tx('Toca para volver a intentarlo.')}</small></span></button>
   }
 
   if (!status.supported) {
-    return <div className="settings-row notification-permission-row"><span className="settings-icon"><BellRing size={20} /></span><span className="settings-copy"><strong>Permisos de Android</strong><small>Comprueba al abrir la app que alarmas, temporizadores y recordatorios puedan avisar.</small></span></div>
+    return <div className="settings-row notification-permission-row"><span className="settings-icon"><BellRing size={20} /></span><span className="settings-copy"><strong>{tx('Permisos de Android')}</strong><small>{tx('Comprueba al abrir la app que alarmas, temporizadores y recordatorios puedan avisar.')}</small></span></div>
   }
 
   if (status.display !== 'granted') {
@@ -57,8 +58,8 @@ export function NotificationSettings() {
     const content = <>
       <span className="settings-icon"><TriangleAlert size={20} /></span>
       <span className="settings-copy">
-        <strong>Notificaciones desactivadas</strong>
-        <small>{canRequest ? 'Toca para permitir alarmas, temporizadores y recordatorios.' : 'Actívalas en Ajustes de Android › Apps › Pablo Tablet › Notificaciones.'}</small>
+        <strong>{tx('Notificaciones desactivadas')}</strong>
+        <small>{tx(canRequest ? 'Toca para permitir alarmas, temporizadores y recordatorios.' : 'Actívalas en Ajustes de Android › Apps › Pablo Tablet › Notificaciones.')}</small>
       </span>
     </>
     return canRequest ? (
@@ -76,10 +77,10 @@ export function NotificationSettings() {
     return (
       <button type="button" className="settings-row notification-permission-row is-warning" onClick={async () => { await openExactAlarmSettings(); await refresh() }}>
         <span className="settings-icon"><ClockAlert size={20} /></span>
-        <span className="settings-copy"><strong>Permitir alarmas exactas</strong><small>Android puede retrasar los avisos. Toca para permitir “Alarmas y recordatorios”.</small></span>
+        <span className="settings-copy"><strong>{tx('Permitir alarmas exactas')}</strong><small>{tx('Android puede retrasar los avisos. Toca para permitir “Alarmas y recordatorios”.')}</small></span>
       </button>
     )
   }
 
-  return <div className="settings-row notification-permission-row is-ready"><span className="settings-icon"><Check size={20} /></span><span className="settings-copy"><strong>Notificaciones preparadas</strong><small>Alarmas, temporizadores y recordatorios pueden avisar a la hora prevista.</small></span></div>
+  return <div className="settings-row notification-permission-row is-ready"><span className="settings-icon"><Check size={20} /></span><span className="settings-copy"><strong>{tx('Notificaciones preparadas')}</strong><small>{tx('Alarmas, temporizadores y recordatorios pueden avisar a la hora prevista.')}</small></span></div>
 }

@@ -35,16 +35,16 @@ public class AssistantVoicePlugin extends Plugin implements RecognitionListener 
     @PluginMethod
     public void startListening(PluginCall call) {
         if (getPermissionState("microphone") != PermissionState.GRANTED) {
-            call.reject("El permiso de micrófono no está concedido.");
+            call.reject(AppLocale.text(getContext(), R.string.error_voice_microphone_permission));
             return;
         }
         if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
-            call.reject("El reconocimiento de voz no está disponible.");
+            call.reject(AppLocale.text(getContext(), R.string.error_voice_unavailable));
             return;
         }
 
         getActivity().runOnUiThread(() -> {
-            cancelActiveCall("Se ha sustituido el dictado anterior.");
+            cancelActiveCall(AppLocale.text(getContext(), R.string.error_voice_replaced));
             recognizer = SpeechRecognizer.createSpeechRecognizer(getContext());
             recognizer.setRecognitionListener(this);
             activeCall = call;
@@ -60,7 +60,7 @@ public class AssistantVoicePlugin extends Plugin implements RecognitionListener 
     @PluginMethod
     public void stopListening(PluginCall call) {
         getActivity().runOnUiThread(() -> {
-            cancelActiveCall("Dictado cancelado.");
+            cancelActiveCall(AppLocale.text(getContext(), R.string.error_voice_cancelled));
             call.resolve();
         });
     }
@@ -109,11 +109,11 @@ public class AssistantVoicePlugin extends Plugin implements RecognitionListener 
     }
 
     private String recognitionError(int error) {
-        if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) return "No se ha detectado voz.";
-        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) return "Android no ha concedido permiso para utilizar el micrófono.";
-        if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) return "El servicio de voz necesita conexión en este dispositivo.";
-        if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) return "El reconocimiento de voz está ocupado. Prueba de nuevo.";
-        return "No se ha podido reconocer la voz (código " + error + ").";
+        if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) return AppLocale.text(getContext(), R.string.error_voice_not_detected);
+        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) return AppLocale.text(getContext(), R.string.error_voice_android_permission);
+        if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) return AppLocale.text(getContext(), R.string.error_voice_network);
+        if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) return AppLocale.text(getContext(), R.string.error_voice_busy);
+        return AppLocale.text(getContext(), R.string.error_voice_code, error);
     }
 
     @Override public void onReadyForSpeech(Bundle params) {}
@@ -125,7 +125,7 @@ public class AssistantVoicePlugin extends Plugin implements RecognitionListener 
 
     @Override
     protected void handleOnDestroy() {
-        getActivity().runOnUiThread(() -> cancelActiveCall("La aplicación se ha cerrado."));
+        getActivity().runOnUiThread(() -> cancelActiveCall(AppLocale.text(getContext(), R.string.error_voice_app_closed)));
         super.handleOnDestroy();
     }
 }

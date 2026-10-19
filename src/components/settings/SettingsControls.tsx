@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { tx } from '../../i18n'
 
 export function SettingToggle({
   icon,
@@ -49,18 +50,20 @@ export function SettingsSelect({
 
 export function SettingsTextSelect<T extends string>({
   label,
+  detail,
   value,
   options,
   onChange,
 }: {
   label: string
+  detail?: string
   value: T
   options: { value: T; label: string }[]
   onChange: (value: T) => void
 }) {
   return (
     <label className="settings-select-row">
-      <span>{label}</span>
+      <span className="settings-copy"><strong>{label}</strong>{detail ? <small>{detail}</small> : null}</span>
       <select value={value} onChange={(event) => onChange(event.target.value as T)}>
         {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
@@ -96,21 +99,21 @@ function DurationSelect({ title, detail, value, options, onChange }: { title: st
 }
 
 export function ScreenTimeoutSelect({ value, onChange }: { value: number; onChange: (value: number) => void }) {
-  return <DurationSelect title="Apagar pantalla tras" detail="Tiempo sin interacción antes de bloquearse." value={value} onChange={onChange} options={[
-    { value: 30, label: '30 segundos' },
-    { value: 60, label: '1 minuto' },
-    { value: 120, label: '2 minutos' },
-    { value: 300, label: '5 minutos' },
-    { value: 600, label: '10 minutos' },
+  return <DurationSelect title={tx('Apagar pantalla tras')} detail={tx('Tiempo sin interacción antes de bloquearse.')} value={value} onChange={onChange} options={[
+    { value: 30, label: tx('30 segundos') },
+    { value: 60, label: tx('1 minuto') },
+    { value: 120, label: tx('2 minutos') },
+    { value: 300, label: tx('5 minutos') },
+    { value: 600, label: tx('10 minutos') },
   ]} />
 }
 
 export function ScreensaverDelaySelect({ value, onChange }: { value: number; onChange: (value: number) => void }) {
-  return <DurationSelect title="Activar tras" detail="Tiempo sin tocar la pantalla." value={value} onChange={onChange} options={[
-    { value: 30, label: '30 segundos' },
-    { value: 60, label: '1 minuto' },
-    { value: 180, label: '3 minutos' },
-    { value: 300, label: '5 minutos' },
-    { value: 600, label: '10 minutos' },
+  return <DurationSelect title={tx('Activar tras')} detail={tx('Tiempo sin tocar la pantalla.')} value={value} onChange={onChange} options={[
+    { value: 30, label: tx('30 segundos') },
+    { value: 60, label: tx('1 minuto') },
+    { value: 180, label: tx('3 minutos') },
+    { value: 300, label: tx('5 minutos') },
+    { value: 600, label: tx('10 minutos') },
   ]} />
 }

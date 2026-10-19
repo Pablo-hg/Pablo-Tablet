@@ -62,7 +62,7 @@ public class GalleryPlugin extends Plugin {
             response.put("photos", photos);
             call.resolve(response);
         } catch (Exception error) {
-            call.reject("No se pudieron copiar las imágenes seleccionadas.", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_gallery_copy), error);
         }
     }
 
@@ -70,7 +70,7 @@ public class GalleryPlugin extends Plugin {
     public void deleteImage(PluginCall call) {
         String uriValue = call.getString("uri");
         if (uriValue == null || uriValue.isEmpty()) {
-            call.reject("Falta la imagen que se debe eliminar.");
+            call.reject(AppLocale.text(getContext(), R.string.error_gallery_image_missing));
             return;
         }
 
@@ -78,16 +78,16 @@ public class GalleryPlugin extends Plugin {
             File galleryDirectory = galleryDirectory().getCanonicalFile();
             File photo = new File(Uri.parse(uriValue).getPath()).getCanonicalFile();
             if (!photo.getPath().startsWith(galleryDirectory.getPath() + File.separator)) {
-                call.reject("La imagen no pertenece a la galería de Pablo Tablet.");
+                call.reject(AppLocale.text(getContext(), R.string.error_gallery_image_external));
                 return;
             }
             if (photo.exists() && !photo.delete()) {
-                call.reject("No se pudo eliminar el archivo de imagen.");
+                call.reject(AppLocale.text(getContext(), R.string.error_gallery_file_delete));
                 return;
             }
             call.resolve();
         } catch (Exception error) {
-            call.reject("No se pudo eliminar la imagen.", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_gallery_image_delete), error);
         }
     }
 
@@ -99,7 +99,7 @@ public class GalleryPlugin extends Plugin {
 
         try (InputStream input = getContext().getContentResolver().openInputStream(source);
              FileOutputStream output = new FileOutputStream(destination)) {
-            if (input == null) throw new IllegalStateException("No se pudo abrir la imagen.");
+            if (input == null) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_gallery_image_open));
             byte[] buffer = new byte[8192];
             int count;
             while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
@@ -116,7 +116,7 @@ public class GalleryPlugin extends Plugin {
     private File galleryDirectory() {
         File directory = new File(getContext().getFilesDir(), "gallery");
         if (!directory.exists() && !directory.mkdirs()) {
-            throw new IllegalStateException("No se pudo crear la carpeta de la galería.");
+            throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_gallery_directory));
         }
         return directory;
     }
@@ -131,7 +131,7 @@ public class GalleryPlugin extends Plugin {
                 }
             }
         }
-        return "Foto";
+        return AppLocale.text(getContext(), R.string.gallery_default_photo_name);
     }
 
     private String extension(Uri uri, String displayName) {

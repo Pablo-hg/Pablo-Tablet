@@ -1,4 +1,5 @@
 import { readAppStorage, usesNativeAppStorage, WEATHER_STORAGE_KEY, writeAppStorage } from './appStorage'
+import { tx } from './i18n'
 
 export interface WeatherLocation {
   id: string
@@ -98,7 +99,7 @@ export async function searchWeatherLocations(query: string, signal?: AbortSignal
   url.searchParams.set('language', 'es')
   url.searchParams.set('format', 'json')
   const response = await fetch(url, { signal })
-  if (!response.ok) throw new Error('No se pudo buscar la ubicación.')
+  if (!response.ok) throw new Error(tx('No se pudo buscar la ubicación.'))
   const payload = await response.json() as OpenMeteoSearchResponse
 
   return (payload.results ?? []).flatMap((result): WeatherLocation[] => {
@@ -126,10 +127,10 @@ export async function fetchWeatherForecast(location: WeatherLocation, signal?: A
   url.searchParams.set('forecast_days', '7')
 
   const response = await fetch(url, { signal })
-  if (!response.ok) throw new Error('No se pudo actualizar la previsión.')
+  if (!response.ok) throw new Error(tx('No se pudo actualizar la previsión.'))
   const payload = await response.json() as OpenMeteoForecastResponse
   if (!payload.current?.time || !payload.hourly?.time?.length || !payload.daily?.time?.length) {
-    throw new Error('La previsión recibida está incompleta.')
+    throw new Error(tx('La previsión recibida está incompleta.'))
   }
 
   const hourly = payload.hourly.time.map((time, index) => ({
@@ -211,16 +212,16 @@ async function saveCachedWeatherForecast(forecast: WeatherForecast) {
 }
 
 export function weatherDescription(code: number) {
-  if (code === 0) return 'Despejado'
-  if (code === 1) return 'Mayormente despejado'
-  if (code === 2) return 'Parcialmente nublado'
-  if (code === 3) return 'Nublado'
-  if (code === 45 || code === 48) return 'Niebla'
-  if (code >= 51 && code <= 57) return 'Llovizna'
-  if (code >= 61 && code <= 67) return 'Lluvia'
-  if (code >= 71 && code <= 77) return 'Nieve'
-  if (code >= 80 && code <= 82) return 'Chubascos'
-  if (code >= 85 && code <= 86) return 'Chubascos de nieve'
-  if (code >= 95) return 'Tormenta'
-  return 'Tiempo variable'
+  if (code === 0) return tx('Despejado')
+  if (code === 1) return tx('Mayormente despejado')
+  if (code === 2) return tx('Parcialmente nublado')
+  if (code === 3) return tx('Nublado')
+  if (code === 45 || code === 48) return tx('Niebla')
+  if (code >= 51 && code <= 57) return tx('Llovizna')
+  if (code >= 61 && code <= 67) return tx('Lluvia')
+  if (code >= 71 && code <= 77) return tx('Nieve')
+  if (code >= 80 && code <= 82) return tx('Chubascos')
+  if (code >= 85 && code <= 86) return tx('Chubascos de nieve')
+  if (code >= 95) return tx('Tormenta')
+  return tx('Tiempo variable')
 }

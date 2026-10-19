@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { usesNativeAppStorage } from '../appStorage'
+import { tx } from '../i18n'
 import { fetchWeatherForecast, hydrateCachedWeatherForecasts, loadCachedWeatherForecasts, type WeatherForecast, type WeatherLocation } from '../weather'
 
 export function useWeatherForecasts(homeLocation: WeatherLocation | null, selectedLocation: WeatherLocation | null) {
@@ -15,7 +16,7 @@ export function useWeatherForecasts(homeLocation: WeatherLocation | null, select
       setForecasts((current) => ({ ...current, [location.id]: forecast }))
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
-      setErrors((current) => ({ ...current, [location.id]: error instanceof Error ? error.message : 'No se pudo actualizar la previsión.' }))
+      setErrors((current) => ({ ...current, [location.id]: error instanceof Error ? error.message : tx('No se pudo actualizar la previsión.') }))
     } finally {
       if (!signal?.aborted) setLoading((current) => ({ ...current, [location.id]: false }))
     }

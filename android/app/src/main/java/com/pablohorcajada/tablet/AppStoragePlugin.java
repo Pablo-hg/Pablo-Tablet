@@ -32,7 +32,7 @@ public class AppStoragePlugin extends Plugin {
             }
             call.resolve(result);
         } catch (Exception error) {
-            call.reject("No se pudieron leer los datos locales de Pablo Tablet.", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_storage_read), error);
         }
     }
 
@@ -42,7 +42,7 @@ public class AppStoragePlugin extends Plugin {
         if (key == null) return;
         String value = call.getString("value");
         if (value == null) {
-            call.reject("Falta el valor que se debe guardar.");
+            call.reject(AppLocale.text(getContext(), R.string.error_storage_value_missing));
             return;
         }
 
@@ -53,7 +53,7 @@ public class AppStoragePlugin extends Plugin {
             result.put("updatedAt", updatedAt);
             call.resolve(result);
         } catch (Exception error) {
-            call.reject("No se pudieron guardar los datos locales de Pablo Tablet.", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_storage_write), error);
         }
     }
 
@@ -65,14 +65,14 @@ public class AppStoragePlugin extends Plugin {
             database.removeStorage(key);
             call.resolve();
         } catch (Exception error) {
-            call.reject("No se pudieron eliminar los datos locales solicitados.", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_storage_remove), error);
         }
     }
 
     private String requiredKey(PluginCall call) {
         String key = call.getString("key");
         if (key == null || key.trim().isEmpty() || key.length() > 100) {
-            call.reject("La clave de almacenamiento no es válida.");
+            call.reject(AppLocale.text(getContext(), R.string.error_storage_key_invalid));
             return null;
         }
         return key;

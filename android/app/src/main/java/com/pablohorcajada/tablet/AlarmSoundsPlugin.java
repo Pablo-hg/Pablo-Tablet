@@ -32,7 +32,7 @@ public class AlarmSoundsPlugin extends Plugin {
         JSArray sounds = new JSArray();
         Set<String> includedUris = new HashSet<>();
         Uri defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-        addSound(sounds, includedUris, "Sonido predeterminado", defaultUri);
+        addSound(sounds, includedUris, AppLocale.text(getContext(), R.string.alarm_default_sound), defaultUri);
 
         RingtoneManager manager = new RingtoneManager(getContext());
         manager.setType(RingtoneManager.TYPE_ALARM);
@@ -42,7 +42,7 @@ public class AlarmSoundsPlugin extends Plugin {
                 cursor.moveToPosition(position);
                 Uri uri = manager.getRingtoneUri(position);
                 Ringtone ringtone = manager.getRingtone(position);
-                String title = ringtone != null ? ringtone.getTitle(getContext()) : "Sonido de alarma";
+                String title = ringtone != null ? ringtone.getTitle(getContext()) : AppLocale.text(getContext(), R.string.alarm_sound);
                 addSound(sounds, includedUris, title, uri);
             }
         } finally {
@@ -60,7 +60,7 @@ public class AlarmSoundsPlugin extends Plugin {
         Uri uri = parseSoundUri(call.getString("uri"));
         previewRingtone = RingtoneManager.getRingtone(getContext(), uri);
         if (previewRingtone == null) {
-            call.reject("No se pudo reproducir el sonido seleccionado.");
+            call.reject(AppLocale.text(getContext(), R.string.error_alarm_sound_playback));
             return;
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -99,16 +99,16 @@ public class AlarmSoundsPlugin extends Plugin {
         }
 
         String channelId = call.getString("channelId");
-        String channelName = call.getString("name", "Alarmas");
+        String channelName = call.getString("name", AppLocale.text(getContext(), R.string.alarm_channel_name));
         if (channelId == null || channelId.isEmpty()) {
-            call.reject("Falta el identificador del canal de alarma.");
+            call.reject(AppLocale.text(getContext(), R.string.error_alarm_channel_id_missing));
             return;
         }
 
         NotificationManager notificationManager = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
         notificationManager.deleteNotificationChannel(channelId);
         NotificationChannel channel = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH);
-        channel.setDescription("Alarmas programadas en Pablo Tablet");
+        channel.setDescription(AppLocale.text(getContext(), R.string.alarm_channel_description));
         boolean silent = Boolean.TRUE.equals(call.getBoolean("silent", false));
         channel.enableVibration(!silent);
         if (silent) {

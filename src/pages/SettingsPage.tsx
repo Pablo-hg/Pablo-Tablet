@@ -1,4 +1,4 @@
-import { BellRing, Bot, CalendarDays, Clock3, CloudSun, FileText, Home, Images, LogOut, Mic, Moon, Palette, RotateCw, Sparkles, SunMedium, Type, Volume2 } from 'lucide-react'
+import { BellRing, Bot, CalendarDays, Clock3, CloudSun, FileText, Home, Images, Languages, LogOut, Mic, Moon, Palette, RotateCw, Sparkles, SunMedium, Type, Volume2 } from 'lucide-react'
 import { type DashboardPageId, type DashboardPreferences, type PageNavigationPosition, type PageNavigationStyle } from '../dashboardState'
 import type { DashboardWidget, DashboardWidgetId } from '../widgetLayout'
 import { playInteractionSound, previewDeviceVolume } from '../deviceSettings'
@@ -8,6 +8,8 @@ import { ScreensaverDelaySelect, ScreenTimeoutSelect, SettingsRange, SettingsTex
 import { ThemePicker } from '../components/settings/ThemePicker'
 import { AppUpdateSettings } from '../components/settings/AppUpdateSettings'
 import { NotificationSettings } from '../components/settings/NotificationSettings'
+import { tx, type SupportedLanguage } from '../i18n'
+import type { TranslationKey } from '../i18n/translations'
 
 export interface SettingsPageProps {
   preferences: DashboardPreferences
@@ -20,10 +22,10 @@ export interface SettingsPageProps {
 }
 
 interface DashboardVisibilitySetting {
-  label: string
+  label: TranslationKey
   pageId: Exclude<DashboardPageId, 'dashboard'>
   widgetId?: DashboardWidgetId
-  widgetDetail?: string
+  widgetDetail?: TranslationKey
 }
 
 const DASHBOARD_VISIBILITY_SETTINGS: DashboardVisibilitySetting[] = [
@@ -48,47 +50,64 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
   return (
     <div className="settings-page page-enter">
       <header className="settings-header">
-        <div><p className="eyebrow">Pablo Tablet</p><h1>Ajustes</h1></div>
-        <button type="button" className="btn back-button" onClick={onBack}>Volver al inicio</button>
+        <div><p className="eyebrow">Pablo Tablet</p><h1>{tx('Ajustes')}</h1></div>
+        <button type="button" className="btn back-button" onClick={onBack}>{tx('Volver al inicio')}</button>
       </header>
+
+      <section className="settings-section settings-list" data-swipe-block aria-labelledby="language-settings-title">
+        <div className="section-heading">
+          <div><p className="eyebrow">{tx('Personalización')}</p><h2 id="language-settings-title">{tx('Idioma')}</h2></div>
+          <Languages size={22} />
+        </div>
+        <SettingsTextSelect<SupportedLanguage>
+          label={tx('Idioma')}
+          detail={tx('Elige el idioma de toda la aplicación y de la administración móvil.')}
+          value={preferences.language}
+          options={[
+            { value: 'es', label: 'Español' },
+            { value: 'en', label: 'English' },
+          ]}
+          onChange={(language) => onPreferencesChange({ language })}
+        />
+      </section>
 
       <section className="settings-section" data-swipe-block aria-labelledby="appearance-settings-title">
         <div className="section-heading">
-          <div><p className="eyebrow">Personalización</p><h2 id="appearance-settings-title">Apariencia</h2></div>
+          <div><p className="eyebrow">{tx('Personalización')}</p><h2 id="appearance-settings-title">{tx('Apariencia')}</h2></div>
           <Palette size={22} />
         </div>
         <ThemePicker value={preferences.themeId} onChange={(themeId) => onPreferencesChange({ themeId })} />
       </section>
 
       <section className="settings-section" data-swipe-block aria-labelledby="dashboard-settings-title">
-        <div className="section-heading"><div><p className="eyebrow">Dashboard</p><h2 id="dashboard-settings-title">Widgets y páginas</h2></div><Home size={22} /></div>
+        <div className="section-heading"><div><p className="eyebrow">Dashboard</p><h2 id="dashboard-settings-title">{tx('Widgets y páginas')}</h2></div><Home size={22} /></div>
         <div className="page-navigation-settings">
           <SettingsTextSelect<PageNavigationStyle>
-            label="Diseño del paginador"
+            label={tx('Diseño del paginador')}
             value={preferences.pageNavigationStyle}
             options={[
-              { value: 'dock', label: 'Dock compacto' },
-              { value: 'labels', label: 'Barra con nombres' },
-              { value: 'segmented', label: 'Segmentado' },
-              { value: 'minimal', label: 'Línea mínima' },
+              { value: 'dock', label: tx('Dock compacto') },
+              { value: 'labels', label: tx('Barra con nombres') },
+              { value: 'segmented', label: tx('Segmentado') },
+              { value: 'minimal', label: tx('Línea mínima') },
             ]}
             onChange={(pageNavigationStyle) => onPreferencesChange({ pageNavigationStyle })}
           />
           <SettingsTextSelect<PageNavigationPosition>
-            label="Posición del dock"
+            label={tx('Posición del dock')}
             value={preferences.pageNavigationPosition}
             options={[
-              { value: 'bottom', label: 'Abajo' },
-              { value: 'top', label: 'Arriba' },
-              { value: 'left', label: 'Izquierda' },
-              { value: 'right', label: 'Derecha' },
+              { value: 'bottom', label: tx('Abajo') },
+              { value: 'top', label: tx('Arriba') },
+              { value: 'left', label: tx('Izquierda') },
+              { value: 'right', label: tx('Derecha') },
             ]}
             onChange={(pageNavigationPosition) => onPreferencesChange({ pageNavigationPosition })}
           />
           <SettingToggle
             icon={<Type size={20} />}
-            title="Mostrar nombre de la página"
-            detail="Añade el nombre junto al icono en el paginador."
+            title={tx('Mostrar nombre de la página')}
+            detail={tx('Añade el nombre junto al icono en el paginador.')}
             checked={preferences.showPageNavigationLabels}
             onChange={(showPageNavigationLabels) => onPreferencesChange({ showPageNavigationLabels })}
           />
@@ -99,16 +118,16 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
               {setting.widgetId ? (
                 <SettingToggle
                   icon={dashboardIcon(setting.widgetId)}
-                  title={`Widget ${setting.label}`}
-                  detail={setting.widgetDetail ?? ''}
+                  title={tx('Widget {{name}}', { name: tx(setting.label) })}
+                  detail={setting.widgetDetail ? tx(setting.widgetDetail) : ''}
                   checked={widgets.find((current) => current.id === setting.widgetId)?.visible ?? false}
                   onChange={(visible) => onWidgetVisibilityChange(setting.widgetId!, visible)}
                 />
               ) : null}
               <SettingToggle
                 icon={dashboardIcon(setting.pageId)}
-                title={`Página ${setting.label}`}
-                detail="Disponible mediante swipe y navegación."
+                title={tx('Página {{name}}', { name: tx(setting.label) })}
+                detail={tx('Disponible mediante swipe y navegación.')}
                 checked={preferences.enabledPageIds.includes(setting.pageId)}
                 onChange={() => onTogglePage(setting.pageId)}
               />
@@ -118,8 +137,8 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
         <div className="calendar-widget-options">
           <SettingToggle
             icon={<CalendarDays size={20} />}
-            title="Próximos festivos"
-            detail="Muestra una sección separada en el widget de calendario cuando dispone de espacio."
+            title={tx('Próximos festivos')}
+            detail={tx('Muestra una sección separada en el widget de calendario cuando dispone de espacio.')}
             checked={preferences.showUpcomingCalendarHolidays}
             onChange={(showUpcomingCalendarHolidays) => onPreferencesChange({ showUpcomingCalendarHolidays })}
           />
@@ -127,72 +146,72 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
       </section>
 
       <section className="settings-section" data-swipe-block aria-labelledby="assistant-settings-title">
-        <div className="section-heading"><div><p className="eyebrow">Privacidad</p><h2 id="assistant-settings-title">Asistente</h2></div><Bot size={22} /></div>
+        <div className="section-heading"><div><p className="eyebrow">{tx('Privacidad')}</p><h2 id="assistant-settings-title">{tx('Asistente')}</h2></div><Bot size={22} /></div>
         <div className="page-toggle-list assistant-settings-list">
-          <SettingToggle icon={<Sparkles size={20} />} title="Activar Asistente" detail="Procesamiento local seguro; no envía datos ni guarda la conversación." checked={preferences.assistantEnabled} onChange={(assistantEnabled) => onPreferencesChange({ assistantEnabled })} />
-          <SettingToggle icon={<Mic size={20} />} title="Entrada por voz" detail="El micrófono solo se activa al pulsar el botón." checked={preferences.assistantVoiceEnabled} disabled={!preferences.assistantEnabled} onChange={(assistantVoiceEnabled) => onPreferencesChange({ assistantVoiceEnabled })} />
-          <SettingToggle icon={<Volume2 size={20} />} title="Leer respuestas automáticamente" detail="También puedes leer cada respuesta manualmente." checked={preferences.assistantReadAloud} disabled={!preferences.assistantEnabled} onChange={(assistantReadAloud) => onPreferencesChange({ assistantReadAloud })} />
+          <SettingToggle icon={<Sparkles size={20} />} title={tx('Activar Asistente')} detail={tx('Procesamiento local seguro; no envía datos ni guarda la conversación.')} checked={preferences.assistantEnabled} onChange={(assistantEnabled) => onPreferencesChange({ assistantEnabled })} />
+          <SettingToggle icon={<Mic size={20} />} title={tx('Entrada por voz')} detail={tx('El micrófono solo se activa al pulsar el botón.')} checked={preferences.assistantVoiceEnabled} disabled={!preferences.assistantEnabled} onChange={(assistantVoiceEnabled) => onPreferencesChange({ assistantVoiceEnabled })} />
+          <SettingToggle icon={<Volume2 size={20} />} title={tx('Leer respuestas automáticamente')} detail={tx('También puedes leer cada respuesta manualmente.')} checked={preferences.assistantReadAloud} disabled={!preferences.assistantEnabled} onChange={(assistantReadAloud) => onPreferencesChange({ assistantReadAloud })} />
         </div>
-        <p className="settings-note assistant-privacy-note">Proveedor activo: local seguro · Límite: 30 peticiones por sesión · Historial: no guardado.</p>
+        <p className="settings-note assistant-privacy-note">{tx('Proveedor activo: local seguro · Límite: 30 peticiones por sesión · Historial: no guardado.')}</p>
       </section>
 
       <MobileAdminSettings />
 
       <section className="settings-section settings-list" data-swipe-block aria-labelledby="display-settings-title">
-        <div className="section-heading"><div><p className="eyebrow">Dispositivo</p><h2 id="display-settings-title">Pantalla</h2></div><SunMedium size={22} /></div>
+        <div className="section-heading"><div><p className="eyebrow">{tx('Dispositivo')}</p><h2 id="display-settings-title">{tx('Pantalla')}</h2></div><SunMedium size={22} /></div>
         <div className={`night-mode-settings ${preferences.nightModeEnabled ? 'is-enabled' : ''} ${nightModeActive ? 'is-active' : ''}`}>
           <SettingToggle
             icon={<Moon size={20} />}
-            title={nightModeActive ? 'Modo nocturno activo' : 'Modo nocturno automático'}
-            detail={nightModeActive ? `Activo hasta las ${preferences.nightModeEnd}.` : `Se activará a las ${preferences.nightModeStart}.`}
+            title={nightModeActive ? tx('Modo nocturno activo') : tx('Modo nocturno automático')}
+            detail={nightModeActive ? tx('Activo hasta las {{time}}.', { time: preferences.nightModeEnd }) : tx('Se activará a las {{time}}.', { time: preferences.nightModeStart })}
             checked={preferences.nightModeEnabled}
             onChange={(nightModeEnabled) => onPreferencesChange({ nightModeEnabled })}
           />
           {preferences.nightModeEnabled ? <div className="night-mode-controls">
-            <div className="night-schedule" aria-label="Horario del modo nocturno">
-              <TimeSetting label="Desde" value={preferences.nightModeStart} onChange={(nightModeStart) => onPreferencesChange({ nightModeStart })} />
-              <TimeSetting label="Hasta" value={preferences.nightModeEnd} onChange={(nightModeEnd) => onPreferencesChange({ nightModeEnd })} />
+            <div className="night-schedule" aria-label={tx('Horario del modo nocturno')}>
+              <TimeSetting label={tx('Desde')} value={preferences.nightModeStart} onChange={(nightModeStart) => onPreferencesChange({ nightModeStart })} />
+              <TimeSetting label={tx('Hasta')} value={preferences.nightModeEnd} onChange={(nightModeEnd) => onPreferencesChange({ nightModeEnd })} />
             </div>
-            <SettingsRange icon={<SunMedium size={20} />} label="Brillo nocturno" value={preferences.nightBrightness} minimum={1} maximum={30} onChange={(nightBrightness) => onPreferencesChange({ nightBrightness })} />
-            <SettingsRange icon={<Volume2 size={20} />} label="Alarmas por la noche" value={preferences.nightAlarmVolume} minimum={0} onChange={(nightAlarmVolume) => onPreferencesChange({ nightAlarmVolume })} />
-            <SettingsRange icon={<Volume2 size={20} />} label="Volumen nocturno" value={preferences.nightMediaVolume} minimum={0} onChange={(nightMediaVolume) => onPreferencesChange({ nightMediaVolume })} />
+            <SettingsRange icon={<SunMedium size={20} />} label={tx('Brillo nocturno')} value={preferences.nightBrightness} minimum={1} maximum={30} onChange={(nightBrightness) => onPreferencesChange({ nightBrightness })} />
+            <SettingsRange icon={<Volume2 size={20} />} label={tx('Alarmas por la noche')} value={preferences.nightAlarmVolume} minimum={0} onChange={(nightAlarmVolume) => onPreferencesChange({ nightAlarmVolume })} />
+            <SettingsRange icon={<Volume2 size={20} />} label={tx('Volumen nocturno')} value={preferences.nightMediaVolume} minimum={0} onChange={(nightMediaVolume) => onPreferencesChange({ nightMediaVolume })} />
           </div> : null}
         </div>
-        <SettingToggle icon={<RotateCw size={20} />} title="Rotación automática" detail={preferences.autoRotate ? 'La pantalla cambia al girar la tablet.' : 'La orientación actual permanecerá bloqueada.'} checked={preferences.autoRotate} onChange={(autoRotate) => onPreferencesChange({ autoRotate })} />
-        <SettingToggle icon={<SunMedium size={20} />} title={nightModeActive && preferences.autoBrightness ? 'Brillo automático en pausa' : 'Brillo automático'} detail={nightModeActive && preferences.autoBrightness ? 'Se recuperará al terminar el horario nocturno.' : 'Adapta el brillo a la luz ambiental de la habitación.'} checked={preferences.autoBrightness} onChange={(autoBrightness) => onPreferencesChange({ autoBrightness })} />
-        <SettingsRange icon={<SunMedium size={20} />} label="Brillo" value={preferences.brightness} minimum={10} disabled={preferences.autoBrightness} onChange={(brightness) => onPreferencesChange({ brightness })} />
-        <SettingToggle icon={<SunMedium size={20} />} title="Pantalla siempre encendida" detail="Evita que la tablet se suspenda mientras Pablo Tablet está abierta." checked={preferences.keepScreenAwake} onChange={(keepScreenAwake) => onPreferencesChange({ keepScreenAwake })} />
+        <SettingToggle icon={<RotateCw size={20} />} title={tx('Rotación automática')} detail={tx(preferences.autoRotate ? 'La pantalla cambia al girar la tablet.' : 'La orientación actual permanecerá bloqueada.')} checked={preferences.autoRotate} onChange={(autoRotate) => onPreferencesChange({ autoRotate })} />
+        <SettingToggle icon={<SunMedium size={20} />} title={tx(nightModeActive && preferences.autoBrightness ? 'Brillo automático en pausa' : 'Brillo automático')} detail={tx(nightModeActive && preferences.autoBrightness ? 'Se recuperará al terminar el horario nocturno.' : 'Adapta el brillo a la luz ambiental de la habitación.')} checked={preferences.autoBrightness} onChange={(autoBrightness) => onPreferencesChange({ autoBrightness })} />
+        <SettingsRange icon={<SunMedium size={20} />} label={tx('Brillo')} value={preferences.brightness} minimum={10} disabled={preferences.autoBrightness} onChange={(brightness) => onPreferencesChange({ brightness })} />
+        <SettingToggle icon={<SunMedium size={20} />} title={tx('Pantalla siempre encendida')} detail={tx('Evita que la tablet se suspenda mientras Pablo Tablet está abierta.')} checked={preferences.keepScreenAwake} onChange={(keepScreenAwake) => onPreferencesChange({ keepScreenAwake })} />
         {!preferences.keepScreenAwake ? <ScreenTimeoutSelect value={preferences.screenTimeoutSeconds} onChange={(screenTimeoutSeconds) => onPreferencesChange({ screenTimeoutSeconds })} /> : null}
       </section>
 
       <section className="settings-section settings-list" data-swipe-block aria-labelledby="sound-settings-title">
-        <div className="section-heading"><div><p className="eyebrow">Dispositivo</p><h2 id="sound-settings-title">Sonido</h2></div><Volume2 size={22} /></div>
-        <SettingsRange icon={<Volume2 size={20} />} label="Volumen de alarmas" value={preferences.alarmVolume} minimum={0} onChange={(alarmVolume) => { onPreferencesChange({ alarmVolume }); void previewDeviceVolume('alarm', alarmVolume) }} />
-        <SettingsRange icon={<Volume2 size={20} />} label="Volumen general" value={preferences.mediaVolume} minimum={0} onChange={(mediaVolume) => { onPreferencesChange({ mediaVolume }); void playInteractionSound(mediaVolume) }} />
-        <SettingToggle icon={<Volume2 size={20} />} title="Sonido al interactuar" detail="Reproduce un toque breve al pulsar controles." checked={preferences.interactionSoundsEnabled} onChange={(interactionSoundsEnabled) => { onPreferencesChange({ interactionSoundsEnabled }); if (interactionSoundsEnabled) void playInteractionSound(preferences.mediaVolume) }} />
+        <div className="section-heading"><div><p className="eyebrow">{tx('Dispositivo')}</p><h2 id="sound-settings-title">{tx('Sonido')}</h2></div><Volume2 size={22} /></div>
+        <SettingsRange icon={<Volume2 size={20} />} label={tx('Volumen de alarmas')} value={preferences.alarmVolume} minimum={0} onChange={(alarmVolume) => { onPreferencesChange({ alarmVolume }); void previewDeviceVolume('alarm', alarmVolume) }} />
+        <SettingsRange icon={<Volume2 size={20} />} label={tx('Volumen general')} value={preferences.mediaVolume} minimum={0} onChange={(mediaVolume) => { onPreferencesChange({ mediaVolume }); void playInteractionSound(mediaVolume) }} />
+        <SettingToggle icon={<Volume2 size={20} />} title={tx('Sonido al interactuar')} detail={tx('Reproduce un toque breve al pulsar controles.')} checked={preferences.interactionSoundsEnabled} onChange={(interactionSoundsEnabled) => { onPreferencesChange({ interactionSoundsEnabled }); if (interactionSoundsEnabled) void playInteractionSound(preferences.mediaVolume) }} />
       </section>
 
       <div className="settings-compact-grid">
         <section className="settings-section settings-list compact-notifications" data-swipe-block aria-labelledby="notification-settings-title">
-          <div className="section-heading"><div><p className="eyebrow">Avisos</p><h2 id="notification-settings-title">Notificaciones</h2></div><BellRing size={22} /></div>
+          <div className="section-heading"><div><p className="eyebrow">{tx('Avisos')}</p><h2 id="notification-settings-title">{tx('Notificaciones')}</h2></div><BellRing size={22} /></div>
           <NotificationSettings />
         </section>
 
         <section className="settings-section settings-list compact-screensaver" data-swipe-block aria-labelledby="screensaver-settings-title">
-          <div className="section-heading"><div><p className="eyebrow">Inactividad</p><h2 id="screensaver-settings-title">Salvapantallas</h2></div><Images size={22} /></div>
-          <SettingToggle icon={<Images size={20} />} title="Salvapantallas de fotos" detail="Muestra las fotos elegidas cuando la tablet queda inactiva." checked={preferences.screensaverEnabled} onChange={(screensaverEnabled) => onPreferencesChange({ screensaverEnabled })} />
+          <div className="section-heading"><div><p className="eyebrow">{tx('Inactividad')}</p><h2 id="screensaver-settings-title">{tx('Salvapantallas')}</h2></div><Images size={22} /></div>
+          <SettingToggle icon={<Images size={20} />} title={tx('Salvapantallas de fotos')} detail={tx('Muestra las fotos elegidas cuando la tablet queda inactiva.')} checked={preferences.screensaverEnabled} onChange={(screensaverEnabled) => onPreferencesChange({ screensaverEnabled })} />
           {preferences.screensaverEnabled ? <ScreensaverDelaySelect value={preferences.screensaverDelaySeconds} onChange={(screensaverDelaySeconds) => onPreferencesChange({ screensaverDelaySeconds })} /> : null}
         </section>
 
-        <section className="settings-section compact-updates" data-swipe-block aria-label="Actualizaciones">
+        <section className="settings-section compact-updates" data-swipe-block aria-label={tx('Actualizaciones')}>
           <AppUpdateSettings />
         </section>
 
         <section className="settings-section settings-list compact-system" data-swipe-block aria-labelledby="system-settings-title">
-          <div className="section-heading"><div><p className="eyebrow">Aplicación</p><h2 id="system-settings-title">Sistema</h2></div><LogOut size={22} /></div>
+          <div className="section-heading"><div><p className="eyebrow">{tx('Aplicación')}</p><h2 id="system-settings-title">{tx('Sistema')}</h2></div><LogOut size={22} /></div>
           <button type="button" className="settings-row exit-app-row" onClick={() => void exitTabletApp()}>
             <span className="settings-icon"><LogOut size={20} /></span>
-            <span className="settings-copy"><strong>Salir de la app</strong><small>Desbloquear Android y cerrar Pablo Tablet</small></span>
+            <span className="settings-copy"><strong>{tx('Salir de la app')}</strong><small>{tx('Desbloquear Android y cerrar Pablo Tablet')}</small></span>
           </button>
         </section>
       </div>

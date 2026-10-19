@@ -44,7 +44,7 @@ public class AppUpdaterPlugin extends Plugin {
         try {
             call.resolve(installedVersionResponse());
         } catch (Exception error) {
-            call.reject(message(error, "No se pudo consultar la versión instalada."), error);
+            call.reject(message(error, AppLocale.text(getContext(), R.string.error_update_installed_version)), error);
         }
     }
 
@@ -82,7 +82,7 @@ public class AppUpdaterPlugin extends Plugin {
                 response.put("assetSize", release.assetSize);
                 call.resolve(response);
             } catch (Exception error) {
-                call.reject(message(error, "No se pudo consultar la última versión."), error);
+                call.reject(message(error, AppLocale.text(getContext(), R.string.error_update_latest_version)), error);
             }
         }, "pablo-tablet-update-check").start();
     }
@@ -93,7 +93,7 @@ public class AppUpdaterPlugin extends Plugin {
         String expectedSha256 = normalizeDigest(call.getString("sha256", ""));
         String assetName = call.getString("assetName", "Pablo-Tablet.apk");
         if (expectedSha256 == null) {
-            call.reject("La actualización no tiene una huella SHA-256 válida.");
+            call.reject(AppLocale.text(getContext(), R.string.error_update_invalid_digest));
             return;
         }
 
@@ -104,9 +104,9 @@ public class AppUpdaterPlugin extends Plugin {
                 validateReleaseUrl(downloadUrl);
                 connection = openConnection(new URL(downloadUrl));
                 int status = connection.getResponseCode();
-                if (status != HttpURLConnection.HTTP_OK) throw new IllegalStateException("GitHub respondió con el código " + status + ".");
+                if (status != HttpURLConnection.HTTP_OK) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_github_status, status));
                 long declaredSize = connection.getContentLengthLong();
-                if (declaredSize > MAX_APK_BYTES) throw new IllegalStateException("El APK supera el tamaño máximo permitido.");
+                if (declaredSize > MAX_APK_BYTES) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_apk_too_large));
                 notifyDownloadProgress("downloading", 0, declaredSize);
 
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -117,7 +117,7 @@ public class AppUpdaterPlugin extends Plugin {
                     int count;
                     while ((count = input.read(buffer)) != -1) {
                         downloaded += count;
-                        if (downloaded > MAX_APK_BYTES) throw new IllegalStateException("El APK supera el tamaño máximo permitido.");
+                        if (downloaded > MAX_APK_BYTES) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_apk_too_large));
                         output.write(buffer, 0, count);
                         digest.update(buffer, 0, count);
                         long now = System.currentTimeMillis();
@@ -132,12 +132,12 @@ public class AppUpdaterPlugin extends Plugin {
                 notifyDownloadProgress("verifying", downloaded, declaredSize);
                 String actualSha256 = hex(digest.digest());
                 if (!actualSha256.equalsIgnoreCase(expectedSha256)) {
-                    throw new SecurityException("La huella del APK descargado no coincide con la publicada en GitHub.");
+                    throw new SecurityException(AppLocale.text(getContext(), R.string.error_update_digest_mismatch));
                 }
 
                 File destination = downloadedUpdate();
-                if (destination.exists() && !destination.delete()) throw new IllegalStateException("No se pudo reemplazar la descarga anterior.");
-                if (!temporary.renameTo(destination)) throw new IllegalStateException("No se pudo guardar el APK descargado.");
+                if (destination.exists() && !destination.delete()) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_replace_download));
+                if (!temporary.renameTo(destination)) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_save_apk));
                 notifyDownloadProgress("ready", downloaded, declaredSize);
 
                 JSObject response = new JSObject();
@@ -147,7 +147,7 @@ public class AppUpdaterPlugin extends Plugin {
                 call.resolve(response);
             } catch (Exception error) {
                 if (temporary.exists()) temporary.delete();
-                call.reject(message(error, "No se pudo descargar la actualización."), error);
+                call.reject(message(error, AppLocale.text(getContext(), R.string.error_update_download)), error);
             } finally {
                 if (connection != null) connection.disconnect();
             }
@@ -158,7 +158,7 @@ public class AppUpdaterPlugin extends Plugin {
     public void installDownloadedUpdate(PluginCall call) {
         File apk = downloadedUpdate();
         if (!apk.isFile()) {
-            call.reject("No hay ninguna actualización descargada.");
+            call.reject(AppLocale.text(getContext(), R.string.error_update_not_downloaded));
             return;
         }
 
@@ -186,7 +186,7 @@ public class AppUpdaterPlugin extends Plugin {
                 response.put("installerOpened", true);
                 call.resolve(response);
             } catch (Exception error) {
-                call.reject(message(error, "No se pudo abrir el instalador de Android."), error);
+                call.reject(message(error, AppLocale.text(getContext(), R.string.error_update_open_installer)), error);
             }
         });
     }
@@ -276,16 +276,16 @@ public class AppUpdaterPlugin extends Plugin {
         long assetSize
     ) throws Exception {
         String version = versionName.trim();
-        if (version.isEmpty()) throw new IllegalStateException("La Release no tiene una versión válida.");
-        if (downloadUrl.isEmpty()) throw new IllegalStateException("La Release no contiene una URL de descarga.");
+        if (version.isEmpty()) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_release_version));
+        if (downloadUrl.isEmpty()) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_release_url_missing));
         String digest = normalizeDigest(digestValue);
-        if (digest == null) throw new IllegalStateException("El APK publicado no incluye una huella SHA-256.");
+        if (digest == null) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_release_digest_missing));
         validateReleaseUrl(downloadUrl);
         if (!assetName.toLowerCase(Locale.ROOT).endsWith(".apk")) {
-            throw new IllegalStateException("El manifiesto de actualización no apunta a un APK.");
+            throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_manifest_not_apk));
         }
         if (assetSize < 0 || assetSize > MAX_APK_BYTES) {
-            throw new IllegalStateException("El manifiesto de actualización contiene un tamaño de APK inválido.");
+            throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_manifest_size));
         }
         String name = releaseName.trim().isEmpty() ? version : releaseName;
         return new ReleaseInfo(version, name, releaseNotes, publishedAt, downloadUrl, digest, assetName, assetSize);
@@ -294,9 +294,9 @@ public class AppUpdaterPlugin extends Plugin {
     private String githubErrorMessage(HttpURLConnection connection, int status) {
         String remaining = connection.getHeaderField("X-RateLimit-Remaining");
         if ((status == HttpURLConnection.HTTP_FORBIDDEN || status == 429) && "0".equals(remaining)) {
-            return "GitHub ha limitado temporalmente las consultas. Vuelve a intentarlo dentro de unos minutos.";
+            return AppLocale.text(getContext(), R.string.error_update_rate_limited);
         }
-        return "GitHub respondió con el código " + status + ".";
+        return AppLocale.text(getContext(), R.string.error_update_github_status, status);
     }
 
     private JSObject installedVersionResponse() throws PackageManager.NameNotFoundException {
@@ -316,7 +316,7 @@ public class AppUpdaterPlugin extends Plugin {
                 if (asset != null && asset.optString("name", "").toLowerCase(Locale.ROOT).endsWith(".apk")) return asset;
             }
         }
-        throw new IllegalStateException("La Release no contiene ningún archivo APK.");
+        throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_release_no_apk));
     }
 
     private String normalizeDigest(String value) {
@@ -329,7 +329,7 @@ public class AppUpdaterPlugin extends Plugin {
     private void validateReleaseUrl(String value) throws Exception {
         URI uri = URI.create(value);
         if (!"https".equalsIgnoreCase(uri.getScheme()) || !"github.com".equalsIgnoreCase(uri.getHost()) || uri.getPath() == null || !uri.getPath().startsWith(RELEASE_DOWNLOAD_PREFIX)) {
-            throw new SecurityException("La URL del APK no pertenece a las Releases oficiales de Pablo Tablet.");
+            throw new SecurityException(AppLocale.text(getContext(), R.string.error_update_untrusted_url));
         }
     }
 
@@ -364,7 +364,7 @@ public class AppUpdaterPlugin extends Plugin {
 
     private File updateDirectory() {
         File directory = new File(getContext().getCacheDir(), "updates");
-        if (!directory.exists() && !directory.mkdirs()) throw new IllegalStateException("No se pudo preparar la carpeta de actualizaciones.");
+        if (!directory.exists() && !directory.mkdirs()) throw new IllegalStateException(AppLocale.text(getContext(), R.string.error_update_directory));
         return directory;
     }
 

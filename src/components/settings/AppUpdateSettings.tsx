@@ -12,13 +12,14 @@ import {
   type AppUpdateInfo,
   type AppUpdateProgress,
 } from '../../appUpdater'
+import { tx } from '../../i18n'
 
 type UpdateStep = 'idle' | 'checking' | 'downloading' | 'verifying' | 'ready' | 'opening-installer' | 'awaiting-permission' | 'awaiting-result' | 'checking-result'
 
 const PENDING_UPDATE_VERSION_KEY = 'pablo-tablet.pending-update-version'
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'No se pudo completar la operación.'
+  return error instanceof Error ? error.message : tx('No se pudo completar la operación.')
 }
 
 function formatBytes(bytes: number | null) {
@@ -65,10 +66,10 @@ export function AppUpdateSettings() {
       const result = await checkForAppUpdate()
       setUpdate(result)
       setMessage(!result.releaseAvailable
-        ? 'No hay actualizaciones disponibles.'
+        ? tx('No hay actualizaciones disponibles.')
         : result.updateAvailable
-          ? `La versión ${result.latestVersionName} está disponible.`
-          : 'La aplicación está actualizada.')
+          ? tx('La versión {{version}} está disponible.', { version: result.latestVersionName })
+          : tx('La aplicación está actualizada.'))
     } catch (nextError) {
       setError(errorMessage(nextError))
     } finally {
@@ -81,17 +82,17 @@ export function AppUpdateSettings() {
     if (!expectedVersion) return
     changeStep('checking-result')
     setError(null)
-    setMessage('Comprobando si Android completó la instalación…')
+    setMessage(tx('Comprobando si Android completó la instalación…'))
     try {
       const installed = await getInstalledAppVersion()
       if (versionIsAtLeast(installed.currentVersionName, expectedVersion)) {
         window.localStorage.removeItem(PENDING_UPDATE_VERSION_KEY)
         setUpdate((current) => current ? { ...current, currentVersionName: installed.currentVersionName, currentVersionCode: installed.currentVersionCode, updateAvailable: false } : current)
         changeStep('idle')
-        setMessage(`Actualización completada. Versión instalada: ${installed.currentVersionName}.`)
+        setMessage(tx('Actualización completada. Versión instalada: {{version}}.', { version: installed.currentVersionName }))
       } else {
         changeStep('ready')
-        setMessage('La instalación no terminó. Puedes volver a abrir el instalador o descargar de nuevo el archivo.')
+        setMessage(tx('La instalación no terminó. Puedes volver a abrir el instalador o descargar de nuevo el archivo.'))
       }
     } catch (nextError) {
       changeStep('ready')
@@ -121,18 +122,18 @@ export function AppUpdateSettings() {
     if (!update) return
     changeStep('downloading')
     setProgress({ phase: 'downloading', bytesDownloaded: 0, totalBytes: update.assetSize, percent: 0 })
-    setMessage('Descargando la actualización…')
+    setMessage(tx('Descargando la actualización…'))
     setError(null)
     try {
       await downloadAppUpdate(update, (nextProgress) => {
         setProgress(nextProgress)
         if (nextProgress.phase === 'verifying') {
           changeStep('verifying')
-          setMessage('Comprobando que el archivo descargado es seguro…')
+          setMessage(tx('Comprobando que el archivo descargado es seguro…'))
         }
       })
       changeStep('ready')
-      setMessage('Descarga completada y verificada. Continúa cuando quieras abrir el instalador de Android.')
+      setMessage(tx('Descarga completada y verificada. Continúa cuando quieras abrir el instalador de Android.'))
     } catch (nextError) {
       changeStep('idle')
       setProgress(null)
@@ -144,22 +145,22 @@ export function AppUpdateSettings() {
     if (!update?.latestVersionName) return
     changeStep('opening-installer')
     window.localStorage.setItem(PENDING_UPDATE_VERSION_KEY, update.latestVersionName)
-    setMessage('Preparando Android. En la siguiente pantalla pulsa “Actualizar”.')
+    setMessage(tx('Preparando Android. En la siguiente pantalla pulsa “Actualizar”.'))
     setError(null)
     try {
       if (simulated) {
         setShowSimulatedInstaller(true)
         changeStep('awaiting-result')
-        setMessage('Instalador simulado abierto. Pulsa “Actualizar” en la ventana de Android.')
+        setMessage(tx('Instalador simulado abierto. Pulsa “Actualizar” en la ventana de Android.'))
         return
       }
       const result = await installDownloadedAppUpdate()
       if (result.permissionRequired) {
         changeStep('awaiting-permission')
-        setMessage('Activa “Permitir desde esta fuente”, vuelve a Pablo Tablet y pulsa “Continuar con la instalación”.')
+        setMessage(tx('Activa “Permitir desde esta fuente”, vuelve a Pablo Tablet y pulsa “Continuar con la instalación”.'))
       } else {
         changeStep('awaiting-result')
-        setMessage('Instalador abierto. Pulsa “Actualizar” en Android; al volver comprobaremos el resultado.')
+        setMessage(tx('Instalador abierto. Pulsa “Actualizar” en Android; al volver comprobaremos el resultado.'))
       }
     } catch (nextError) {
       changeStep('ready')
@@ -171,13 +172,13 @@ export function AppUpdateSettings() {
     if (!update?.latestVersionName) return
     confirmSimulatedWebInstallation(update.latestVersionName)
     setShowSimulatedInstaller(false)
-    setMessage('La instalación simulada ha terminado. Pulsa “Comprobar instalación”.')
+    setMessage(tx('La instalación simulada ha terminado. Pulsa “Comprobar instalación”.'))
   }
 
   const cancelSimulatedInstallation = () => {
     setShowSimulatedInstaller(false)
     changeStep('ready')
-    setMessage('Instalación cancelada. Puedes volver a intentarlo cuando quieras.')
+    setMessage(tx('Instalación cancelada. Puedes volver a intentarlo cuando quieras.'))
   }
 
   const resetSimulation = () => {
@@ -197,14 +198,14 @@ export function AppUpdateSettings() {
     ? `${formatBytes(progress.bytesDownloaded)} de ${formatBytes(progress.totalBytes)}`
     : progress ? formatBytes(progress.bytesDownloaded) : null
   const showProgress = ['downloading', 'verifying', 'ready', 'opening-installer', 'awaiting-permission', 'awaiting-result', 'checking-result'].includes(step)
-  const versionLabel = update ? `Versión instalada: ${update.currentVersionName}` : 'Pulsa Buscar actualizaciones para comprobar el estado.'
+  const versionLabel = update ? tx('Versión instalada: {{version}}', { version: update.currentVersionName }) : tx('Pulsa Buscar actualizaciones para comprobar el estado.')
 
   return (
     <div className="app-update-settings" aria-labelledby="app-update-title">
       <div className="settings-subheading app-update-heading">
-        <div><p className="eyebrow">Sistema</p><h2 id="app-update-title">Actualizaciones</h2></div>
+        <div><p className="eyebrow">{tx('Sistema')}</p><h2 id="app-update-title">{tx('Actualizaciones')}</h2></div>
         <div className="app-update-heading-actions">
-          {simulated ? <span className="app-update-demo-badge">Demo web</span> : null}
+          {simulated ? <span className="app-update-demo-badge">{tx('Demo web')}</span> : null}
           <ShieldCheck size={20} />
         </div>
       </div>
@@ -212,25 +213,25 @@ export function AppUpdateSettings() {
       <div className="app-update-card">
         <span className="settings-icon"><Smartphone size={20} /></span>
         <span className="settings-copy">
-          <strong>{update?.updateAvailable ? `Nueva versión ${update.latestVersionName}` : 'Pablo Tablet'}</strong>
-          <small>{supported ? versionLabel : 'Disponible al abrir la aplicación en Android.'}</small>
+          <strong>{update?.updateAvailable ? tx('Nueva versión {{version}}', { version: update.latestVersionName }) : 'Pablo Tablet'}</strong>
+          <small>{supported ? versionLabel : tx('Disponible al abrir la aplicación en Android.')}</small>
           {update?.updateAvailable && update.releaseName ? <small>{update.releaseName}{formatBytes(update.assetSize) ? ` · ${formatBytes(update.assetSize)}` : ''}</small> : null}
         </span>
-        {update && !update.updateAvailable ? <CheckCircle2 className="app-update-ok" size={22} aria-label="Aplicación actualizada" /> : null}
+        {update && !update.updateAvailable ? <CheckCircle2 className="app-update-ok" size={22} aria-label={tx('Aplicación actualizada')} /> : null}
       </div>
 
-      {update?.updateAvailable && update.releaseNotes ? <details className="app-update-notes"><summary>Ver novedades</summary><p>{update.releaseNotes}</p></details> : null}
+      {update?.updateAvailable && update.releaseNotes ? <details className="app-update-notes"><summary>{tx('Ver novedades')}</summary><p>{update.releaseNotes}</p></details> : null}
       {showProgress ? (
-        <section className="app-update-progress" aria-label="Proceso de actualización">
+        <section className="app-update-progress" aria-label={tx('Proceso de actualización')}>
           <ol className="app-update-steps">
-            <li className={step === 'downloading' ? 'is-active' : progress ? 'is-complete' : ''}><span>1</span>Descarga</li>
-            <li className={step === 'verifying' ? 'is-active' : progress?.phase === 'ready' || ['ready', 'opening-installer', 'awaiting-permission', 'awaiting-result', 'checking-result'].includes(step) ? 'is-complete' : ''}><span>2</span>Verificación</li>
-            <li className={['opening-installer', 'awaiting-permission', 'awaiting-result', 'checking-result'].includes(step) ? 'is-active' : ''}><span>3</span>Instalación</li>
+            <li className={step === 'downloading' ? 'is-active' : progress ? 'is-complete' : ''}><span>1</span>{tx('Descarga')}</li>
+            <li className={step === 'verifying' ? 'is-active' : progress?.phase === 'ready' || ['ready', 'opening-installer', 'awaiting-permission', 'awaiting-result', 'checking-result'].includes(step) ? 'is-complete' : ''}><span>2</span>{tx('Verificación')}</li>
+            <li className={['opening-installer', 'awaiting-permission', 'awaiting-result', 'checking-result'].includes(step) ? 'is-active' : ''}><span>3</span>{tx('Instalación')}</li>
           </ol>
           {(step === 'downloading' || step === 'verifying') ? (
             <div className="app-update-progress-detail">
-              <div><strong>{step === 'verifying' ? 'Verificando archivo' : 'Descargando actualización'}</strong><span>{step === 'verifying' ? 'Comprobación SHA-256' : progressBytes}</span></div>
-              <progress max="100" value={step === 'verifying' ? 100 : downloadPercent ?? undefined} aria-label={step === 'verifying' ? 'Verificando actualización' : 'Progreso de descarga'} />
+              <div><strong>{tx(step === 'verifying' ? 'Verificando archivo' : 'Descargando actualización')}</strong><span>{step === 'verifying' ? tx('Comprobación SHA-256') : progressBytes}</span></div>
+              <progress max="100" value={step === 'verifying' ? 100 : downloadPercent ?? undefined} aria-label={tx(step === 'verifying' ? 'Verificando actualización' : 'Progreso de descarga')} />
               {step === 'downloading' && downloadPercent !== null ? <output>{downloadPercent}%</output> : null}
             </div>
           ) : null}
@@ -240,22 +241,22 @@ export function AppUpdateSettings() {
         <div className="app-update-actions">
           <button type="button" disabled={!supported || busy} onClick={() => void check()}>
             {step === 'checking' ? <LoaderCircle className="is-spinning" size={17} /> : <RefreshCw size={17} />}
-            {step === 'checking' ? 'Comprobando…' : 'Buscar actualizaciones'}
+            {tx(step === 'checking' ? 'Comprobando…' : 'Buscar actualizaciones')}
           </button>
           {update?.updateAvailable && step === 'idle' ? (
             <button type="button" className="is-primary" disabled={busy} onClick={() => void download()}>
-              <Download size={17} /> Descargar
+              <Download size={17} /> {tx('Descargar')}
             </button>
           ) : null}
           {(step === 'ready' || step === 'awaiting-permission' || step === 'awaiting-result' || step === 'opening-installer') ? (
             <button type="button" className="is-primary" disabled={step === 'opening-installer'} onClick={() => void install()}>
               {step === 'opening-installer' ? <LoaderCircle className="is-spinning" size={17} /> : <ShieldCheck size={17} />}
-              {step === 'opening-installer' ? 'Abriendo Android…' : step === 'awaiting-result' ? 'Abrir instalador de nuevo' : 'Continuar con la instalación'}
+              {tx(step === 'opening-installer' ? 'Abriendo Android…' : step === 'awaiting-result' ? 'Abrir instalador de nuevo' : 'Continuar con la instalación')}
             </button>
           ) : null}
-          {(step === 'ready' || step === 'awaiting-permission' || step === 'awaiting-result') ? <button type="button" onClick={() => void download()}>Volver a descargar</button> : null}
-          {step === 'awaiting-result' ? <button type="button" onClick={() => void verifyPendingInstallation()}>Comprobar instalación</button> : null}
-          {simulated ? <button type="button" onClick={resetSimulation}>Reiniciar simulación</button> : null}
+          {(step === 'ready' || step === 'awaiting-permission' || step === 'awaiting-result') ? <button type="button" onClick={() => void download()}>{tx('Volver a descargar')}</button> : null}
+          {step === 'awaiting-result' ? <button type="button" onClick={() => void verifyPendingInstallation()}>{tx('Comprobar instalación')}</button> : null}
+          {simulated ? <button type="button" onClick={resetSimulation}>{tx('Reiniciar simulación')}</button> : null}
         </div>
         {message ? <p className="app-update-message">{message}</p> : null}
         {error ? <p className="app-update-message is-error" role="alert">{error}</p> : null}
@@ -265,13 +266,13 @@ export function AppUpdateSettings() {
           <section className="simulated-installer" role="dialog" aria-modal="true" aria-labelledby="simulated-installer-title">
             <span className="simulated-installer-icon"><Smartphone size={28} /></span>
             <div>
-              <p className="eyebrow">Instalador de Android · Simulación</p>
-              <h3 id="simulated-installer-title">¿Quieres actualizar esta aplicación?</h3>
-              <p>Se actualizará Pablo Tablet de la versión 0.3.7 a la 0.4.1. Tus datos se conservarán.</p>
+              <p className="eyebrow">{tx('Instalador de Android · Simulación')}</p>
+              <h3 id="simulated-installer-title">{tx('¿Quieres actualizar esta aplicación?')}</h3>
+              <p>{tx('Se actualizará Pablo Tablet de la versión 0.3.7 a la 0.4.1. Tus datos se conservarán.')}</p>
             </div>
             <div className="simulated-installer-actions">
-              <button type="button" onClick={cancelSimulatedInstallation}>Cancelar</button>
-              <button type="button" className="is-primary" onClick={completeSimulatedInstallation}>Actualizar</button>
+              <button type="button" onClick={cancelSimulatedInstallation}>{tx('Cancelar')}</button>
+              <button type="button" className="is-primary" onClick={completeSimulatedInstallation}>{tx('Actualizar')}</button>
             </div>
           </section>
         </div>
