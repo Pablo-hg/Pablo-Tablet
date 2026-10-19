@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import {
@@ -8,8 +8,10 @@ import {
   CakeSlice,
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock3,
   Cloud,
   CloudLightning,
@@ -20,6 +22,7 @@ import {
   EyeOff,
   Eraser,
   FileText,
+  GripVertical,
   Images,
   Home,
   ListTodo,
@@ -157,6 +160,7 @@ function App() {
   )
   const activePageIndex = Math.max(0, enabledPages.findIndex((page) => page.id === activePageId))
   const activePage = enabledPages[activePageIndex] ?? enabledPages[0]
+  const activeNavigationIndex = screen === 'settings' ? enabledPages.length : activePageIndex
   const time = timeFormatter.format(now)
   const date = weekdayFormatter.format(now)
   const currentYear = now.getFullYear()
@@ -377,6 +381,19 @@ function App() {
     registerInteraction()
   }, [enabledPages, registerInteraction])
 
+  const moveToNavigationPage = useCallback((nextIndex: number) => {
+    const navigationPageCount = enabledPages.length + 1
+    const wrappedIndex = (nextIndex + navigationPageCount) % navigationPageCount
+    setInteractionLocked(false)
+    if (wrappedIndex === enabledPages.length) {
+      setScreen('settings')
+    } else {
+      setScreen('home')
+      setActivePageId(enabledPages[wrappedIndex].id)
+    }
+    registerInteraction()
+  }, [enabledPages, registerInteraction])
+
   const goTo = (nextScreen: AppScreen) => {
     setScreensaverVisible(false)
     setScreen(nextScreen)
@@ -413,7 +430,7 @@ function App() {
     const note: Note = {
       id: createLocalId(),
       type,
-      title: type === 'drawing' ? 'Nuevo dibujo' : 'Nueva nota',
+      title: type === 'drawing' ? 'Nuevo dibujo' : type === 'list' ? 'Nueva lista' : 'Nueva nota',
       content: '',
       drawing: [],
       drawingPosition: 'below',
@@ -876,10 +893,6 @@ function App() {
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return
-    if (screen !== 'home') {
-      pointerStart.current = null
-      return
-    }
     const target = event.target as HTMLElement
     const gestureBlocked = interactionLocked || target.closest('button, a, input, textarea, select, [role="button"], [data-swipe-block], .page-indicators')
     if (gestureBlocked) {
@@ -899,13 +912,12 @@ function App() {
     const deltaY = event.clientY - pointerStart.current.y
     pointerStart.current = null
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-    if (screen !== 'home') return
     if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
     suppressClick.current = true
     window.setTimeout(() => {
       suppressClick.current = false
     }, 0)
-    moveToPage(activePageIndex + (deltaX < 0 ? 1 : -1))
+    moveToNavigationPage(activeNavigationIndex + (deltaX < 0 ? 1 : -1))
   }
 
   const handleClickCapture = (event: ReactMouseEvent<HTMLElement>) => {
@@ -935,10 +947,6 @@ function App() {
   }
 
   const handleTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
-    if (screen !== 'home') {
-      touchStart.current = null
-      return
-    }
     const target = event.target as HTMLElement
     const isNoteTextarea = Boolean(target.closest('.note-editor textarea'))
     const gestureBlocked = (!isNoteTextarea && interactionLocked)
@@ -959,7 +967,6 @@ function App() {
     const deltaX = touch.clientX - touchStart.current.x
     const deltaY = touch.clientY - touchStart.current.y
     touchStart.current = null
-    if (screen !== 'home') return
     if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
     suppressClick.current = true
     window.setTimeout(() => {
@@ -967,7 +974,7 @@ function App() {
     }, 0)
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     setInteractionLocked(false)
-    moveToPage(activePageIndex + (deltaX < 0 ? 1 : -1))
+    moveToNavigationPage(activeNavigationIndex + (deltaX < 0 ? 1 : -1))
   }
 
   return (
@@ -986,7 +993,7 @@ function App() {
       onClickCapture={handleClickCapture}
       onClick={handleClick}
     >
-      <section className={`tablet-content ${screen === 'settings' ? 'is-settings' : ''}`} aria-label="Pablo Tablet">
+      <section className={`tablet-content ${screen === 'settings' ? 'is-settings' : ''} ${screen === 'home' && activePage?.id === 'calendar' ? 'is-calendar' : ''}`} aria-label="Pablo Tablet">
         {screen === 'home' && activePage?.id === 'assistant' ? (
           <AssistantPage
             enabled={dashboardState.preferences.assistantEnabled}
@@ -1017,6 +1024,7 @@ function App() {
             weatherLoading={weatherLoading}
             weatherErrors={weatherErrors}
             hideCompletedCalendarTasks={dashboardState.preferences.hideCompletedCalendarTasks}
+            showUpcomingCalendarHolidays={dashboardState.preferences.showUpcomingCalendarHolidays}
             alarms={dashboardState.alarms}
             timers={dashboardState.timers}
             stopwatch={dashboardState.stopwatch}
@@ -1075,7 +1083,7 @@ function App() {
 
       {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>Simulación web de aviso local</small></div><button type="button" onClick={() => setSimulatedAlert(null)} aria-label="Cerrar aviso"><X size={18} /></button></div> : null}
       {ringingAlert ? <RingingAlertOverlay alert={ringingAlert} snoozeMinutes={snoozeMinutes} onSnoozeMinutesChange={setSnoozeMinutes} onSnooze={snoozeRingingAlert} onStop={stopRinging} /> : null}
-      {screensaverVisible ? <GalleryScreensaver photo={screensaverPhoto} now={now} time={time} date={date} calendarEvents={calendarEvents} onDismiss={() => { setScreensaverVisible(false); registerInteraction() }} /> : null}
+      {screensaverVisible ? <GalleryScreensaver photo={screensaverPhoto} now={now} time={time} date={date} calendarEvents={calendarEvents} calendars={dashboardState.externalCalendars} onDismiss={() => { setScreensaverVisible(false); registerInteraction() }} /> : null}
 
       <AppNavigation
         screen={screen}
@@ -1114,6 +1122,7 @@ function DashboardPage({
   weatherLoading,
   weatherErrors,
   hideCompletedCalendarTasks,
+  showUpcomingCalendarHolidays,
   alarms,
   timers,
   stopwatch,
@@ -1174,6 +1183,7 @@ function DashboardPage({
   weatherLoading: Record<string, boolean>
   weatherErrors: Record<string, string>
   hideCompletedCalendarTasks: boolean
+  showUpcomingCalendarHolidays: boolean
   alarms: Alarm[]
   timers: Timer[]
   stopwatch: StopwatchState
@@ -1222,11 +1232,11 @@ function DashboardPage({
   if (page.id === 'gallery') return <GalleryPage photos={galleryPhotos} onAddPhotos={onAddGalleryPhotos} onMoveToTrash={onMoveGalleryPhotoToTrash} onMoveSelectionToTrash={onMoveGalleryPhotosToTrash} onRestore={onRestoreGalleryPhoto} onPermanentlyDelete={onPermanentlyDeleteGalleryPhoto} onEditingChange={onEditingChange} />
   if (page.id === 'weather') return <WeatherPage locations={weatherLocations} homeLocationId={homeWeatherLocationId} selectedLocationId={selectedWeatherLocationId} forecasts={weatherForecasts} loading={weatherLoading} errors={weatherErrors} onAddLocation={onAddWeatherLocation} onRemoveLocation={onRemoveWeatherLocation} onSetHomeLocation={onSetHomeWeatherLocation} onSelectLocation={onSelectWeatherLocation} onRefresh={onRefreshWeather} onEditingChange={onEditingChange} />
   if (page.id === 'notes') return <NotesPage notes={notes} onCreateNote={onCreateNote} onUpdateNote={onUpdateNote} onArchiveNote={onArchiveNote} onRestoreNote={onRestoreNote} onDeleteNote={onDeleteNote} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} />
-  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} calendarEvents={calendarEvents} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
+  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} calendarEvents={calendarEvents} calendars={externalCalendars} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
 }
 
-function GalleryScreensaver({ photo, now, time, date, calendarEvents, onDismiss }: { photo: GalleryPhoto | undefined; now: Date; time: string; date: string; calendarEvents: CalendarEvent[]; onDismiss: () => void }) {
-  const upcomingEvents = getUpcomingCalendarEvents(calendarEvents, now, time)
+function GalleryScreensaver({ photo, now, time, date, calendarEvents, calendars, onDismiss }: { photo: GalleryPhoto | undefined; now: Date; time: string; date: string; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; onDismiss: () => void }) {
+  const upcomingEvents = getUpcomingCalendarEvents(calendarEvents, now, time, 3, calendars)
   const dismiss = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault()
     event.stopPropagation()
@@ -1427,7 +1437,7 @@ function resizeWidgetFromEdge(initial: WidgetPosition, direction: WidgetResizeDi
   return { ...initial, height: initial.height + delta }
 }
 
-function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: (date?: string) => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
+function GridDashboard({ now, time, date, widgets, notes, calendarEvents, calendars, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; showUpcomingCalendarHolidays: boolean; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: (date?: string) => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
   const orientation = useDashboardOrientation()
   const [isEditing, setIsEditing] = useState(false)
   const [selectedWidgetId, setSelectedWidgetId] = useState<DashboardWidgetId | null>(null)
@@ -1446,7 +1456,8 @@ function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWe
   const visibleDashboardNotes = notes
     .filter((note) => !note.archived)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt))
-  const upcomingEvents = getUpcomingCalendarEvents(calendarEvents, now, time)
+  const upcomingEvents = getUpcomingCalendarEvents(calendarEvents, now, time, 6, calendars)
+  const upcomingHolidays = getUpcomingCalendarHolidays(calendarEvents, now, time, 3, calendars)
 
   const cancelWidgetHold = useCallback(() => {
     if (holdTimer.current !== null) window.clearTimeout(holdTimer.current)
@@ -1657,7 +1668,7 @@ function GridDashboard({ now, time, date, widgets, notes, calendarEvents, homeWe
       {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>Arrastra para mover · arrastra los bordes para ajustar</span><button type="button" onClick={finishEditing}><Check size={17} />Listo</button></div> : null}
       <div ref={gridRef} className={`dashboard-grid is-${orientation}`}>
         {displayedWidgets.length > 0
-          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
+          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} upcomingHolidays={upcomingHolidays} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
           : <DashboardEmptyState time={time} date={date} />}
       </div>
     </div>
@@ -1712,7 +1723,7 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
   </div>
 }
 
-function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, upcomingEvents, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
+function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, upcomingEvents, upcomingHolidays, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
   widget: PlacedWidget
   now: Date
   time: string
@@ -1720,6 +1731,8 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   notes: Note[]
   calendarEvents: CalendarEvent[]
   upcomingEvents: CalendarEvent[]
+  upcomingHolidays: CalendarEvent[]
+  showUpcomingCalendarHolidays: boolean
   homeWeatherLocation: WeatherLocation | null
   homeWeatherForecast: WeatherForecast | null
   weatherLoading: boolean
@@ -1757,7 +1770,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   </button></DashboardWidgetFrame>
 
   if (widget.id === 'clock') return <DashboardWidgetFrame {...frameProps}><article className="clock-card responsive-clock-widget widget-card">
-    <div className="widget-label"><span>Ahora</span><span className="live-dot">En directo</span></div>
+    <div className="widget-label"><span>Ahora</span></div>
     <time className="time">{time}{area > 1 ? <small>:{String(now.getSeconds()).padStart(2, '0')}</small> : null}</time>
     <p className="date">{date}</p>
     {area >= 4 ? <div className="clock-details"><span><SunMedium size={20} />Que tengas un día estupendo</span><strong>{new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(now)}</strong></div> : null}
@@ -1791,7 +1804,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
       <div className="heading-icon coral"><Check size={18} /></div>
       <div><p className="widget-title">Notas</p><p className="widget-subtitle">{notes.length ? `${notes.length} guardadas en esta tablet` : 'Sin notas todavía'}</p></div>
     </div>
-    {visibleNotes.length > 0 ? <div className="note-preview-list">{visibleNotes.map((note, index) => <span key={note.id} className={`note-preview note-${note.color} ${note.type === 'drawing' && note.pinned ? 'has-drawing-preview' : ''}`}><i /><span><strong>{note.title || 'Sin título'}</strong>{note.type === 'drawing' && note.pinned ? <NoteDrawingPreview drawing={note.drawing} /> : <small>{note.type === 'drawing' ? 'Dibujo' : (note.content || 'Texto / lista')}</small>}</span>{index === 0 && note.pinned && note.type === 'drawing' ? <Pin className="note-preview-pin" size={14} /> : null}</span>)}</div> : <p className="note-content is-placeholder">Toca aquí para crear una nota de texto o un dibujo.</p>}
+    {visibleNotes.length > 0 ? <div className="note-preview-list">{visibleNotes.map((note, index) => <span key={note.id} className={`note-preview note-${note.color} ${note.type === 'drawing' && note.pinned ? 'has-drawing-preview' : ''}`}><i /><span><strong>{note.title || 'Sin título'}</strong>{note.type === 'drawing' && note.pinned ? <NoteDrawingPreview drawing={note.drawing} /> : <small>{note.type === 'drawing' ? 'Dibujo' : note.type === 'list' ? `${parseNoteList(note.content).filter((item) => item.checked).length}/${parseNoteList(note.content).length} marcados` : (note.content || 'Texto')}</small>}</span>{index === 0 && note.pinned && note.type === 'drawing' ? <Pin className="note-preview-pin" size={14} /> : null}</span>)}</div> : <p className="note-content is-placeholder">Toca aquí para crear una nota de texto, una lista o un dibujo.</p>}
     <div className="note-footer"><span>{featuredNote ? (featuredNote.pinned ? 'Fijada' : 'Editada') : 'Sin contenido'}</span><ChevronRight size={17} /></div>
     </button></DashboardWidgetFrame>
   }
@@ -1814,6 +1827,8 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     return { key, day: value.getDate(), muted: value.getMonth() !== now.getMonth(), events }
   })
   const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 0, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 0, '3x2': 3, '3x3': 5, '3x4': 6 }
+  const showHolidaySection = showUpcomingCalendarHolidays && area >= 6 && upcomingHolidays.length > 0
+  const visibleAgendaCount = showHolidaySection ? Math.max(1, (agendaCount[sizeKey] ?? 0) - 1) : agendaCount[sizeKey] ?? 0
   const calendarSubtitle = visibleDayCount === 7
     ? 'Esta semana'
     : showWholeMonth
@@ -1830,18 +1845,29 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
         <div className="calendar-widget-weekdays">{['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => <span key={day}>{day}</span>)}</div>
         <div className="calendar-widget-month-grid">{monthCells.map((cell) => <button key={cell.key} type="button" aria-label={`Abrir ${calendarDayFormatter.format(new Date(`${cell.key}T12:00:00`))}`} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(cell.key))}><strong>{cell.day}</strong>{summarizeCalendarCellEvents(cell.events, cell.key).slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || 'Evento'}</small>)}</button>)}</div>
       </section>
-      {(agendaCount[sizeKey] ?? 0) > 0 ? <aside className="calendar-widget-agenda">
-        <p>Próximos eventos</p>
-        {upcomingEvents.length > 0 ? upcomingEvents.slice(0, agendaCount[sizeKey]).map((event) => <button type="button" key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><CalendarEventTypeMark type={event.type} source={event.source} /><span>{event.title || 'Evento'}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>) : <span className="calendar-widget-empty"><Compass size={19} />Sin eventos próximos</span>}
+      {(agendaCount[sizeKey] ?? 0) > 0 ? <aside className={`calendar-widget-agenda ${showHolidaySection ? 'has-holidays' : ''}`}>
+        <div className="calendar-widget-upcoming"><p>Próximos eventos</p>{upcomingEvents.length > 0 ? upcomingEvents.slice(0, visibleAgendaCount).map((event) => <button type="button" key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><CalendarEventTypeMark type={event.type} source={event.source} /><span>{event.title || 'Evento'}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>) : <span className="calendar-widget-empty"><Compass size={19} />Sin eventos próximos</span>}</div>
+        {showHolidaySection ? <div className="calendar-widget-holidays"><p><Sparkles size={12} />Próximos festivos</p>{upcomingHolidays.slice(0, 2).map((event) => <button type="button" key={event.id} className={`calendar-event-line is-holiday event-${event.color} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><Sparkles size={13} /><span>{event.title || 'Festivo'}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>)}</div> : null}
       </aside> : null}
     </div>
   </article></DashboardWidgetFrame>
 }
 
-function getUpcomingCalendarEvents(calendarEvents: CalendarEvent[], now: Date, time: string, limit = 3) {
+const HOLIDAY_CALENDAR_PATTERN = /(holiday|holidays|festiv|festivo|festivos|bank[ _-]?holiday|feiertag|f[eé]ri[eé])/i
+
+function isCalendarHoliday(event: CalendarEvent, calendars: SyncedCalendar[] = []) {
+  if (event.source === 'native') return true
+  if (event.isHoliday) return true
+  if (!event.allDay || event.source === 'local' || !event.accountId || !event.calendarId) return false
+  const calendar = calendars.find((candidate) => candidate.provider === event.source && candidate.accountId === event.accountId && candidate.remoteId === event.calendarId)
+  return Boolean(calendar && HOLIDAY_CALENDAR_PATTERN.test(`${calendar.name} ${calendar.remoteId}`))
+}
+
+function getUpcomingCalendarItems(calendarEvents: CalendarEvent[], now: Date, time: string, limit: number, calendars: SyncedCalendar[], holidaysOnly: boolean) {
   const todayKey = toLocalDateKey(now)
   return calendarEvents
     .filter((event) => event.type !== 'task' || !event.completed)
+    .filter((event) => isCalendarHoliday(event, calendars) === holidaysOnly)
     .map((event) => {
       let occurrence = nextCalendarOccurrence(event, todayKey)
       if (occurrence?.endDate === todayKey && !event.allDay && event.endTime < time && event.recurrence !== 'none') occurrence = nextCalendarOccurrence(event, addDaysToDateKey(todayKey, 1))
@@ -1851,6 +1877,14 @@ function getUpcomingCalendarEvents(calendarEvents: CalendarEvent[], now: Date, t
     .filter((event): event is CalendarEvent => event !== null)
     .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
     .slice(0, limit)
+}
+
+function getUpcomingCalendarEvents(calendarEvents: CalendarEvent[], now: Date, time: string, limit = 3, calendars: SyncedCalendar[] = []) {
+  return getUpcomingCalendarItems(calendarEvents, now, time, limit, calendars, false)
+}
+
+function getUpcomingCalendarHolidays(calendarEvents: CalendarEvent[], now: Date, time: string, limit = 3, calendars: SyncedCalendar[] = []) {
+  return getUpcomingCalendarItems(calendarEvents, now, time, limit, calendars, true)
 }
 
 function isCalendarEventPast(event: CalendarEvent, now: Date) {
@@ -1967,7 +2001,7 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
     .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.startTime.localeCompare(b.startTime))
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   const currentHour = now.getHours()
-  const upcomingEvents = getUpcomingCalendarEvents(visibleEvents, now, currentTime, 5)
+  const upcomingEvents = getUpcomingCalendarEvents(visibleEvents, now, currentTime, 5, calendars)
   const currentMonthKey = todayKey.slice(0, 7)
   const dayViewDates = [-1, 0, 1].map((offset) => addDaysToDateKey(selectedDate, offset))
   const dayViewEvents = dayViewDates.map((date) => visibleEvents.flatMap((event) => {
@@ -2031,12 +2065,15 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
       </header>
       <div className="calendar-three-day-viewport" aria-label={`Agenda por horas del ${dayViewDates[0]} al ${dayViewDates[2]}`}>
         <div className="calendar-three-day-date-row">
-          <span className="calendar-time-corner">Todo el día</span>
+          <span className="calendar-time-corner" aria-hidden="true" />
           {dayViewDates.map((date) => <button key={date} type="button" className={`${date === selectedDate ? 'is-selected' : ''} ${date === todayKey ? 'is-today' : ''}`} onClick={() => showDay(date)}><span>{calendarDayColumnFormatter.format(new Date(`${date}T12:00:00`))}</span>{date === todayKey ? <small>Hoy</small> : null}</button>)}
         </div>
-        <div className="calendar-three-day-all-day">
-          <span />
-          {dayViewDates.map((date, columnIndex) => <div key={date}>{dayViewEvents[columnIndex].filter((event) => event.allDay).map((event) => <button key={event.id} type="button" disabled={event.source === 'native'} className={`calendar-timeline-all-day event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`} onClick={() => openEditor(event.id)}><CalendarEventTypeMark type={event.type} source={event.source} size={12} /><span>{event.title || 'Evento'}</span></button>)}</div>)}
+        <div className="calendar-three-day-all-day" aria-label="Eventos de todo el día">
+          <span className="calendar-time-corner">Todo el día</span>
+          {dayViewDates.map((date, columnIndex) => <div key={date}>{dayViewEvents[columnIndex].filter((event) => event.allDay).map((event) => {
+            const holiday = isCalendarHoliday(event, calendars)
+            return <button key={event.id} type="button" disabled={event.source === 'native' || holiday} className={`calendar-timeline-all-day event-${event.color} ${holiday ? 'is-holiday' : ''} ${nativeCalendarClass(event)}`} onClick={() => openEditor(event.id)}>{holiday ? <Sparkles size={12} /> : <CalendarEventTypeMark type={event.type} source={event.source} size={12} />}<span>{event.title || 'Evento de todo el día'}</span>{holiday ? <small>Festivo</small> : null}</button>
+          })}</div>)}
         </div>
         <div ref={dayViewScrollRef} className="calendar-three-day-scroll">
           <div className="calendar-three-day-grid">
@@ -2566,12 +2603,13 @@ function NotesPage({
   }
 
   const createMenu = !showArchived && isCreateMenuOpen ? <div className="note-create-menu" role="group" aria-label="Elegir formato de nota">
-    <button type="button" onClick={() => createAndSelect('text')}><FileText size={18} /><span><strong>Texto / lista</strong><small>Ideas, apuntes y tareas.</small></span></button>
+    <button type="button" onClick={() => createAndSelect('text')}><FileText size={18} /><span><strong>Texto</strong><small>Ideas y apuntes libres.</small></span></button>
     <button type="button" onClick={() => createAndSelect('drawing')}><Pencil size={18} /><span><strong>Dibujo</strong><small>Un lienzo para escribir o dibujar.</small></span></button>
+    <button type="button" onClick={() => createAndSelect('list')}><ListTodo size={18} /><span><strong>Lista</strong><small>Elementos ordenables y marcables.</small></span></button>
   </div> : null
 
   return (
-    <div className="fullscreen-page page-enter">
+    <div className="fullscreen-page notes-page page-enter">
       <PageHeader pageLabel="Notas" />
       <section className="notes-workspace" aria-label="Notas locales">
         <aside className="notes-sidebar">
@@ -2579,7 +2617,7 @@ function NotesPage({
           {createMenu}
           <div className="note-filter" role="tablist" aria-label="Filtrar notas"><button type="button" className={!showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(false); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={!showArchived}>Activas</button><button type="button" className={showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(true); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={showArchived}>Archivo</button></div>
           <div className="note-list">
-            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => setSelectedId(note.id)}><span className="note-list-color" /><span><strong>{note.title || 'Sin título'}</strong><small>{note.type === 'drawing' ? (note.drawing.length ? 'Dibujo guardado' : 'Lienzo vacío') : (note.content || 'Texto / lista')}</small></span><span className="note-list-meta">{note.type === 'drawing' ? <Pencil size={14} aria-label="Dibujo" /> : <FileText size={14} aria-label="Texto o lista" />}{note.pinned ? <Pin size={14} /> : null}</span></button>)}
+            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => setSelectedId(note.id)}><span className="note-list-color" /><span><strong>{note.title || 'Sin título'}</strong><small>{note.type === 'drawing' ? (note.drawing.length ? 'Dibujo guardado' : 'Lienzo vacío') : note.type === 'list' ? `${parseNoteList(note.content).filter((item) => item.checked).length}/${parseNoteList(note.content).length} marcados` : (note.content || 'Texto')}</small></span><span className="note-list-meta">{note.type === 'drawing' ? <Pencil size={14} aria-label="Dibujo" /> : note.type === 'list' ? <ListTodo size={14} aria-label="Lista" /> : <FileText size={14} aria-label="Texto" />}{note.pinned ? <Pin size={14} /> : null}</span></button>)}
             {notesForView.length === 0 ? <div className="notes-empty"><FileText size={24} /><p>{showArchived ? 'No hay notas archivadas.' : 'Aún no hay notas.'}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>Crear la primera</button> : null}</div> : null}
           </div>
         </aside>
@@ -2705,12 +2743,215 @@ function NoteDrawingCanvas({ drawing, readOnly, onChange, onEditingChange }: { d
   </div>
 }
 
+type NoteListItem = { checked: boolean; text: string }
+
+function parseNoteList(content: string): NoteListItem[] {
+  if (!content.trim()) return []
+  return content.split('\n').map((line) => {
+    const match = line.match(/^- \[([ xX])\]\s?(.*)$/)
+    return match ? { checked: match[1].toLowerCase() === 'x', text: match[2] } : { checked: false, text: line }
+  })
+}
+
+function serializeNoteList(items: NoteListItem[]) {
+  return items.map((item) => `- [${item.checked ? 'x' : ' '}] ${item.text}`).join('\n').slice(0, 2000)
+}
+
+function NoteTextEditor({ note, readOnly, onUpdate, onEditingChange }: { note: Note; readOnly: boolean; onUpdate: (noteId: string, patch: NotePatch) => void; onEditingChange: (isEditing: boolean) => void }) {
+  return <div className="note-text-editor">
+    <textarea value={note.content} maxLength={2000} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { content: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Escribe una nota…" aria-label="Contenido de la nota" />
+  </div>
+}
+
+function NoteListEditor({ note, readOnly, onUpdate, onEditingChange }: { note: Note; readOnly: boolean; onUpdate: (noteId: string, patch: NotePatch) => void; onEditingChange: (isEditing: boolean) => void }) {
+  const items = parseNoteList(note.content)
+  const [showCompleted, setShowCompleted] = useState(false)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
+  const [dragOffsetY, setDragOffsetY] = useState(0)
+  const [itemKeys, setItemKeys] = useState(() => items.map(() => createLocalId()))
+  const itemsRef = useRef(items)
+  const draggedIndexRef = useRef<number | null>(null)
+  const draggedKeyRef = useRef<string | null>(null)
+  const dropTargetIndexRef = useRef<number | null>(null)
+  const dragPointerIdRef = useRef<number | null>(null)
+  const dragStartYRef = useRef(0)
+  const dragStartScrollTopRef = useRef(0)
+  const rowElementsRef = useRef(new Map<string, HTMLDivElement>())
+  const previousRowTopsRef = useRef(new Map<string, number>())
+  useEffect(() => { itemsRef.current = items }, [items])
+  useLayoutEffect(() => {
+    const nextTops = new Map<string, number>()
+    rowElementsRef.current.forEach((element, key) => {
+      const nextTop = element.getBoundingClientRect().top
+      const previousTop = previousRowTopsRef.current.get(key)
+      nextTops.set(key, nextTop)
+      const delta = previousTop === undefined ? 0 : previousTop - nextTop
+      if (Math.abs(delta) > 1 && key !== draggedKeyRef.current && typeof element.animate === 'function') {
+        element.animate([{ transform: `translateY(${delta}px)` }, { transform: 'translateY(0)' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' })
+      }
+    })
+    previousRowTopsRef.current = nextTops
+  })
+  const allEntries = items.map((item, index) => ({ item, index, key: itemKeys[index] ?? `${note.id}-${index}` }))
+  const activeEntries = allEntries.filter(({ item }) => !item.checked)
+  const completedEntries = allEntries.filter(({ item }) => item.checked)
+
+  const saveItems = (nextItems: NoteListItem[]) => {
+    itemsRef.current = nextItems
+    onUpdate(note.id, { content: serializeNoteList(nextItems) })
+  }
+  const updateItem = (index: number, patch: Partial<NoteListItem>) => saveItems(items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item))
+  const addItem = () => {
+    const firstCompletedIndex = items.findIndex((item) => item.checked)
+    const insertAt = firstCompletedIndex === -1 ? items.length : firstCompletedIndex
+    setItemKeys((current) => [...current.slice(0, insertAt), createLocalId(), ...current.slice(insertAt)])
+    saveItems([...items.slice(0, insertAt), { checked: false, text: '' }, ...items.slice(insertAt)])
+  }
+  const moveItem = (fromIndex: number, toIndex: number) => {
+    const currentItems = itemsRef.current
+    if (fromIndex === toIndex || toIndex < 0 || toIndex >= currentItems.length) return
+    const nextItems = [...currentItems]
+    const [movedItem] = nextItems.splice(fromIndex, 1)
+    nextItems.splice(toIndex, 0, movedItem)
+    setItemKeys((current) => {
+      const nextKeys = [...current]
+      const [movedKey] = nextKeys.splice(fromIndex, 1)
+      nextKeys.splice(toIndex, 0, movedKey)
+      return nextKeys
+    })
+    saveItems(nextItems)
+  }
+  const moveWithinGroup = (entries: { item: NoteListItem; index: number; key: string }[], position: number, direction: -1 | 1) => {
+    const target = entries[position + direction]
+    if (target) moveItem(entries[position].index, target.index)
+  }
+
+  const startPointerReorder = (event: ReactPointerEvent<HTMLButtonElement>, index: number) => {
+    if (readOnly) return
+    event.preventDefault()
+    event.stopPropagation()
+    dragPointerIdRef.current = event.pointerId
+    draggedIndexRef.current = index
+    draggedKeyRef.current = itemKeys[index] ?? null
+    dropTargetIndexRef.current = index
+    dragStartYRef.current = event.clientY
+    dragStartScrollTopRef.current = (event.currentTarget.closest('.note-list-scroll') as HTMLElement | null)?.scrollTop ?? 0
+    setDragOffsetY(0)
+    setDraggedIndex(index)
+    setDropTargetIndex(index)
+    if (typeof event.currentTarget.setPointerCapture === 'function') event.currentTarget.setPointerCapture(event.pointerId)
+    onEditingChange(true)
+  }
+
+  const continuePointerReorder = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (dragPointerIdRef.current !== event.pointerId || draggedIndexRef.current === null) return
+    event.preventDefault()
+    event.stopPropagation()
+    const scroller = event.currentTarget.closest('.note-list-scroll') as HTMLElement | null
+    if (scroller) {
+      const bounds = scroller.getBoundingClientRect()
+      if (event.clientY < bounds.top + 44) scroller.scrollTop -= 18
+      else if (event.clientY > bounds.bottom - 44) scroller.scrollTop += 18
+    }
+    const nextDragOffset = event.clientY - dragStartYRef.current + ((scroller?.scrollTop ?? 0) - dragStartScrollTopRef.current)
+    setDragOffsetY(nextDragOffset)
+    const fromIndex = draggedIndexRef.current
+    const currentItems = itemsRef.current
+    const rows = scroller ? Array.from(scroller.querySelectorAll<HTMLElement>('[data-note-list-index]')) : []
+    const rowBounds = new Map(rows.map((row) => [row, row.getBoundingClientRect()]))
+    const draggedRow = rows.find((row) => Number(row.dataset.noteListIndex) === fromIndex)
+    const groupRows = rows.filter((row) => {
+      const rowIndex = Number(row.dataset.noteListIndex)
+      return Number.isInteger(rowIndex) && currentItems[rowIndex]?.checked === currentItems[fromIndex]?.checked
+    })
+    const groupPosition = groupRows.indexOf(draggedRow!)
+    const draggedBounds = draggedRow ? rowBounds.get(draggedRow) : undefined
+    const projectedCenter = draggedBounds ? draggedBounds.top - dragOffsetY + nextDragOffset + draggedBounds.height / 2 : 0
+    const hasMeasuredRows = rows.some((row) => (rowBounds.get(row)?.height ?? 0) > 0)
+    let targetIndex = fromIndex
+    if (hasMeasuredRows && groupPosition >= 0) {
+      if (projectedCenter < (draggedBounds?.top ?? 0) + (draggedBounds?.height ?? 0) / 2) {
+        for (let position = 0; position < groupPosition; position += 1) {
+          const row = groupRows[position]
+          const bounds = rowBounds.get(row)
+          if (bounds && projectedCenter <= bounds.top + bounds.height / 2 - 4) {
+            targetIndex = Number(row.dataset.noteListIndex)
+            break
+          }
+        }
+      } else {
+        for (let position = groupPosition + 1; position < groupRows.length; position += 1) {
+          const row = groupRows[position]
+          const bounds = rowBounds.get(row)
+          if (!bounds || projectedCenter < bounds.top + bounds.height / 2 + 4) break
+          targetIndex = Number(row.dataset.noteListIndex)
+        }
+      }
+    } else {
+      const fallbackRow = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-note-list-index]')
+      const fallbackIndex = Number(fallbackRow?.dataset.noteListIndex)
+      if (Number.isInteger(fallbackIndex) && currentItems[fallbackIndex]?.checked === currentItems[fromIndex]?.checked) targetIndex = fallbackIndex
+    }
+    dropTargetIndexRef.current = targetIndex
+    setDropTargetIndex(targetIndex)
+  }
+
+  const finishPointerReorder = (event: ReactPointerEvent<HTMLButtonElement>, commit: boolean) => {
+    if (dragPointerIdRef.current !== event.pointerId) return
+    if (typeof event.currentTarget.hasPointerCapture === 'function' && event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    const fromIndex = draggedIndexRef.current
+    const targetIndex = dropTargetIndexRef.current
+    dragPointerIdRef.current = null
+    draggedIndexRef.current = null
+    draggedKeyRef.current = null
+    dropTargetIndexRef.current = null
+    if (commit && fromIndex !== null && targetIndex !== null && fromIndex !== targetIndex) moveItem(fromIndex, targetIndex)
+    setDragOffsetY(0)
+    setDraggedIndex(null)
+    setDropTargetIndex(null)
+    onEditingChange(false)
+  }
+
+  const removeItem = (index: number) => {
+    setItemKeys((current) => current.filter((_, itemIndex) => itemIndex !== index))
+    saveItems(items.filter((_, itemIndex) => itemIndex !== index))
+  }
+
+  const renderItem = ({ item, index, key }: { item: NoteListItem; index: number; key: string }, position: number, entries: { item: NoteListItem; index: number; key: string }[]) => {
+    const dropPosition = draggedIndex !== null && dropTargetIndex !== null && dropTargetIndex !== draggedIndex && index === dropTargetIndex
+      ? dropTargetIndex < draggedIndex ? 'is-drop-before' : 'is-drop-after'
+      : ''
+    return <div ref={(element) => { if (element) rowElementsRef.current.set(key, element); else rowElementsRef.current.delete(key) }} className={`note-list-row ${item.checked ? 'is-completed' : ''} ${draggedIndex === index ? 'is-dragging' : ''} ${dropPosition}`} key={key} data-note-list-index={index} style={draggedIndex === index ? { '--note-drag-y': `${dragOffsetY}px` } as CSSProperties : undefined}>
+    {dropPosition ? <span className="note-list-drop-indicator" aria-hidden="true"><span>Soltar aquí</span></span> : null}
+    <button type="button" className="note-list-reorder" disabled={readOnly} aria-label={`Mover elemento ${position + 1}`} aria-pressed={draggedIndex === index} onPointerDown={(event) => startPointerReorder(event, index)} onPointerMove={continuePointerReorder} onPointerUp={(event) => finishPointerReorder(event, true)} onPointerCancel={(event) => finishPointerReorder(event, false)} onKeyDown={(event) => { if (event.key === 'ArrowUp') { event.preventDefault(); moveWithinGroup(entries, position, -1) } else if (event.key === 'ArrowDown') { event.preventDefault(); moveWithinGroup(entries, position, 1) } }}><GripVertical size={19} aria-hidden="true" /></button>
+    <input type="checkbox" checked={item.checked} disabled={readOnly} aria-label={`${item.checked ? 'Desmarcar' : 'Marcar'} elemento ${position + 1}`} onChange={(event) => updateItem(index, { checked: event.target.checked })} />
+    <input type="text" value={item.text} maxLength={300} readOnly={readOnly} aria-label={`Elemento de lista ${position + 1}`} placeholder="Elemento de lista" onChange={(event) => updateItem(index, { text: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} />
+    {!readOnly ? <button type="button" className="note-list-remove" aria-label={`Eliminar elemento ${position + 1}`} onClick={() => removeItem(index)}><X size={17} /></button> : null}
+  </div>
+  }
+
+  return <div className="note-list-editor">
+    <div className="note-list-scroll" aria-label="Elementos de la lista">
+      <div className="note-list-active">{activeEntries.map((entry, position) => renderItem(entry, position, activeEntries))}</div>
+      {!readOnly ? <button type="button" className="note-list-add" onClick={addItem}><Plus size={19} />Añadir elemento</button> : null}
+      {completedEntries.length > 0 ? <div className="note-list-completed">
+        <button type="button" className="note-list-completed-toggle" aria-expanded={showCompleted} onClick={() => setShowCompleted((visible) => !visible)}>{showCompleted ? <ChevronUp size={18} /> : <ChevronDown size={18} />}<span>{completedEntries.length} {completedEntries.length === 1 ? 'elemento marcado' : 'elementos marcados'}</span></button>
+        {showCompleted ? <div>{completedEntries.map((entry, position) => renderItem(entry, position, completedEntries))}</div> : null}
+      </div> : null}
+    </div>
+  </div>
+}
+
 function NoteEditor({ note, readOnly, onUpdate, onArchive, onRestore, onDelete, onPreviewNotification, onEditingChange }: { note: Note; readOnly: boolean; onUpdate: (noteId: string, patch: NotePatch) => void; onArchive: () => void; onRestore: () => void; onDelete: () => void; onPreviewNotification: (title: string, body: string) => void; onEditingChange: (isEditing: boolean) => void }) {
   const colors: NoteColor[] = ['coral', 'violet', 'mint', 'sun']
   const isDrawing = note.type === 'drawing'
-  const addListItem = () => onUpdate(note.id, { content: `${note.content}${note.content.trim() ? '\n' : ''}• ` })
+  const isList = note.type === 'list'
+  const listItems = isList ? parseNoteList(note.content) : []
   const notificationBody = isDrawing
     ? (note.drawing.length ? 'Tienes un dibujo guardado en esta nota.' : 'Tienes un lienzo de dibujo pendiente.')
+    : isList
+      ? (listItems.find((item) => !item.checked)?.text || 'Tienes una lista guardada en Pablo Tablet.')
     : (note.content || 'Tienes un recordatorio en Pablo Tablet.')
 
   return (
@@ -2722,14 +2963,16 @@ function NoteEditor({ note, readOnly, onUpdate, onArchive, onRestore, onDelete, 
       </div>
       <div className="note-editor-heading">
         <input className="note-title-input" value={note.title} maxLength={80} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { title: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Título de la nota" aria-label="Título de la nota" />
-        <span className={`note-format-badge is-${note.type}`}>{isDrawing ? <Pencil size={15} /> : <FileText size={15} />}{isDrawing ? 'Dibujo' : 'Texto / lista'}</span>
+        <span className={`note-format-badge is-${note.type}`}>{isDrawing ? <Pencil size={15} /> : isList ? <ListTodo size={15} /> : <FileText size={15} />}{isDrawing ? 'Dibujo' : isList ? 'Lista' : 'Texto'}</span>
       </div>
       <div className={`note-editor-body is-${note.type}`}>
         {isDrawing
           ? <NoteDrawingCanvas drawing={note.drawing} readOnly={readOnly} onChange={(drawing) => onUpdate(note.id, { drawing })} onEditingChange={onEditingChange} />
-          : <div className="note-text-editor"><div className="note-text-toolbar"><span>Texto o lista</span><button type="button" className="text-action" disabled={readOnly} onClick={addListItem}><Plus size={15} />Añadir elemento</button></div><textarea value={note.content} maxLength={2000} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { content: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Escribe una nota o crea una lista…" aria-label="Contenido de texto o lista de la nota" /></div>}
+          : isList
+            ? <NoteListEditor key={note.id} note={note} readOnly={readOnly} onUpdate={onUpdate} onEditingChange={onEditingChange} />
+            : <NoteTextEditor note={note} readOnly={readOnly} onUpdate={onUpdate} onEditingChange={onEditingChange} />}
       </div>
-      <div className="note-editor-footer">{readOnly ? <span>Nota archivada</span> : <span className="reminder-controls"><label>Recordatorio<input type="datetime-local" value={note.reminderAt ?? ''} onChange={(event) => onUpdate(note.id, { reminderAt: event.target.value || null })} /></label><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || 'Recordatorio', notificationBody)}><BellRing size={15} />Probar aviso</button></span>}<span>{isDrawing ? `${note.drawing.length} trazos · Dibujo local` : `${note.content.length}/2000 · Guardado local`}</span></div>
+      <div className="note-editor-footer">{readOnly ? <span>Nota archivada</span> : <span className="reminder-controls"><label>Recordatorio<input type="datetime-local" value={note.reminderAt ?? ''} onChange={(event) => onUpdate(note.id, { reminderAt: event.target.value || null })} /></label><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || 'Recordatorio', notificationBody)}><BellRing size={15} />Probar aviso</button></span>}<span>{isDrawing ? `${note.drawing.length} trazos · Dibujo local` : isList ? `${listItems.filter((item) => item.checked).length}/${listItems.length} marcados · Guardado local` : `${note.content.length}/2000 · Guardado local`}</span></div>
     </div>
   )
 }

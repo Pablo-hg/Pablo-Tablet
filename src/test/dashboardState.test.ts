@@ -42,6 +42,7 @@ describe('migraciones del estado', () => {
     expect(state.preferences.enabledPageIds[0]).toBe('dashboard')
     expect(state.preferences.themeId).toBe('original')
     expect(state.preferences.autoRotate).toBe(true)
+    expect(state.preferences.showUpcomingCalendarHolidays).toBe(true)
   })
 
   it('conserva la preferencia para bloquear la rotación', () => {

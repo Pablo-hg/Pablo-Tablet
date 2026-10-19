@@ -39,6 +39,7 @@ export interface DashboardPreferences {
   keepScreenAwake: boolean
   screenTimeoutSeconds: number
   hideCompletedCalendarTasks: boolean
+  showUpcomingCalendarHolidays: boolean
   screensaverEnabled: boolean
   screensaverDelaySeconds: number
   nightModeEnabled: boolean
@@ -53,7 +54,7 @@ export interface DashboardPreferences {
 }
 
 export type NoteColor = 'coral' | 'violet' | 'mint' | 'sun'
-export type NoteType = 'text' | 'drawing'
+export type NoteType = 'text' | 'drawing' | 'list'
 export type AlarmWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7
 
 export interface NoteDrawingPoint {
@@ -125,6 +126,7 @@ export interface CalendarEvent {
   id: string
   source: import('./calendarSync/contracts').CalendarSource
   nativeCategory?: NativeCalendarEventCategory
+  isHoliday?: boolean
   accountId: string | null
   calendarId: string | null
   externalId: string | null
@@ -226,6 +228,7 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
     keepScreenAwake: true,
     screenTimeoutSeconds: 60,
     hideCompletedCalendarTasks: false,
+    showUpcomingCalendarHolidays: true,
     screensaverEnabled: true,
     screensaverDelaySeconds: 180,
     nightModeEnabled: true,
@@ -311,7 +314,7 @@ function readNotes(value: unknown): Note[] {
       }]
     }) : []
     const content = typeof note.content === 'string' ? note.content.slice(0, 2000) : ''
-    const type: NoteType = note.type === 'drawing' || drawing.length > 0 ? 'drawing' : 'text'
+    const type: NoteType = note.type === 'drawing' || drawing.length > 0 ? 'drawing' : note.type === 'list' ? 'list' : 'text'
     const title = typeof note.title === 'string' ? note.title.slice(0, 80) : ''
     const splitLegacyNote = type === 'drawing' && content.trim().length > 0
     const normalized: Note = {
@@ -441,6 +444,7 @@ function readCalendarEvents(value: unknown): CalendarEvent[] {
       startTime: event.startTime,
       endTime: event.endTime,
       allDay: Boolean(event.allDay),
+      isHoliday: Boolean(event.isHoliday),
       timeZone: typeof event.timeZone === 'string' && event.timeZone ? event.timeZone.slice(0, 100) : Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
       location: typeof event.location === 'string' ? event.location.slice(0, 100) : '',
       notes: typeof event.notes === 'string' ? event.notes.slice(0, 500) : '',
@@ -684,6 +688,9 @@ export function loadDashboardState(serializedState?: string): DashboardState {
         hideCompletedCalendarTasks: typeof parsedPreferences.hideCompletedCalendarTasks === 'boolean'
           ? parsedPreferences.hideCompletedCalendarTasks
           : DEFAULT_DASHBOARD_STATE.preferences.hideCompletedCalendarTasks,
+        showUpcomingCalendarHolidays: typeof parsedPreferences.showUpcomingCalendarHolidays === 'boolean'
+          ? parsedPreferences.showUpcomingCalendarHolidays
+          : DEFAULT_DASHBOARD_STATE.preferences.showUpcomingCalendarHolidays,
         screensaverEnabled: typeof parsedPreferences.screensaverEnabled === 'boolean'
           ? parsedPreferences.screensaverEnabled
           : DEFAULT_DASHBOARD_STATE.preferences.screensaverEnabled,

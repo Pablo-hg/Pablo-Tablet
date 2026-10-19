@@ -24,6 +24,7 @@ function normalizedRemoteEvent(event: RemoteCalendarEvent, previous?: CalendarEv
     startTime: conflict ? previous.startTime : event.startTime,
     endTime: conflict ? previous.endTime : event.endTime,
     allDay: conflict ? previous.allDay : event.allDay,
+    isHoliday: conflict ? previous.isHoliday : event.isHoliday,
     timeZone: conflict ? previous.timeZone : event.timeZone,
     location: conflict ? previous.location : event.location,
     notes: conflict ? previous.notes : event.notes,
