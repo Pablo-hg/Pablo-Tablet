@@ -87,6 +87,7 @@ function nativeEvent(definition: NativeDateDefinition): CalendarEvent {
     startTime: '00:00',
     endTime: '23:59',
     allDay: true,
+    isHoliday: definition.category === 'holiday',
     timeZone: 'Europe/Madrid',
     location: '',
     notes: definition.detail,

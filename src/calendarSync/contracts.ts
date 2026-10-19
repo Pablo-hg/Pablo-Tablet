@@ -56,6 +56,7 @@ export interface RemoteCalendarEvent {
   startTime: string
   endTime: string
   allDay: boolean
+  isHoliday?: boolean
   timeZone: string
   location: string
   notes: string

@@ -7,6 +7,8 @@ const object = (value: unknown): JsonObject => value && typeof value === 'object
 const text = (value: unknown, fallback = '') => typeof value === 'string' ? value : fallback
 const datePart = (value: string) => value.slice(0, 10)
 const timePart = (value: string) => value.includes('T') ? value.slice(11, 16) : '00:00'
+const holidayCalendarPattern = /(holiday|holidays|festiv|festivo|festivos|bank[ _-]?holiday|feiertag|f[eé]ri[eé])/i
+const isHolidayCalendar = (calendarId: string) => holidayCalendarPattern.test(calendarId) || calendarId.toLowerCase().includes('holiday@group.v.calendar.google.com')
 const reminderBefore = (date: string, time: string, minutes: number, id: string) => {
   const value = new Date(`${date}T${time || '00:00'}:00`)
   value.setMinutes(value.getMinutes() - minutes)
@@ -53,6 +55,7 @@ export function mapGoogleEvent(accountId: string, calendarId: string, value: unk
     title: text(raw.summary, 'Sin título'), date: datePart(startValue),
     endDate: exclusiveEnd ? exclusiveEnd.toISOString().slice(0, 10) : datePart(endValue || startValue),
     startTime: allDay ? '00:00' : timePart(startValue), endTime: allDay ? '23:59' : timePart(endValue), allDay,
+    isHoliday: allDay && (isHolidayCalendar(calendarId) || raw.eventType === 'holiday' || raw.isHoliday === true),
     timeZone: text(start.timeZone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid'),
     location: text(raw.location), notes: text(raw.description), color: colorFor(raw.colorId),
     reminders,
@@ -78,6 +81,7 @@ export function mapOutlookEvent(accountId: string, calendarId: string, value: un
     deleted: Boolean(raw.isCancelled) || Object.keys(removed).length > 0, type: 'event', recurrence: recurrence(raw.recurrence), completed: false,
     title: text(raw.subject, 'Sin título'), date: datePart(startValue), endDate: datePart(endValue || startValue),
     startTime: raw.isAllDay ? '00:00' : timePart(startValue), endTime: raw.isAllDay ? '23:59' : timePart(endValue), allDay: Boolean(raw.isAllDay),
+    isHoliday: Boolean(raw.isAllDay) && (isHolidayCalendar(calendarId) || holidayCalendarPattern.test(JSON.stringify(raw.categories ?? [])) || raw.isHoliday === true),
     timeZone: text(start.timeZone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid'),
     location: text(location.displayName), notes: text(body.contentPreview, text(raw.bodyPreview)), color: colorFor(raw.categories),
     reminders,

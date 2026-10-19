@@ -115,6 +115,15 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
             </div>
           ))}
         </div>
+        <div className="calendar-widget-options">
+          <SettingToggle
+            icon={<CalendarDays size={20} />}
+            title="Próximos festivos"
+            detail="Muestra una sección separada en el widget de calendario cuando dispone de espacio."
+            checked={preferences.showUpcomingCalendarHolidays}
+            onChange={(showUpcomingCalendarHolidays) => onPreferencesChange({ showUpcomingCalendarHolidays })}
+          />
+        </div>
       </section>
 
       <section className="settings-section" data-swipe-block aria-labelledby="assistant-settings-title">

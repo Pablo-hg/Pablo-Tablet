@@ -17,6 +17,16 @@ describe('sincronización de calendarios', () => {
     expect(event).toMatchObject({ provider: 'google', date: '2026-10-11', endDate: '2026-10-12', allDay: true })
   })
 
+  it('clasifica festivos por su calendario sin confundir eventos normales de todo el día', () => {
+    const holiday = mapGoogleEvent('g1', 'es.spain#holiday@group.v.calendar.google.com', { id: 'holiday', summary: 'Fiesta nacional', start: { date: '2026-10-12' }, end: { date: '2026-10-13' } })
+    const normal = mapGoogleEvent('g1', 'primary', { id: 'trip', summary: 'Viaje', start: { date: '2026-10-12' }, end: { date: '2026-10-13' } })
+    const outlookHoliday = mapOutlookEvent('m1', 'calendar', { id: 'holiday', subject: 'Festivo', isAllDay: true, categories: ['Holidays'], start: { dateTime: '2026-10-12T00:00:00' }, end: { dateTime: '2026-10-13T00:00:00' } })
+
+    expect(holiday?.isHoliday).toBe(true)
+    expect(normal?.isHoliday).toBe(false)
+    expect(outlookHoliday?.isHoliday).toBe(true)
+  })
+
   it('reconoce eliminaciones de Microsoft delta', () => {
     expect(mapOutlookEvent('m1', 'calendar', { id: 'e2', '@removed': { reason: 'deleted' } })?.deleted).toBe(true)
   })
