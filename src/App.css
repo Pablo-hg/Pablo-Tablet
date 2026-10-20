@@ -20,7 +20,7 @@
 .dashboard-grid { display: grid; gap: clamp(12px, 1.6vw, 18px); grid-auto-flow: row dense; grid-auto-rows: minmax(0, 1fr); }
 .dashboard-grid.is-portrait { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
 .dashboard-grid.is-landscape { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
-.dashboard-grid > .dashboard-widget-shell { min-height: 0; min-width: 0; position: relative; }
+.dashboard-grid > .dashboard-widget-shell { container-name: dashboard-widget; container-type: size; min-height: 0; min-width: 0; position: relative; }
 .dashboard-widget-shell > .widget-card { height: 100%; min-height: 0; width: 100%; }
 .dashboard-widget-shell.is-holding { animation: widget-hold-pulse .7s ease-in-out infinite alternate; border-radius: 28px; outline: 3px solid rgba(142,174,255,.72); outline-offset: 3px; }
 .widget-hold-hint { background: rgba(8,18,38,.92); border: 1px solid rgba(164,190,255,.35); border-radius: 999px; color: #edf3ff; font-size: .7rem; font-weight: 700; left: 50%; padding: 7px 11px; pointer-events: none; position: absolute; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; z-index: 3; }
@@ -303,7 +303,7 @@
 .widget-size-1x1 .responsive-clock-widget .time { font-size: clamp(3rem, 5.7vw, 4.8rem); }
 .widget-size-1x1 .responsive-clock-widget .date { font-size: .7rem; margin-top: 5px; }
 .widget-size-1x2 .responsive-clock-widget .time, .widget-size-1x3 .responsive-clock-widget .time, .widget-size-1x4 .responsive-clock-widget .time { font-size: clamp(3.4rem, 6.2vw, 5.2rem); }
-.widget-size-2x1 .responsive-clock-widget, .widget-size-3x1 .responsive-clock-widget { display: grid; gap: 4px 18px; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr auto; padding: 15px 20px; }.widget-size-2x1 .responsive-clock-widget .widget-label, .widget-size-3x1 .responsive-clock-widget .widget-label { grid-column: 1 / -1; }.widget-size-2x1 .responsive-clock-widget .time, .widget-size-3x1 .responsive-clock-widget .time { font-size: clamp(3.7rem, 6.2vw, 5.8rem); grid-row: 2 / 4; margin: auto 0; }.widget-size-2x1 .responsive-clock-widget .date, .widget-size-3x1 .responsive-clock-widget .date { align-self: end; font-size: .75rem; margin: 0 0 5px; }
+.widget-size-2x1 .responsive-clock-widget, .widget-size-3x1 .responsive-clock-widget, .widget-size-4x1 .responsive-clock-widget { display: grid; gap: 4px 18px; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr auto; padding: 15px 20px; }.widget-size-2x1 .responsive-clock-widget .widget-label, .widget-size-3x1 .responsive-clock-widget .widget-label, .widget-size-4x1 .responsive-clock-widget .widget-label { grid-column: 1 / -1; }.widget-size-2x1 .responsive-clock-widget .time, .widget-size-3x1 .responsive-clock-widget .time, .widget-size-4x1 .responsive-clock-widget .time { font-size: clamp(3.7rem, 6.2vw, 5.8rem); grid-row: 2 / 4; margin: auto 0; }.widget-size-2x1 .responsive-clock-widget .date, .widget-size-3x1 .responsive-clock-widget .date, .widget-size-4x1 .responsive-clock-widget .date { align-self: end; font-size: .75rem; margin: 0 0 5px; }
 
 .responsive-weather-widget { display: flex; gap: clamp(12px, 2vh, 20px); justify-content: flex-start; padding: clamp(15px, 2.2vw, 28px); }
 .weather-current { align-items: center; display: flex; gap: clamp(12px, 1.8vw, 20px); min-width: 0; }
@@ -325,9 +325,9 @@
 .widget-size-1x3 .weather-forecast, .widget-size-1x4 .weather-forecast { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .widget-size-2x2 .weather-hours, .widget-size-2x2 .weather-forecast { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .widget-size-2x3 .weather-hours, .widget-size-2x3 .weather-forecast, .widget-size-2x4 .weather-hours, .widget-size-2x4 .weather-forecast { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.widget-size-2x1 .responsive-weather-widget, .widget-size-3x1 .responsive-weather-widget { align-items: center; display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr); padding: 14px 20px; }.widget-size-2x1 .weather-current .weather-icon, .widget-size-3x1 .weather-current .weather-icon { height: 58px; width: 58px; }.widget-size-2x1 .weather-current .temperature, .widget-size-3x1 .weather-current .temperature { font-size: clamp(3rem, 5vw, 4.5rem); }.widget-size-3x2 .responsive-weather-widget { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr); grid-template-rows: auto 1fr; }.widget-size-3x2 .weather-current { grid-row: 1 / -1; }.widget-size-3x2 .weather-stats { align-self: end; grid-column: 1; grid-row: 2; }.widget-size-3x2 .weather-hours, .widget-size-3x2 .weather-forecast { grid-column: 2; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.widget-size-3x3 .responsive-weather-widget, .widget-size-3x4 .responsive-weather-widget { display: grid; grid-template-columns: minmax(230px, .75fr) minmax(0, 1.25fr); grid-template-rows: auto 1fr; }
-.widget-size-3x3 .weather-current, .widget-size-3x4 .weather-current { grid-row: 1 / -1; }.widget-size-3x3 .weather-stats, .widget-size-3x4 .weather-stats { align-self: end; grid-column: 1; grid-row: 2; }.widget-size-3x3 .weather-hours, .widget-size-3x3 .weather-forecast, .widget-size-3x4 .weather-hours, .widget-size-3x4 .weather-forecast { grid-column: 2; }
+.widget-size-2x1 .responsive-weather-widget, .widget-size-3x1 .responsive-weather-widget, .widget-size-4x1 .responsive-weather-widget { align-items: center; display: grid; grid-template-columns: minmax(190px, .8fr) minmax(0, 1.2fr); padding: 14px 20px; }.widget-size-2x1 .weather-current .weather-icon, .widget-size-3x1 .weather-current .weather-icon, .widget-size-4x1 .weather-current .weather-icon { height: 58px; width: 58px; }.widget-size-2x1 .weather-current .temperature, .widget-size-3x1 .weather-current .temperature, .widget-size-4x1 .weather-current .temperature { font-size: clamp(3rem, 5vw, 4.5rem); }.widget-size-3x2 .responsive-weather-widget, .widget-size-4x2 .responsive-weather-widget { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr); grid-template-rows: auto 1fr; }.widget-size-3x2 .weather-current, .widget-size-4x2 .weather-current { grid-row: 1 / -1; }.widget-size-3x2 .weather-stats, .widget-size-4x2 .weather-stats { align-self: end; grid-column: 1; grid-row: 2; }.widget-size-3x2 .weather-hours, .widget-size-3x2 .weather-forecast, .widget-size-4x2 .weather-hours, .widget-size-4x2 .weather-forecast { grid-column: 2; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.widget-size-3x3 .responsive-weather-widget, .widget-size-3x4 .responsive-weather-widget, .widget-size-4x3 .responsive-weather-widget, .widget-size-4x4 .responsive-weather-widget { display: grid; grid-template-columns: minmax(230px, .75fr) minmax(0, 1.25fr); grid-template-rows: auto 1fr; }
+.widget-size-3x3 .weather-current, .widget-size-3x4 .weather-current, .widget-size-4x3 .weather-current, .widget-size-4x4 .weather-current { grid-row: 1 / -1; }.widget-size-3x3 .weather-stats, .widget-size-3x4 .weather-stats, .widget-size-4x3 .weather-stats, .widget-size-4x4 .weather-stats { align-self: end; grid-column: 1; grid-row: 2; }.widget-size-3x3 .weather-hours, .widget-size-3x3 .weather-forecast, .widget-size-3x4 .weather-hours, .widget-size-3x4 .weather-forecast, .widget-size-4x3 .weather-hours, .widget-size-4x3 .weather-forecast, .widget-size-4x4 .weather-hours, .widget-size-4x4 .weather-forecast { grid-column: 2; }
 
 .responsive-note-widget { display: flex; flex-direction: column; padding: clamp(14px, 2.2vw, 27px); }
 .note-preview-list { display: grid; gap: 8px; margin: clamp(10px, 2vh, 18px) 0 10px; min-height: 0; overflow: hidden; }
@@ -338,7 +338,7 @@
 .responsive-note-widget .note-footer { margin-top: auto; }
 .widget-size-1x1 .responsive-note-widget { padding: 13px 14px; }.widget-size-1x1 .responsive-note-widget .heading-icon { height: 34px; width: 34px; }.widget-size-1x1 .responsive-note-widget .widget-subtitle { display: none; }.widget-size-1x1 .note-preview-list { margin: 8px 0 5px; }.widget-size-1x1 .note-preview { background: transparent; border: 0; grid-template-columns: minmax(0, 1fr); padding: 0; }.widget-size-1x1 .note-preview > i, .widget-size-1x1 .note-preview > svg { display: none; }.widget-size-1x1 .responsive-note-widget .note-footer { font-size: .67rem; }
 .widget-size-2x2 .note-preview-list, .widget-size-2x3 .note-preview-list, .widget-size-2x4 .note-preview-list, .widget-size-3x3 .note-preview-list, .widget-size-3x4 .note-preview-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.widget-size-2x1 .responsive-note-widget, .widget-size-3x1 .responsive-note-widget { padding: 13px 17px; }.widget-size-2x1 .note-preview-list, .widget-size-3x1 .note-preview-list { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 7px 0 4px; }.widget-size-2x1 .note-preview, .widget-size-3x1 .note-preview { padding: 6px 8px; }.widget-size-2x1 .responsive-note-widget .note-footer, .widget-size-3x1 .responsive-note-widget .note-footer { display: none; }.widget-size-3x2 .note-preview-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.widget-size-2x1 .responsive-note-widget, .widget-size-3x1 .responsive-note-widget, .widget-size-4x1 .responsive-note-widget { padding: 13px 17px; }.widget-size-2x1 .note-preview-list, .widget-size-3x1 .note-preview-list, .widget-size-4x1 .note-preview-list { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 7px 0 4px; }.widget-size-2x1 .note-preview, .widget-size-3x1 .note-preview, .widget-size-4x1 .note-preview { padding: 6px 8px; }.widget-size-2x1 .responsive-note-widget .note-footer, .widget-size-3x1 .responsive-note-widget .note-footer, .widget-size-4x1 .responsive-note-widget .note-footer { display: none; }.widget-size-3x2 .note-preview-list, .widget-size-4x2 .note-preview-list, .widget-size-4x3 .note-preview-list, .widget-size-4x4 .note-preview-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 .responsive-calendar-widget { padding: clamp(13px, 2vw, 26px); }
 .responsive-calendar-widget .calendar-widget-body { grid-template-columns: minmax(0, 1.35fr) minmax(180px, .65fr); }
@@ -346,10 +346,94 @@
 .widget-size-1x1 .responsive-calendar-widget { padding: 13px 14px; }.widget-size-1x1 .calendar-widget-header > span, .widget-size-1x1 .responsive-calendar-widget .widget-subtitle { display: none; }.widget-size-1x1 .responsive-calendar-widget .heading-icon { height: 34px; width: 34px; }.widget-size-1x1 .responsive-calendar-widget .calendar-widget-body { display: flex; margin-top: 7px; }.widget-size-1x1 .calendar-widget-month { border-radius: 13px; padding: 7px; width: 100%; }.widget-size-1x1 .calendar-widget-month-grid { gap: 3px; }.widget-size-1x1 .calendar-widget-month-grid > button { align-items: center; justify-content: center; padding: 2px; }.widget-size-1x1 .calendar-widget-month-grid small { display: none; }.widget-size-1x1 .calendar-widget-month-grid > button > strong { font-size: .65rem; }.widget-size-1x1 .calendar-widget-month-grid > button.is-today > strong { height: 19px; width: 19px; }
 .widget-size-1x2 .responsive-calendar-widget .calendar-widget-body, .widget-size-1x3 .responsive-calendar-widget .calendar-widget-body, .widget-size-1x4 .responsive-calendar-widget .calendar-widget-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }.widget-size-1x2 .calendar-widget-agenda, .widget-size-1x3 .calendar-widget-agenda, .widget-size-1x4 .calendar-widget-agenda { border-left: 0; border-top: 1px solid rgba(255,255,255,.09); padding-left: 0; padding-top: 10px; }.widget-size-1x2 .calendar-event-line, .widget-size-1x3 .calendar-event-line, .widget-size-1x4 .calendar-event-line { padding: 6px 8px; }
 .widget-size-2x2 .responsive-calendar-widget .calendar-widget-body { grid-template-columns: minmax(0, 1.25fr) minmax(150px, .75fr); }.widget-size-2x2 .calendar-event-line time { display: none; }
-.widget-size-2x1 .responsive-calendar-widget, .widget-size-3x1 .responsive-calendar-widget { padding: 12px 15px; }.widget-size-2x1 .responsive-calendar-widget .calendar-widget-body, .widget-size-3x1 .responsive-calendar-widget .calendar-widget-body { display: flex; margin-top: 7px; }.widget-size-2x1 .calendar-widget-month, .widget-size-3x1 .calendar-widget-month { border-radius: 13px; padding: 7px; width: 100%; }.widget-size-2x1 .calendar-widget-month-grid, .widget-size-3x1 .calendar-widget-month-grid { gap: 3px; }.widget-size-3x1 .calendar-widget-month-grid small { display: none; }
+.widget-size-2x1 .responsive-calendar-widget, .widget-size-3x1 .responsive-calendar-widget, .widget-size-4x1 .responsive-calendar-widget { padding: 12px 15px; }.widget-size-2x1 .responsive-calendar-widget .calendar-widget-body, .widget-size-3x1 .responsive-calendar-widget .calendar-widget-body, .widget-size-4x1 .responsive-calendar-widget .calendar-widget-body { display: flex; margin-top: 7px; }.widget-size-2x1 .calendar-widget-month, .widget-size-3x1 .calendar-widget-month, .widget-size-4x1 .calendar-widget-month { border-radius: 13px; padding: 7px; width: 100%; }.widget-size-2x1 .calendar-widget-month-grid, .widget-size-3x1 .calendar-widget-month-grid, .widget-size-4x1 .calendar-widget-month-grid { gap: 3px; }.widget-size-3x1 .calendar-widget-month-grid small, .widget-size-4x1 .calendar-widget-month-grid small { display: none; }
 .widget-size-2x1 .responsive-calendar-widget .calendar-widget-body { margin-top: 5px; }.widget-size-2x1 .responsive-calendar-widget .heading-icon { height: 34px; width: 34px; }.widget-size-2x1 .responsive-calendar-widget .widget-subtitle { margin-top: 1px; }.widget-size-2x1 .calendar-widget-month { padding: 6px 7px; }.widget-size-2x1 .calendar-widget-weekdays { margin-bottom: 3px; }.widget-size-2x1 .calendar-widget-month-grid > button { justify-content: flex-start; padding: 5px 6px; }.widget-size-2x1 .calendar-widget-month-grid small { display: block; font-size: .43rem; margin-top: 2px; padding: 1px 2px; }.widget-size-2x1 .calendar-widget-month-grid > button.is-today > strong { height: 18px; width: 18px; }
-.widget-size-3x2 .responsive-calendar-widget .calendar-widget-body { grid-template-columns: minmax(0, 1.45fr) minmax(190px, .55fr); }
-.widget-size-3x3 .responsive-calendar-widget .calendar-widget-month-grid small, .widget-size-3x4 .responsive-calendar-widget .calendar-widget-month-grid small { font-size: .53rem; padding: 3px 4px; }
+.widget-size-3x2 .responsive-calendar-widget .calendar-widget-body, .widget-size-4x2 .responsive-calendar-widget .calendar-widget-body { grid-template-columns: minmax(0, 1.45fr) minmax(190px, .55fr); }
+.widget-size-3x3 .responsive-calendar-widget .calendar-widget-month-grid small, .widget-size-3x4 .responsive-calendar-widget .calendar-widget-month-grid small, .widget-size-4x3 .responsive-calendar-widget .calendar-widget-month-grid small, .widget-size-4x4 .responsive-calendar-widget .calendar-widget-month-grid small { font-size: .53rem; padding: 3px 4px; }
+
+/* La densidad responde a la altura real de la celda, no solo al viewport.
+   Así los widgets cortos siguen siendo legibles en pantallas por debajo de 720 px. */
+@container dashboard-widget (max-height: 330px) {
+  .responsive-clock-widget, .responsive-note-widget, .responsive-calendar-widget { padding: 12px 14px; }
+  .responsive-clock-widget .time { font-size: clamp(3.1rem, 6vw, 5rem); }
+  .responsive-clock-widget .date { margin-top: 7px; }
+  .clock-details { padding-top: 9px; }
+  .clock-day-progress { margin-top: 8px; }
+
+  .responsive-weather-widget { gap: 8px; padding: 12px 14px; }
+  .weather-current { gap: 10px; }
+  .weather-current .weather-icon { height: 48px; width: 48px; }
+  .weather-current .temperature { font-size: clamp(2.7rem, 5vw, 4rem); }
+  .weather-current > div:last-child > span { margin-top: 3px; }
+  .weather-stats { gap: 6px; }
+  .weather-stats > span { border-radius: 10px; gap: 1px 6px; padding: 6px 7px; }
+  .weather-hours, .weather-forecast { gap: 5px; padding-top: 8px; }
+  .weather-hours > span, .weather-forecast > span { gap: 3px; padding: 5px 2px; }
+
+  .note-preview-list { gap: 6px; margin: 7px 0 6px; }
+  .note-preview { gap: 6px; padding: 6px 8px; }
+  .note-preview > i { min-height: 22px; }
+
+  .responsive-calendar-widget .calendar-widget-body { gap: 9px; margin-top: 8px; }
+  .responsive-calendar-widget .calendar-widget-month { padding: 7px; }
+  .responsive-calendar-widget .calendar-widget-month-grid { gap: 3px; }
+  .responsive-calendar-widget .calendar-widget-month-grid > button { padding: 3px; }
+  .responsive-calendar-widget .calendar-widget-agenda { gap: 5px; padding-left: 9px; }
+  .responsive-calendar-widget .calendar-event-line { padding: 6px 7px; }
+}
+
+@container dashboard-widget (max-height: 190px) {
+  .responsive-clock-widget, .responsive-note-widget, .responsive-calendar-widget { padding: 8px 10px; }
+  .responsive-clock-widget { gap: 2px 12px; }
+  .responsive-clock-widget .widget-label { font-size: .68rem; }
+  .responsive-clock-widget .time { font-size: clamp(2.65rem, 5vw, 4rem); line-height: .82; }
+  .responsive-clock-widget .date { font-size: .62rem; margin: 3px 0 0; }
+  .responsive-clock-widget .clock-details, .responsive-clock-widget .clock-day-progress { display: none; }
+
+  .responsive-weather-widget { gap: 6px; padding: 8px 10px; }
+  .weather-current { gap: 8px; }
+  .weather-current .weather-icon { border-radius: 12px; height: 38px; width: 38px; }
+  .weather-current .temperature { font-size: clamp(2.15rem, 4vw, 3rem); line-height: .9; }
+  .weather-current .weather-copy { font-size: .6rem; }
+  .weather-current > div:last-child > span { display: none; }
+  .weather-stats { gap: 4px; }
+  .weather-stats > span { border-radius: 8px; gap: 0 4px; padding: 3px 5px; }
+  .weather-stats svg { height: 11px; width: 11px; }
+  .weather-stats small { font-size: .43rem; }
+  .weather-stats strong { font-size: .54rem; }
+  .weather-hours, .weather-forecast { display: none; }
+
+  .responsive-note-widget .heading-icon { height: 30px; width: 30px; }
+  .responsive-note-widget .widget-title { font-size: .8rem; }
+  .responsive-note-widget .widget-subtitle, .responsive-note-widget .note-footer { display: none; }
+  .note-preview-list { gap: 4px; margin: 4px 0 0; }
+  .note-preview { border-radius: 9px; gap: 5px; padding: 4px 6px; }
+  .note-preview > i { min-height: 18px; }
+  .note-preview strong { font-size: .64rem; }
+  .note-preview small { font-size: .55rem; margin-top: 1px; }
+
+  .responsive-calendar-widget .calendar-widget-header > span, .responsive-calendar-widget .widget-subtitle { display: none; }
+  .responsive-calendar-widget .heading-icon { height: 29px; width: 29px; }
+  .responsive-calendar-widget .widget-title { font-size: .78rem; }
+  .responsive-calendar-widget .calendar-widget-body { gap: 0; margin-top: 4px; }
+  .responsive-calendar-widget .calendar-widget-month { border-radius: 10px; padding: 4px 5px; }
+  .responsive-calendar-widget .calendar-widget-weekdays { font-size: .48rem; margin-bottom: 2px; }
+  .responsive-calendar-widget .calendar-widget-month-grid { gap: 2px; }
+  .responsive-calendar-widget .calendar-widget-month-grid > button { align-items: center; justify-content: center; padding: 1px; }
+  .responsive-calendar-widget .calendar-widget-month-grid > button > strong { font-size: .56rem; }
+  .responsive-calendar-widget .calendar-widget-month-grid > button.is-today > strong { height: 17px; width: 17px; }
+  .responsive-calendar-widget .calendar-widget-month-grid small, .responsive-calendar-widget .calendar-widget-agenda { display: none; }
+
+  .assistant-widget { gap: 8px; padding: 8px 10px; }
+  .assistant-widget-icon { border-radius: 12px; height: 34px; width: 34px; }
+  .assistant-widget strong { font-size: .82rem; }
+  .assistant-widget small { font-size: .6rem; line-height: 1.2; }
+}
+
+@container dashboard-widget (max-width: 260px) and (max-height: 190px) {
+  .responsive-weather-widget { align-content: center; display: grid; grid-template-columns: 1fr; grid-template-rows: auto auto; }
+  .responsive-weather-widget .weather-current { justify-content: center; }
+}
 
 .calendar-page { min-height: 0; }
 .calendar-layout { display: grid; flex: 1; gap: clamp(14px, 2vw, 22px); grid-template-columns: minmax(520px, 1.45fr) minmax(320px, .75fr); min-height: 0; }
@@ -1162,13 +1246,14 @@
 .page-indicators:is(.is-position-left, .is-position-right) { flex-direction: column; }
 
 .page-indicators--dock { background: color-mix(in srgb, var(--ui-panel-solid) 32%, transparent); border: var(--ui-outline-width, 1px) solid var(--ui-border); border-radius: 999px; gap: 3px; }
-.page-indicators--dock.is-position-bottom { bottom: calc(27px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); }
+.page-indicators--dock.is-position-bottom { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); }
 .page-indicators--dock.is-position-top { left: 50%; top: calc(9px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); }
 .page-indicators--dock.is-position-left { bottom: calc(8px + env(safe-area-inset-bottom, 0px)); left: calc(8px + env(safe-area-inset-left, 0px)); top: 8px; }
 .page-indicators--dock.is-position-right { bottom: calc(8px + env(safe-area-inset-bottom, 0px)); right: calc(8px + env(safe-area-inset-right, 0px)); top: 8px; }
 .tablet-shell .page-indicators--dock button { background: transparent; border-color: transparent; border-radius: 18px; height: 38px; min-width: 38px; padding: 0 10px; }
 .tablet-shell .page-indicators--dock button.is-active { background: var(--ui-action); border-color: var(--ui-action); color: var(--ui-action-text); }
 .page-indicators--dock.show-labels button.is-active span { display: inline; }
+.tablet-shell.page-nav-style-dock.page-nav-position-bottom .tablet-content { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
 
 .page-indicators--labels { background: color-mix(in srgb, var(--ui-panel-solid) 28%, transparent); border-radius: 0; gap: 4px; }
 .page-indicators--labels.is-position-bottom { border-top: var(--ui-outline-width, 1px) solid var(--ui-border); bottom: 0; left: 0; padding: 7px 16px calc(8px + env(safe-area-inset-bottom, 0px)); width: 100%; }
@@ -1232,4 +1317,93 @@
   .page-indicators.show-labels:is(.is-position-bottom, .is-position-top) button span { display: none; }
   .page-indicators--dock.is-position-bottom, .page-indicators--dock.is-position-top { max-width: calc(100% - 16px); }
   .page-indicators--segmented.is-position-bottom, .page-indicators--segmented.is-position-top { left: 8px; right: 8px; }
+}
+
+/* Las variantes anchas reparten el contenido en dos columnas para evitar que
+   horas y días creen filas implícitas fuera de la tarjeta. */
+.widget-size-2x2 .responsive-weather-widget,
+.widget-size-2x3 .responsive-weather-widget,
+.widget-size-2x4 .responsive-weather-widget,
+.widget-size-3x2 .responsive-weather-widget,
+.widget-size-3x3 .responsive-weather-widget,
+.widget-size-3x4 .responsive-weather-widget,
+.widget-size-4x2 .responsive-weather-widget,
+.widget-size-4x3 .responsive-weather-widget,
+.widget-size-4x4 .responsive-weather-widget { display: grid; grid-template-columns: minmax(130px, .72fr) minmax(0, 1.28fr); grid-template-rows: auto minmax(0, 1fr); }
+.widget-size-2x2 .weather-current, .widget-size-2x3 .weather-current, .widget-size-2x4 .weather-current,
+.widget-size-3x2 .weather-current, .widget-size-3x3 .weather-current, .widget-size-3x4 .weather-current,
+.widget-size-4x2 .weather-current, .widget-size-4x3 .weather-current, .widget-size-4x4 .weather-current { grid-column: 1; grid-row: 1; }
+.widget-size-2x2 .weather-stats, .widget-size-2x3 .weather-stats, .widget-size-2x4 .weather-stats,
+.widget-size-3x2 .weather-stats, .widget-size-3x3 .weather-stats, .widget-size-3x4 .weather-stats,
+.widget-size-4x2 .weather-stats, .widget-size-4x3 .weather-stats, .widget-size-4x4 .weather-stats { align-self: end; grid-column: 1; grid-row: 2; }
+.widget-size-2x2 .weather-hours, .widget-size-2x3 .weather-hours, .widget-size-2x4 .weather-hours,
+.widget-size-3x2 .weather-hours, .widget-size-3x3 .weather-hours, .widget-size-3x4 .weather-hours,
+.widget-size-4x2 .weather-hours, .widget-size-4x3 .weather-hours, .widget-size-4x4 .weather-hours { grid-column: 2; grid-row: 1; }
+.widget-size-2x2 .weather-forecast, .widget-size-2x3 .weather-forecast, .widget-size-2x4 .weather-forecast,
+.widget-size-3x2 .weather-forecast, .widget-size-3x3 .weather-forecast, .widget-size-3x4 .weather-forecast,
+.widget-size-4x2 .weather-forecast, .widget-size-4x3 .weather-forecast, .widget-size-4x4 .weather-forecast { grid-column: 2; grid-row: 2; }
+
+/* Estas reglas se sitúan después de los ajustes por viewport para que la
+   altura real del widget sea siempre la última fuente de densidad. */
+@container dashboard-widget (max-height: 330px) {
+  .responsive-clock-widget, .responsive-note-widget, .responsive-calendar-widget { padding: 12px 14px; }
+  .responsive-weather-widget { gap: 8px; padding: 12px 14px; }
+  .weather-current { gap: 10px; }
+  .weather-current .weather-icon { height: 48px; width: 48px; }
+  .weather-current .temperature { font-size: clamp(2.7rem, 5vw, 4rem); margin: 0; }
+  .weather-stats { gap: 6px; }
+  .weather-stats > span { border-radius: 10px; gap: 1px 6px; padding: 6px 7px; }
+  .weather-hours, .weather-forecast { gap: 5px; padding-top: 8px; }
+  .weather-hours > span, .weather-forecast > span { gap: 3px; padding: 5px 2px; }
+  .responsive-calendar-widget .calendar-widget-holidays { display: none; }
+}
+
+@container dashboard-widget (max-width: 260px) {
+  .responsive-weather-widget { gap: 8px; padding: 10px 12px; }
+  .weather-current { gap: 9px; }
+  .weather-current .weather-icon { height: 46px; width: 46px; }
+  .weather-current .temperature { font-size: 2.55rem; margin: 0; }
+  .weather-current .weather-copy { font-size: .65rem; }
+  .weather-current > div:last-child > span { font-size: .56rem; margin-top: 2px; }
+  .weather-stats { gap: 5px; }
+  .weather-stats > span { border-radius: 9px; gap: 1px 4px; padding: 5px 6px; }
+  .weather-stats svg { height: 12px; width: 12px; }
+  .weather-stats small { font-size: .44rem; }
+  .weather-stats strong { font-size: .55rem; }
+  .weather-hours, .weather-forecast { gap: 4px; padding-top: 7px; }
+  .weather-hours > span, .weather-forecast > span { gap: 2px; padding: 4px 2px; }
+  .weather-hours > p, .weather-forecast > p { font-size: .52rem; }
+  .weather-hours small, .weather-forecast small { font-size: .48rem; }
+  .weather-hours strong, .weather-forecast strong { font-size: .63rem; }
+  .weather-forecast b { font-size: .53rem; }
+  .responsive-calendar-widget .calendar-widget-header > span { display: none; }
+}
+
+@container dashboard-widget (max-height: 190px) {
+  .responsive-clock-widget, .responsive-note-widget, .responsive-calendar-widget { padding: 8px 10px; }
+  .responsive-clock-widget .time { font-size: clamp(2.65rem, 5vw, 4rem); }
+  .responsive-weather-widget { gap: 6px; padding: 7px 9px; }
+  .weather-current { gap: 8px; }
+  .weather-current .weather-icon { height: 36px; width: 36px; }
+  .weather-current .temperature { font-size: 2.05rem; }
+  .weather-current > div:last-child > span { display: none; }
+  .weather-stats { gap: 3px; }
+  .weather-stats > span { padding: 3px 5px; }
+  .weather-hours, .weather-forecast { display: none; }
+  .responsive-note-widget .widget-subtitle, .responsive-note-widget .note-footer { display: none; }
+  .responsive-calendar-widget .calendar-widget-header > span, .responsive-calendar-widget .widget-subtitle, .responsive-calendar-widget .calendar-widget-month-grid small, .responsive-calendar-widget .calendar-widget-agenda { display: none; }
+  .assistant-widget { gap: 8px; padding: 8px 10px; }
+}
+
+@container dashboard-widget (max-width: 260px) and (max-height: 190px) {
+  .widget-size-1x1 .responsive-weather-widget { gap: 5px; padding: 7px 9px; }
+  .widget-size-1x1 .weather-current { gap: 7px; }
+  .widget-size-1x1 .weather-current .weather-icon { height: 34px; width: 34px; }
+  .widget-size-1x1 .weather-current .temperature { font-size: 2rem; line-height: .9; }
+  .widget-size-1x1 .weather-current .weather-copy { font-size: .55rem; }
+  .widget-size-1x1 .weather-stats { gap: 3px; }
+  .widget-size-1x1 .weather-stats > span { gap: 0 3px; padding: 2px 4px; }
+  .widget-size-1x1 .weather-stats svg { height: 10px; width: 10px; }
+  .widget-size-1x1 .weather-stats small { font-size: .4rem; }
+  .widget-size-1x1 .weather-stats strong { font-size: .5rem; }
 }
