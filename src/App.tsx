@@ -1692,6 +1692,8 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
 
   return <div
     className={`dashboard-widget-shell widget-size-${widget.layout.width}x${widget.layout.height} ${isEditing ? 'is-editing' : ''} ${isHolding ? 'is-holding' : ''} ${dragOffset ? 'is-dragging' : ''}`}
+    data-widget-id={widget.id}
+    data-widget-size={`${widget.layout.width}x${widget.layout.height}`}
     style={{ ...style, transform: dragOffset ? `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)` : undefined, zIndex: dragOffset ? 10 : undefined }}
     onPointerDown={(event) => isEditing ? onDragStart(widget, event) : onHoldStart(widget.id, event)}
     onPointerMove={onDragMove}
@@ -1773,13 +1775,13 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     <div className="widget-label"><span>Ahora</span></div>
     <time className="time">{time}{area > 1 ? <small>:{String(now.getSeconds()).padStart(2, '0')}</small> : null}</time>
     <p className="date">{date}</p>
-    {area >= 4 ? <div className="clock-details"><span><SunMedium size={20} />Que tengas un día estupendo</span><strong>{new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(now)}</strong></div> : null}
-    {area >= 6 ? <div className="clock-day-progress"><span style={{ width: `${Math.round(((now.getHours() * 60 + now.getMinutes()) / 1440) * 100)}%` }} /></div> : null}
+    {widget.layout.height >= 2 && area >= 4 ? <div className="clock-details"><span><SunMedium size={20} />Que tengas un día estupendo</span><strong>{new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(now)}</strong></div> : null}
+    {widget.layout.height >= 2 && area >= 6 ? <div className="clock-day-progress"><span style={{ width: `${Math.round(((now.getHours() * 60 + now.getMinutes()) / 1440) * 100)}%` }} /></div> : null}
   </article></DashboardWidgetFrame>
 
   if (widget.id === 'weather') {
-    const hourCount: Record<string, number> = { '1x1': 0, '1x2': 3, '1x3': 3, '1x4': 6, '2x1': 0, '2x2': 4, '2x3': 6, '2x4': 6, '3x1': 0, '3x2': 6, '3x3': 6, '3x4': 6 }
-    const forecastCount: Record<string, number> = { '1x1': 0, '1x2': 0, '1x3': 3, '1x4': 5, '2x1': 0, '2x2': 3, '2x3': 4, '2x4': 5, '3x1': 0, '3x2': 4, '3x3': 5, '3x4': 5 }
+    const hourCount: Record<string, number> = { '1x1': 0, '1x2': 3, '1x3': 3, '1x4': 6, '2x1': 0, '2x2': 4, '2x3': 6, '2x4': 6, '3x1': 0, '3x2': 6, '3x3': 6, '3x4': 6, '4x1': 0, '4x2': 6, '4x3': 6, '4x4': 6 }
+    const forecastCount: Record<string, number> = { '1x1': 0, '1x2': 0, '1x3': 3, '1x4': 5, '2x1': 0, '2x2': 3, '2x3': 4, '2x4': 5, '3x1': 0, '3x2': 4, '3x3': 5, '3x4': 5, '4x1': 0, '4x2': 5, '4x3': 5, '4x4': 5 }
     if (!homeWeatherLocation) return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget weather-widget-empty widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}><div className="weather-icon"><MapPin size={36} /></div><div><strong>Configura el tiempo</strong><span>Añade una ubicación y márcala como Casa.</span></div></button></DashboardWidgetFrame>
     if (!homeWeatherForecast) return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget weather-widget-empty widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}><div className="weather-icon"><RefreshCw className={weatherLoading ? 'is-spinning' : ''} size={34} /></div><div><strong>{homeWeatherLocation.name}</strong><span>{weatherLoading ? 'Actualizando la previsión…' : 'Toca para volver a intentarlo.'}</span></div></button></DashboardWidgetFrame>
     const weatherHours = homeWeatherForecast.hourly
@@ -1793,7 +1795,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   }
 
   if (widget.id === 'notes') {
-    const noteCount: Record<string, number> = { '1x1': 1, '1x2': 3, '1x3': 4, '1x4': 5, '2x1': 3, '2x2': 4, '2x3': 6, '2x4': 8, '3x1': 4, '3x2': 6, '3x3': 8, '3x4': 10 }
+    const noteCount: Record<string, number> = { '1x1': 1, '1x2': 3, '1x3': 4, '1x4': 5, '2x1': 3, '2x2': 4, '2x3': 6, '2x4': 8, '3x1': 4, '3x2': 6, '3x3': 8, '3x4': 10, '4x1': 4, '4x2': 8, '4x3': 10, '4x4': 12 }
     const pinnedNotes = notes.filter((note) => note.pinned)
     const visibleNotes = [...(pinnedNotes.length > 0 ? pinnedNotes : notes)]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -1810,7 +1812,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   }
 
   const firstWeekday = (new Date(now.getFullYear(), now.getMonth(), 1).getDay() + 6) % 7
-  const dayCount: Record<string, number> = { '1x1': 7, '1x2': 14, '1x3': 21, '1x4': 42, '2x1': 7, '2x2': 28, '2x3': 42, '2x4': 42, '3x1': 21, '3x2': 35, '3x3': 42, '3x4': 42 }
+  const dayCount: Record<string, number> = { '1x1': 7, '1x2': 14, '1x3': 21, '1x4': 42, '2x1': 7, '2x2': 28, '2x3': 42, '2x4': 42, '3x1': 7, '3x2': 35, '3x3': 42, '3x4': 42, '4x1': 7, '4x2': 42, '4x3': 42, '4x4': 42 }
   const visibleDayCount = dayCount[sizeKey] ?? 7
   const showWholeMonth = visibleDayCount === 42
   const calendarStart = showWholeMonth
@@ -1826,7 +1828,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     })
     return { key, day: value.getDate(), muted: value.getMonth() !== now.getMonth(), events }
   })
-  const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 0, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 0, '3x2': 3, '3x3': 5, '3x4': 6 }
+  const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 0, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 0, '3x2': 3, '3x3': 5, '3x4': 6, '4x1': 0, '4x2': 4, '4x3': 6, '4x4': 6 }
   const showHolidaySection = showUpcomingCalendarHolidays && area >= 6 && upcomingHolidays.length > 0
   const visibleAgendaCount = showHolidaySection ? Math.max(1, (agendaCount[sizeKey] ?? 0) - 1) : agendaCount[sizeKey] ?? 0
   const calendarSubtitle = visibleDayCount === 7
