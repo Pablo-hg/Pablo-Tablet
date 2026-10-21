@@ -173,7 +173,7 @@ export function AssistantPage({ enabled, voiceEnabled, readAloud, now, onExecute
       <small>{tx('{{count}}/30 peticiones en esta sesión · el historial no se guarda', { count: requestCount })}</small>
     </div>
 
-    <div className="assistant-log" ref={logRef} role="log" aria-live="polite" aria-label={tx('Conversación del Asistente')} data-swipe-block>
+    <div className="assistant-log" ref={logRef} role="log" aria-live="polite" aria-label={tx('Conversación del Asistente')}>
       {messages.map((message) => <article key={message.id} className={`assistant-message is-${message.role}`}>
         {message.role === 'assistant' ? <span className="assistant-avatar"><Bot size={18} /></span> : null}
         <div><p>{message.text}</p>{message.role === 'assistant' ? <footer>
