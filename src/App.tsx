@@ -2322,17 +2322,26 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
     <div className="fullscreen-page weather-page page-enter">
       <PageHeader pageLabel="Tiempo" />
       <section className="weather-location-manager" data-swipe-block>
-        <div className="weather-saved-locations">
-          {locations.map((location) => <div key={location.id} className={`weather-location-chip ${selectedLocation?.id === location.id ? 'is-active' : ''}`}>
-            <button type="button" onClick={() => onSelectLocation(location.id)}><MapPin size={14} /><span>{location.name}</span>{location.id === homeLocationId ? <small><Home size={11} />Casa</small> : null}</button>
-            {location.id !== homeLocationId ? <button type="button" className="weather-chip-action" onClick={() => onSetHomeLocation(location.id)} aria-label={`Establecer ${location.name} como Casa`} title="Establecer como Casa"><Star size={14} /></button> : null}
-            <button type="button" className="weather-chip-action is-danger" onClick={() => onRemoveLocation(location.id)} aria-label={`Eliminar ${location.name}`} title="Eliminar ubicación"><X size={14} /></button>
-          </div>)}
-        </div>
-        <div className="weather-location-search">
-          <Search size={17} />
-          <input value={query} maxLength={100} placeholder="Añadir ciudad o código postal" aria-label="Buscar una ubicación" onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} onChange={(event) => { const value = event.target.value; setQuery(value); if (value.trim().length < 2) { setResults([]); setSearchError(''); setIsSearching(false) } }} />
-          {isSearching ? <RefreshCw className="is-spinning" size={16} /> : null}
+        <div className="weather-location-toolbar">
+          {locations.length > 3 && selectedLocation ? <div className="weather-location-selector">
+            <MapPin size={16} />
+            <select value={selectedLocation.id} onChange={(event) => onSelectLocation(event.target.value)} aria-label="Elegir ubicación guardada">
+              {locations.map((location) => <option key={location.id} value={location.id}>{location.name}{location.id === homeLocationId ? ' · Casa' : ''}</option>)}
+            </select>
+            {selectedLocation.id !== homeLocationId ? <button type="button" className="weather-selector-action" onClick={() => onSetHomeLocation(selectedLocation.id)} aria-label={`Establecer ${selectedLocation.name} como Casa`} title="Establecer como Casa"><Star size={15} /></button> : <span className="weather-home-badge"><Home size={12} />Casa</span>}
+            <button type="button" className="weather-selector-action is-danger" onClick={() => onRemoveLocation(selectedLocation.id)} aria-label={`Eliminar ${selectedLocation.name}`} title="Eliminar ubicación"><X size={15} /></button>
+          </div> : <div className="weather-saved-locations">
+            {locations.map((location) => <div key={location.id} className={`weather-location-chip ${selectedLocation?.id === location.id ? 'is-active' : ''}`}>
+              <button type="button" onClick={() => onSelectLocation(location.id)}><MapPin size={14} /><span>{location.name}</span>{location.id === homeLocationId ? <small><Home size={11} />Casa</small> : null}</button>
+              {location.id !== homeLocationId ? <button type="button" className="weather-chip-action" onClick={() => onSetHomeLocation(location.id)} aria-label={`Establecer ${location.name} como Casa`} title="Establecer como Casa"><Star size={14} /></button> : null}
+              <button type="button" className="weather-chip-action is-danger" onClick={() => onRemoveLocation(location.id)} aria-label={`Eliminar ${location.name}`} title="Eliminar ubicación"><X size={14} /></button>
+            </div>)}
+          </div>}
+          <div className="weather-location-search">
+            <Search size={17} />
+            <input value={query} maxLength={100} placeholder="Añadir ciudad o código postal" aria-label="Buscar una ubicación" onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} onChange={(event) => { const value = event.target.value; setQuery(value); if (value.trim().length < 2) { setResults([]); setSearchError(''); setIsSearching(false) } }} />
+            {isSearching ? <RefreshCw className="is-spinning" size={16} /> : null}
+          </div>
         </div>
         {query.trim().length >= 2 ? <div className="weather-search-results">
           {searchError ? <p className="weather-inline-error">{searchError}</p> : null}
