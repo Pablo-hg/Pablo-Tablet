@@ -15,9 +15,11 @@
 .tablet-content.is-calendar::-webkit-scrollbar { display: none; height: 0; width: 0; }
 .tablet-content.is-calendar .fullscreen-page { overflow: visible; }
 .dashboard-page, .settings-page { max-width: 1320px; margin: 0 auto; }
+.dashboard-page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .dashboard-header, .settings-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: clamp(24px, 4vh, 44px); }
+.dashboard-page .dashboard-header { flex: 0 0 auto; }
 .eyebrow { color: var(--ui-text-subtle, #9dadcb); font-size: .76rem; font-weight: 700; letter-spacing: .12em; margin: 0 0 7px; text-transform: uppercase; }.welcome { font-size: clamp(1.25rem, 2vw, 1.6rem); font-weight: 600; margin: 0; }
-.dashboard-grid { display: grid; gap: clamp(12px, 1.6vw, 18px); grid-auto-flow: row dense; grid-auto-rows: minmax(0, 1fr); }
+.dashboard-grid { display: grid; flex: 1; gap: clamp(12px, 1.6vw, 18px); grid-auto-flow: row dense; grid-auto-rows: minmax(0, 1fr); min-height: 0; }
 .dashboard-grid.is-portrait { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); }
 .dashboard-grid.is-landscape { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
 .dashboard-grid > .dashboard-widget-shell { container-name: dashboard-widget; container-type: size; min-height: 0; min-width: 0; position: relative; }
