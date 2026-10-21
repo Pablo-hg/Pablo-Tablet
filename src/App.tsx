@@ -902,7 +902,11 @@ function App() {
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return
     const target = event.target as HTMLElement
-    const gestureBlocked = interactionLocked || target.closest('button, a, input, textarea, select, [role="button"], [data-swipe-block], .page-indicators')
+    const swipeSurfaceButton = target.closest('[data-page-swipe-surface]') && target.closest('button')
+    const interactiveTarget = target.closest('button, a, input, textarea, select, [role="button"]')
+    const gestureBlocked = interactionLocked
+      || target.closest('[data-swipe-block], .page-indicators')
+      || (interactiveTarget && !swipeSurfaceButton)
     if (gestureBlocked) {
       pointerStart.current = null
       return
@@ -957,8 +961,11 @@ function App() {
   const handleTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
     const target = event.target as HTMLElement
     const isNoteTextarea = Boolean(target.closest('.note-editor textarea'))
+    const swipeSurfaceButton = target.closest('[data-page-swipe-surface]') && target.closest('button')
+    const interactiveTarget = target.closest('button, a, input, select, [role="button"]')
     const gestureBlocked = (!isNoteTextarea && interactionLocked)
-      || target.closest('button, a, input, select, [role="button"], [data-swipe-block], .page-indicators')
+      || target.closest('[data-swipe-block], .page-indicators')
+      || (interactiveTarget && !swipeSurfaceButton)
       || (!isNoteTextarea && target.closest('textarea'))
     if (gestureBlocked) {
       touchStart.current = null
@@ -2096,7 +2103,7 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
         </div>
       </div>
     </section> : <div className="calendar-layout">
-      <section className="calendar-month-panel">
+      <section className="calendar-month-panel" data-page-swipe-surface>
         <header className="calendar-toolbar">
           <div><p className="eyebrow">{tx('Agenda unificada')}</p><h1>{formatCalendarMonth(visibleMonth)}</h1></div>
           <div><button type="button" className={`calendar-hide-completed ${hideCompletedTasks ? 'is-active' : ''}`} onClick={() => onHideCompletedTasksChange(!hideCompletedTasks)} aria-pressed={hideCompletedTasks}><EyeOff size={17} /><span>{tx('Ocultar finalizados')}</span></button><button type="button" onClick={() => changeMonth(-1)} aria-label={tx('Mes anterior')}><ChevronLeft size={20} /></button><button type="button" className="calendar-today-button" onClick={goToToday}>{tx('Hoy')}</button><button type="button" onClick={() => changeMonth(1)} aria-label={tx('Mes siguiente')}><ChevronRight size={20} /></button></div>
