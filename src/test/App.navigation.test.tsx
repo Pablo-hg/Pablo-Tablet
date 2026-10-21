@@ -40,6 +40,20 @@ describe('navegación y flujos principales', () => {
     expect(screen.getByText('Reloj', { selector: '.welcome' })).toBeInTheDocument()
   })
 
+  it('permite deslizar desde un día de la agenda unificada', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+    const dayButton = document.querySelector('.calendar-month-grid > button')
+    expect(dayButton).toBeInTheDocument()
+
+    fireEvent.touchStart(dayButton!, { changedTouches: [{ clientX: 500, clientY: 260 }] })
+    fireEvent.touchEnd(dayButton!, { changedTouches: [{ clientX: 350, clientY: 265 }] })
+
+    expect(screen.getByText('Reloj', { selector: '.welcome' })).toBeInTheDocument()
+  })
+
   it('resume las tareas del día y crea los eventos locales en naranja', async () => {
     const user = userEvent.setup()
     const now = new Date()
@@ -82,7 +96,7 @@ describe('navegación y flujos principales', () => {
     fireEvent.pointerUp(dayButton, { button: 0, pointerId: 1, clientX: 120, clientY: 120 })
     fireEvent.click(dayButton)
 
-    expect(pointerCapture).not.toHaveBeenCalled()
+    expect(pointerCapture).toHaveBeenCalledWith(1)
     expect(screen.getByRole('heading', { name: /sábado, 17 de octubre/i })).toBeVisible()
     expect(screen.getByLabelText('Agenda por horas del 2026-10-16 al 2026-10-18')).toBeVisible()
     expect(document.querySelector('.calendar-three-day-all-day')).toBeInTheDocument()
