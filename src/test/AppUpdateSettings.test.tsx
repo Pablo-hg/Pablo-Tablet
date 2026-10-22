@@ -55,6 +55,14 @@ describe('AppUpdateSettings', () => {
     updater.resetSimulatedWebInstallation.mockReset()
   })
 
+  it('muestra la versión instalada en la tarjeta sin buscar actualizaciones', async () => {
+    render(<AppUpdateSettings />)
+
+    expect(await screen.findByText('Versión instalada: 0.2.0')).toBeInTheDocument()
+    expect(updater.getInstalledAppVersion).toHaveBeenCalledTimes(1)
+    expect(updater.checkForAppUpdate).not.toHaveBeenCalled()
+  })
+
   it('muestra la versión pública y separa descarga e instalación', async () => {
     const user = userEvent.setup()
     render(<AppUpdateSettings />)

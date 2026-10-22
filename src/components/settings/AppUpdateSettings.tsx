@@ -11,6 +11,7 @@ import {
   webUpdateSimulationEnabled,
   type AppUpdateInfo,
   type AppUpdateProgress,
+  type InstalledAppVersion,
 } from '../../appUpdater'
 import { tx } from '../../i18n'
 
@@ -51,6 +52,7 @@ export function AppUpdateSettings() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<AppUpdateProgress | null>(null)
+  const [installedVersion, setInstalledVersion] = useState<InstalledAppVersion | null>(null)
   const [showSimulatedInstaller, setShowSimulatedInstaller] = useState(false)
 
   const changeStep = (nextStep: UpdateStep) => {
@@ -65,6 +67,7 @@ export function AppUpdateSettings() {
     try {
       const result = await checkForAppUpdate()
       setUpdate(result)
+      setInstalledVersion({ currentVersionName: result.currentVersionName, currentVersionCode: result.currentVersionCode })
       setMessage(!result.releaseAvailable
         ? tx('No hay actualizaciones disponibles.')
         : result.updateAvailable
@@ -85,6 +88,7 @@ export function AppUpdateSettings() {
     setMessage(tx('Comprobando si Android completó la instalación…'))
     try {
       const installed = await getInstalledAppVersion()
+      setInstalledVersion(installed)
       if (versionIsAtLeast(installed.currentVersionName, expectedVersion)) {
         window.localStorage.removeItem(PENDING_UPDATE_VERSION_KEY)
         setUpdate((current) => current ? { ...current, currentVersionName: installed.currentVersionName, currentVersionCode: installed.currentVersionCode, updateAvailable: false } : current)
@@ -102,8 +106,15 @@ export function AppUpdateSettings() {
 
   useEffect(() => {
     if (!supported) return
+    let active = true
     const initialVerification = window.setTimeout(() => {
-      if (window.localStorage.getItem(PENDING_UPDATE_VERSION_KEY)) void verifyPendingInstallation()
+      if (window.localStorage.getItem(PENDING_UPDATE_VERSION_KEY)) {
+        void verifyPendingInstallation()
+        return
+      }
+      void getInstalledAppVersion()
+        .then((installed) => { if (active) setInstalledVersion(installed) })
+        .catch(() => { })
     }, 0)
 
     const verifyWhenReturning = () => {
@@ -112,6 +123,7 @@ export function AppUpdateSettings() {
     window.addEventListener('focus', verifyWhenReturning)
     document.addEventListener('visibilitychange', verifyWhenReturning)
     return () => {
+      active = false
       window.clearTimeout(initialVerification)
       window.removeEventListener('focus', verifyWhenReturning)
       document.removeEventListener('visibilitychange', verifyWhenReturning)
@@ -185,11 +197,13 @@ export function AppUpdateSettings() {
     resetSimulatedWebInstallation()
     window.localStorage.removeItem(PENDING_UPDATE_VERSION_KEY)
     setUpdate(null)
+    setInstalledVersion(null)
     setProgress(null)
     setMessage(null)
     setError(null)
     setShowSimulatedInstaller(false)
     changeStep('idle')
+    void getInstalledAppVersion().then(setInstalledVersion).catch(() => { })
   }
 
   const busy = step === 'checking' || step === 'downloading' || step === 'verifying' || step === 'opening-installer' || step === 'checking-result'
@@ -198,7 +212,10 @@ export function AppUpdateSettings() {
     ? `${formatBytes(progress.bytesDownloaded)} de ${formatBytes(progress.totalBytes)}`
     : progress ? formatBytes(progress.bytesDownloaded) : null
   const showProgress = ['downloading', 'verifying', 'ready', 'opening-installer', 'awaiting-permission', 'awaiting-result', 'checking-result'].includes(step)
-  const versionLabel = update ? tx('Versión instalada: {{version}}', { version: update.currentVersionName }) : tx('Pulsa Buscar actualizaciones para comprobar el estado.')
+  const currentVersion = update?.currentVersionName ?? installedVersion?.currentVersionName
+  const versionLabel = currentVersion
+    ? tx('Versión instalada: {{version}}', { version: currentVersion })
+    : tx('Consultando la versión instalada…')
 
   return (
     <div className="app-update-settings" aria-labelledby="app-update-title">
@@ -268,7 +285,10 @@ export function AppUpdateSettings() {
             <div>
               <p className="eyebrow">{tx('Instalador de Android · Simulación')}</p>
               <h3 id="simulated-installer-title">{tx('¿Quieres actualizar esta aplicación?')}</h3>
-              <p>{tx('Se actualizará Pablo Tablet de la versión 0.3.7 a la 0.4.1. Tus datos se conservarán.')}</p>
+              <p>{tx('Se actualizará Pablo Tablet de la versión {{currentVersion}} a la {{latestVersion}}. Tus datos se conservarán.', {
+                currentVersion: update?.currentVersionName ?? installedVersion?.currentVersionName ?? '—',
+                latestVersion: update?.latestVersionName ?? '—',
+              })}</p>
             </div>
             <div className="simulated-installer-actions">
               <button type="button" onClick={cancelSimulatedInstallation}>{tx('Cancelar')}</button>
