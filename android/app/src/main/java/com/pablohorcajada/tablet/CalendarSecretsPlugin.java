@@ -28,14 +28,14 @@ public class CalendarSecretsPlugin extends Plugin {
     @PluginMethod
     public void get(PluginCall call) {
         String key = call.getString("key");
-        if (key == null) { call.reject("Falta la clave"); return; }
+        if (key == null) { call.reject(AppLocale.text(getContext(), R.string.error_secret_key_missing)); return; }
         try {
             String encrypted = preferences().getString(key, null);
             JSObject result = new JSObject();
             result.put("value", encrypted == null ? null : decrypt(encrypted));
             call.resolve(result);
         } catch (Exception error) {
-            call.reject("No se pudo leer la credencial", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_secret_read), error);
         }
     }
 
@@ -43,19 +43,19 @@ public class CalendarSecretsPlugin extends Plugin {
     public void set(PluginCall call) {
         String key = call.getString("key");
         String value = call.getString("value");
-        if (key == null || value == null) { call.reject("Faltan la clave o el valor"); return; }
+        if (key == null || value == null) { call.reject(AppLocale.text(getContext(), R.string.error_secret_key_value_missing)); return; }
         try {
             preferences().edit().putString(key, encrypt(value)).apply();
             call.resolve();
         } catch (Exception error) {
-            call.reject("No se pudo guardar la credencial", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_secret_write), error);
         }
     }
 
     @PluginMethod
     public void remove(PluginCall call) {
         String key = call.getString("key");
-        if (key == null) { call.reject("Falta la clave"); return; }
+        if (key == null) { call.reject(AppLocale.text(getContext(), R.string.error_secret_key_missing)); return; }
         preferences().edit().remove(key).apply();
         call.resolve();
     }
@@ -87,7 +87,7 @@ public class CalendarSecretsPlugin extends Plugin {
 
     private String decrypt(String value) throws Exception {
         String[] parts = value.split("\\.", 2);
-        if (parts.length != 2) throw new IllegalArgumentException("Credencial dañada");
+        if (parts.length != 2) throw new IllegalArgumentException(AppLocale.text(getContext(), R.string.error_secret_corrupt));
         byte[] iv = Base64.decode(parts[0], Base64.NO_WRAP);
         byte[] ciphertext = Base64.decode(parts[1], Base64.NO_WRAP);
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");

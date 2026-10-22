@@ -1,3 +1,5 @@
+import { tx } from '../i18n'
+
 export type AssistantCommand =
   | { type: 'get_daily_summary'; args: { date: string } }
   | { type: 'get_weather'; args: { period: 'now' | 'today' | 'tomorrow' } }
@@ -12,7 +14,7 @@ export type AssistantCommandType = AssistantCommand['type']
 
 export interface AssistantRequest {
   text: string
-  locale: 'es-ES'
+  locale: 'es-ES' | 'en-GB'
   now: string
   timeZone: string
 }
@@ -68,7 +70,7 @@ export const requiresAssistantConfirmation = (command: AssistantCommand): boolea
 
 export function validateAssistantCommand(value: unknown): AssistantCommand {
   if (!isRecord(value) || typeof value.type !== 'string' || !isRecord(value.args)) {
-    throw new InvalidAssistantCommandError('El proveedor no devolvió un comando con la estructura esperada.')
+    throw new InvalidAssistantCommandError(tx('El proveedor no devolvió un comando con la estructura esperada.'))
   }
 
   const { type, args } = value
@@ -116,5 +118,5 @@ export function validateAssistantCommand(value: unknown): AssistantCommand {
       return { type, args: { topic: args.topic.trim() } }
   }
 
-  throw new InvalidAssistantCommandError(`Comando inválido o no permitido: ${type}.`)
+  throw new InvalidAssistantCommandError(tx('Comando inválido o no permitido: {{type}}.', { type }))
 }

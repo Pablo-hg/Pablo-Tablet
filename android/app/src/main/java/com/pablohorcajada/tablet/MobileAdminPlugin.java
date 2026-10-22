@@ -40,7 +40,7 @@ public class MobileAdminPlugin extends Plugin {
         try {
             call.resolve(statusResult());
         } catch (Exception error) {
-            call.reject("No se pudo consultar el servidor local.", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_mobile_admin_status), error);
         }
     }
 
@@ -48,7 +48,7 @@ public class MobileAdminPlugin extends Plugin {
     public void setEnabled(PluginCall call) {
         Boolean enabled = call.getBoolean("enabled");
         if (enabled == null) {
-            call.reject("Falta indicar si el acceso móvil debe estar activado.");
+            call.reject(AppLocale.text(getContext(), R.string.error_mobile_admin_enabled_missing));
             return;
         }
         if (enabled && shouldRequestNotificationPermission()) {
@@ -61,7 +61,7 @@ public class MobileAdminPlugin extends Plugin {
     @PermissionCallback
     private void enableAfterNotificationPermission(PluginCall call) {
         if (getPermissionState(NOTIFICATIONS_PERMISSION) != PermissionState.GRANTED) {
-            call.reject("Permite las notificaciones para mantener visible el servicio de administración móvil.");
+            call.reject(AppLocale.text(getContext(), R.string.error_mobile_admin_notifications_permission));
             return;
         }
         applyEnabled(call, true);
@@ -89,7 +89,7 @@ public class MobileAdminPlugin extends Plugin {
             result.put("networkGeneration", snapshot.networkGeneration);
             call.resolve(result);
         } catch (Exception error) {
-            call.reject("No se pudo crear el QR de vinculación.", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_mobile_admin_pairing_qr), error);
         }
     }
 
@@ -116,7 +116,7 @@ public class MobileAdminPlugin extends Plugin {
             manager.repository().approve(id);
             call.resolve();
         } catch (Exception error) {
-            call.reject("La solicitud ya no se puede aprobar.", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_mobile_admin_request_approve), error);
         }
     }
 
@@ -160,7 +160,7 @@ public class MobileAdminPlugin extends Plugin {
             result.put("revokedCount", revokedCount);
             call.resolve(result);
         } catch (Exception error) {
-            call.reject("No se pudieron revocar los dispositivos autorizados.", error);
+            call.reject(AppLocale.text(getContext(), R.string.error_mobile_admin_revoke_devices), error);
         }
     }
 
@@ -185,7 +185,7 @@ public class MobileAdminPlugin extends Plugin {
     private String required(PluginCall call, String key) {
         String value = call.getString(key);
         if (value == null || value.trim().isEmpty()) {
-            call.reject("Falta el campo " + key + ".");
+            call.reject(AppLocale.text(getContext(), R.string.error_required_field, key));
             return null;
         }
         return value;

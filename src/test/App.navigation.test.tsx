@@ -222,6 +222,20 @@ describe('navegación y flujos principales', () => {
     expect(screen.getByText('Buenos días, Pablo')).toBeInTheDocument()
   })
 
+  it('cambia el idioma desde Ajustes y conserva la selección', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: /Idioma/ }), 'en')
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeVisible())
+    expect(screen.getByRole('button', { name: 'Back to home' })).toBeVisible()
+    expect(screen.getByRole('navigation', { name: 'Dashboard pages' })).toBeVisible()
+    expect(document.documentElement.lang).toBe('en')
+    await waitFor(() => expect(loadDashboardState().preferences.language).toBe('en'))
+  })
+
   it('permite activar widgets y páginas de forma independiente', async () => {
     const user = userEvent.setup()
     render(<App />)

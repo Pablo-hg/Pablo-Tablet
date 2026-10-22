@@ -1,10 +1,11 @@
 import type { CalendarAccount, CalendarOutboxEntry, CalendarPairing, CalendarProviderId, CalendarRelay, CalendarConnectionResult, CalendarSyncResult } from './contracts'
+import { tx } from '../i18n'
 
 const trimBaseUrl = (value: string) => value.trim().replace(/\/+$/, '')
 
 async function responseJson<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null) as { error?: string } | null
-  if (!response.ok) throw new Error(payload?.error || `El servicio de calendario respondió con el estado ${response.status}.`)
+  if (!response.ok) throw new Error(payload?.error || tx('El servicio de calendario respondió con el estado {{status}}.', { status: response.status }))
   return payload as T
 }
 
@@ -20,7 +21,7 @@ export class HttpCalendarRelay implements CalendarRelay {
   }
 
   private url(path: string) {
-    if (!this.configured) throw new Error('El servicio seguro de calendario todavía no está configurado.')
+    if (!this.configured) throw new Error(tx('El servicio seguro de calendario todavía no está configurado.'))
     return `${this.baseUrl}${path}`
   }
 

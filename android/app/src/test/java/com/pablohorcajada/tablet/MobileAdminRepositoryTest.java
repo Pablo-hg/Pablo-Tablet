@@ -27,7 +27,7 @@ public class MobileAdminRepositoryTest {
     public void setUp() {
         Context context = RuntimeEnvironment.getApplication();
         database = new PabloTabletDatabase(context, null);
-        repository = new MobileAdminRepository(database);
+        repository = new MobileAdminRepository(context, database);
     }
 
     @After

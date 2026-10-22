@@ -1,11 +1,14 @@
 import type { CalendarEvent, CalendarEventColor, NativeCalendarEventCategory } from './dashboardState'
 import { addDaysToDateKey, toLocalDateKey } from './calendarRecurrence'
+import { tx } from './i18n'
+import type { SupportedLanguage } from './i18n'
+import type { TranslationKey } from './i18n/translations'
 
 type NativeDateDefinition = {
-  title: string
+  title: TranslationKey
   date: string
   category: NativeCalendarEventCategory
-  detail: string
+  detail: TranslationKey
 }
 
 function dateKey(year: number, month: number, day: number) {
@@ -67,7 +70,7 @@ const categoryColor: Record<NativeCalendarEventCategory, CalendarEventColor> = {
   'clock-change': 'mint',
 }
 
-function nativeEvent(definition: NativeDateDefinition): CalendarEvent {
+function nativeEvent(definition: NativeDateDefinition, language?: SupportedLanguage): CalendarEvent {
   const timestamp = `${definition.date}T00:00:00.000Z`
   return {
     id: `native:${definition.category}:${definition.date}:${definition.title}`,
@@ -81,7 +84,7 @@ function nativeEvent(definition: NativeDateDefinition): CalendarEvent {
     type: 'event',
     recurrence: 'none',
     completed: false,
-    title: definition.title,
+    title: tx(definition.title, language ? { lng: language } : undefined),
     date: definition.date,
     endDate: definition.date,
     startTime: '00:00',
@@ -90,7 +93,7 @@ function nativeEvent(definition: NativeDateDefinition): CalendarEvent {
     isHoliday: definition.category === 'holiday',
     timeZone: 'Europe/Madrid',
     location: '',
-    notes: definition.detail,
+    notes: tx(definition.detail, language ? { lng: language } : undefined),
     color: categoryColor[definition.category],
     reminders: [],
     createdAt: timestamp,
@@ -98,9 +101,9 @@ function nativeEvent(definition: NativeDateDefinition): CalendarEvent {
   }
 }
 
-export function nativeCalendarEventsForYears(years: number[]) {
+export function nativeCalendarEventsForYears(years: number[], language?: SupportedLanguage) {
   return [...new Set(years)]
     .flatMap(definitionsForYear)
-    .map(nativeEvent)
+    .map((definition) => nativeEvent(definition, language))
     .sort((left, right) => left.date.localeCompare(right.date) || left.title.localeCompare(right.title))
 }

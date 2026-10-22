@@ -8,6 +8,7 @@ import {
   type ValidatedAssistantPlan,
 } from './contracts'
 import type { AssistantProvider } from './provider'
+import { tx } from '../i18n'
 
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
@@ -34,29 +35,29 @@ export class PrototypeAssistantProvider implements AssistantProvider {
     const today = dateInTimeZone(request.now, request.timeZone)
 
     if (text.includes('que tengo hoy') || text.includes('resumen del dia')) {
-      return proposal({ type: 'get_daily_summary', args: { date: today } }, 'Preparar el resumen local de hoy.')
+      return proposal({ type: 'get_daily_summary', args: { date: today } }, tx('Preparar el resumen local de hoy.'))
     }
     if (text.includes('tiempo') || text.includes('llover')) {
-      return proposal({ type: 'get_weather', args: { period: 'today' } }, 'Consultar la previsión guardada para hoy.')
+      return proposal({ type: 'get_weather', args: { period: 'today' } }, tx('Consultar la previsión guardada para hoy.'))
     }
     if (text.startsWith('guarda una nota:')) {
       const content = request.text.slice(request.text.indexOf(':') + 1).trim()
       return proposal(
         { type: 'create_note', args: { title: content.slice(0, 60), content, reminderAt: null } },
-        'Proponer una nota nueva; no se guardará hasta confirmarla.',
+        tx('Proponer una nota nueva; no se guardará hasta confirmarla.'),
       )
     }
     if (text.includes('temporizador') && text.includes('20 minutos')) {
       return proposal(
-        { type: 'start_timer', args: { label: 'Temporizador', durationSeconds: 1_200 } },
-        'Proponer un temporizador de veinte minutos.',
+        { type: 'start_timer', args: { label: tx('Temporizador'), durationSeconds: 1_200 } },
+        tx('Proponer un temporizador de veinte minutos.'),
       )
     }
     if (text.includes('como cambio el brillo')) {
-      return proposal({ type: 'get_local_help', args: { topic: 'cambiar el brillo' } }, 'Buscar la ayuda incluida en la app.')
+      return proposal({ type: 'get_local_help', args: { topic: 'cambiar el brillo' } }, tx('Buscar la ayuda incluida en la app.'))
     }
 
-    throw new InvalidAssistantCommandError('El prototipo local no reconoce esta petición; abre el módulo manual.')
+    throw new InvalidAssistantCommandError(tx('El prototipo local no reconoce esta petición; abre el módulo manual.'))
   }
 }
 
@@ -82,7 +83,7 @@ export async function executeAssistantPlan(
   confirmed = false,
 ): Promise<unknown> {
   if (plan.requiresConfirmation && !confirmed) {
-    throw new InvalidAssistantCommandError('La acción requiere confirmación explícita antes de ejecutarse.')
+    throw new InvalidAssistantCommandError(tx('La acción requiere confirmación explícita antes de ejecutarse.'))
   }
   return executor.execute(plan.command)
 }

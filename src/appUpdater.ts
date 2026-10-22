@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+import { tx } from './i18n'
 
 export interface InstalledAppVersion {
   currentVersionName: string
@@ -49,15 +50,15 @@ interface AppUpdaterPlugin {
 const AppUpdater = registerPlugin<AppUpdaterPlugin>('AppUpdater')
 
 const WEB_SIMULATION_VERSION_KEY = 'pablo-tablet.simulated-installed-version'
-const SIMULATED_PREVIOUS_VERSION = '0.3.7'
-const SIMULATED_LATEST_VERSION = '0.4.1'
-const SIMULATED_VERSION_CODE = 1041
+const SIMULATED_PREVIOUS_VERSION = '0.4.2'
+const SIMULATED_LATEST_VERSION = '0.4.3'
+const SIMULATED_VERSION_CODE = 1043
 const SIMULATED_ASSET_SIZE = 3_463_652
-const SIMULATED_RELEASE_NOTES = [
-  'Notas con modos de texto, dibujo y lista interactiva reordenable.',
-  'Festivos separados de las citas y eventos personales de Tu agenda.',
-  'Fila Todo el día en la vista horaria y próximos festivos configurables.',
-  'Indicador del dock animado al navegar entre páginas adyacentes.',
+const simulatedReleaseNotes = () => [
+  tx('Notas con modos de texto, dibujo y lista interactiva reordenable.'),
+  tx('Festivos separados de las citas y eventos personales de Tu agenda.'),
+  tx('Fila Todo el día en la vista horaria y próximos festivos configurables.'),
+  tx('Indicador del dock animado al navegar entre páginas adyacentes.'),
 ].join('\n')
 
 function simulatedStartingVersion() {
@@ -116,12 +117,12 @@ export async function checkForAppUpdate(): Promise<AppUpdateInfo> {
       releaseAvailable: true,
       updateAvailable,
       latestVersionName: SIMULATED_LATEST_VERSION,
-      releaseName: 'Pablo Tablet 0.4.1',
-      releaseNotes: SIMULATED_RELEASE_NOTES,
+      releaseName: 'Pablo Tablet 0.4.3',
+      releaseNotes: simulatedReleaseNotes(),
       publishedAt: '2026-10-19T00:00:00Z',
-      downloadUrl: 'https://github.com/Pablo-hg/Pablo-Tablet/releases/download/v0.4.1/Pablo-Tablet-0.4.1.apk',
+      downloadUrl: 'https://github.com/Pablo-hg/Pablo-Tablet/releases/download/v0.4.3/Pablo-Tablet-0.4.3.apk',
       sha256: 'simulation-only',
-      assetName: 'Pablo-Tablet-0.4.1.apk',
+      assetName: 'Pablo-Tablet-0.4.3.apk',
       assetSize: SIMULATED_ASSET_SIZE,
     }
   }
@@ -151,7 +152,7 @@ export async function downloadAppUpdate(
     onProgress?.({ phase: 'verifying', bytesDownloaded: totalBytes, totalBytes, percent: 100 })
     await wait(700)
     onProgress?.({ phase: 'ready', bytesDownloaded: totalBytes, totalBytes, percent: 100 })
-    return { readyToInstall: true, assetName: update.assetName ?? 'Pablo-Tablet-0.4.1.apk', bytesDownloaded: totalBytes }
+    return { readyToInstall: true, assetName: update.assetName ?? 'Pablo-Tablet-0.4.3.apk', bytesDownloaded: totalBytes }
   }
   if (!appUpdatesSupported()) throw new Error('Las actualizaciones solo se pueden instalar desde la tablet Android.')
   if (!update.downloadUrl || !update.sha256 || !update.assetName) throw new Error('La Release no contiene un APK verificable.')

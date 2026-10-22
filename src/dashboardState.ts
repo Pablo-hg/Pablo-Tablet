@@ -1,5 +1,6 @@
 import { DEFAULT_WIDGETS, readWidgets, type DashboardWidget } from './widgetLayout'
 import type { WeatherLocation } from './weather'
+import type { SupportedLanguage } from './i18n'
 
 export type DashboardPageId = 'dashboard' | 'assistant' | 'calendar' | 'clock' | 'weather' | 'notes' | 'gallery'
 
@@ -24,6 +25,7 @@ export interface DashboardPageDefinition {
 }
 
 export interface DashboardPreferences {
+  language: SupportedLanguage
   themeId: DashboardThemeId
   navigationSeconds: number
   pageNavigationStyle: PageNavigationStyle
@@ -213,6 +215,7 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
   selectedWeatherLocationId: null,
   widgets: DEFAULT_WIDGETS,
   preferences: {
+    language: 'es',
     themeId: 'original',
     navigationSeconds: 5,
     pageNavigationStyle: 'dock',
@@ -646,6 +649,7 @@ export function loadDashboardState(serializedState?: string): DashboardState {
       selectedWeatherLocationId,
       widgets,
       preferences: {
+        language: parsedPreferences.language === 'en' ? 'en' : 'es',
         themeId: isThemeId(parsedPreferences.themeId)
           ? parsedPreferences.themeId
           : DEFAULT_DASHBOARD_STATE.preferences.themeId,

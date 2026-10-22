@@ -1,6 +1,8 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { CalendarDays, Clock3, CloudSun, FileText, Home, Images, Settings, Sparkles } from 'lucide-react'
 import type { DashboardPageDefinition, PageNavigationPosition, PageNavigationStyle } from '../dashboardState'
+import { tx } from '../i18n'
+import type { TranslationKey } from '../i18n/translations'
 
 export type AppScreen = 'home' | 'settings'
 
@@ -90,7 +92,7 @@ export function AppNavigation({ screen, enabledPages, activePageIndex, pageNavig
   }, [currentIndex, enabledPages.length, pageNavigationPosition, pageNavigationStyle, showPageNavigationLabels])
 
   return (
-    <nav ref={navigationRef} className={`page-indicators page-indicators--${pageNavigationStyle} is-position-${pageNavigationPosition} has-page-indicator ${adjacentTransition ? 'is-adjacent-transition' : 'is-direct-transition'} ${showPageNavigationLabels ? 'show-labels' : 'hide-labels'}`} aria-label="Páginas del dashboard">
+    <nav ref={navigationRef} className={`page-indicators page-indicators--${pageNavigationStyle} is-position-${pageNavigationPosition} has-page-indicator ${adjacentTransition ? 'is-adjacent-transition' : 'is-direct-transition'} ${showPageNavigationLabels ? 'show-labels' : 'hide-labels'}`} aria-label={tx('Páginas del dashboard')}>
       <i className="page-indicator-glider" style={indicatorStyle} aria-hidden="true" />
       {enabledPages.map((page, index) => {
         const PageIcon = PAGE_ICONS[page.id]
@@ -100,23 +102,23 @@ export function AppNavigation({ screen, enabledPages, activePageIndex, pageNavig
           data-navigation-index={index}
           type="button"
           className={isActive ? 'is-active' : ''}
-          aria-label={`Ir a ${page.label}`}
+          aria-label={tx('Ir a {{name}}', { name: tx(page.label as TranslationKey) })}
           aria-current={isActive ? 'page' : undefined}
           onPointerDown={stopPointerPropagation}
           onClick={() => onMoveToPage(index)}
-        ><PageIcon size={17} strokeWidth={2.25} aria-hidden="true" /><span>{page.label}</span></button>
+        ><PageIcon size={17} strokeWidth={2.25} aria-hidden="true" /><span>{tx(page.label as TranslationKey)}</span></button>
       })}
       <button
         data-navigation-index={enabledPages.length}
         className={screen === 'settings' ? 'is-active page-settings-button' : 'page-settings-button'}
         type="button"
-        aria-label="Ir a Ajustes"
+        aria-label={tx('Ir a Ajustes')}
         aria-current={screen === 'settings' ? 'page' : undefined}
         onPointerDown={stopPointerPropagation}
         onClick={onGoSettings}
       >
         <Settings size={17} strokeWidth={2.25} aria-hidden="true" />
-        <span>Ajustes</span>
+        <span>{tx('Ajustes')}</span>
       </button>
     </nav>
   )

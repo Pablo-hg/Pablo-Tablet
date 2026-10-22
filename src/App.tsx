@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { LocalNotifications } from '@capacitor/local-notifications'
+import { useTranslation } from 'react-i18next'
 import {
   AlarmClock,
   Archive,
@@ -99,6 +100,8 @@ import { SettingsPage } from './pages/SettingsPage'
 import { AssistantPage } from './pages/AssistantPage'
 import { PageHeader } from './components/PageHeader'
 import { nativeCalendarEventsForYears } from './nativeCalendarDates'
+import { activeLocale, setAppLanguage, tx } from './i18n'
+import { setNativeAppLanguage } from './nativeLocale'
 import './App.css'
 import './themes.css'
 
@@ -114,24 +117,13 @@ function safeWidgetPosition(widgetId: DashboardWidgetId, orientation: DashboardO
   return { ...fallback }
 }
 
-const weekdayFormatter = new Intl.DateTimeFormat('es-ES', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-})
-
-const timeFormatter = new Intl.DateTimeFormat('es-ES', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-})
-
 function createLocalId() {
   if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID()
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 function App() {
+  useTranslation()
   const [screen, setScreen] = useState<AppScreen>('home')
   const [now, setNow] = useState(() => new Date())
   const [dashboardState, setDashboardState] = useState(loadDashboardState)
@@ -161,12 +153,23 @@ function App() {
   const activePageIndex = Math.max(0, enabledPages.findIndex((page) => page.id === activePageId))
   const activePage = enabledPages[activePageIndex] ?? enabledPages[0]
   const activeNavigationIndex = screen === 'settings' ? enabledPages.length : activePageIndex
+  const locale = activeLocale(dashboardState.preferences.language)
+  const weekdayFormatter = useMemo(() => new Intl.DateTimeFormat(locale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }), [locale])
+  const timeFormatter = useMemo(() => new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }), [locale])
   const time = timeFormatter.format(now)
   const date = weekdayFormatter.format(now)
   const currentYear = now.getFullYear()
   const calendarEvents = useMemo(
-    () => [...dashboardState.calendarEvents, ...nativeCalendarEventsForYears([currentYear, currentYear + 1])],
-    [dashboardState.calendarEvents, currentYear],
+    () => [...dashboardState.calendarEvents, ...nativeCalendarEventsForYears([currentYear, currentYear + 1], dashboardState.preferences.language)],
+    [dashboardState.calendarEvents, currentYear, dashboardState.preferences.language],
   )
   const screensaverPhoto = dashboardState.galleryPhotos.find((photo) => photo.id === screensaverPhotoId && photo.deletedAt === null)
   const homeWeatherLocation = dashboardState.weatherLocations.find((location) => location.id === dashboardState.homeWeatherLocationId) ?? dashboardState.weatherLocations[0] ?? null
@@ -178,6 +181,11 @@ function App() {
     ? 'amoled'
     : dashboardState.preferences.themeId
   const activeMediaVolume = nightModeActive ? dashboardState.preferences.nightMediaVolume : dashboardState.preferences.mediaVolume
+
+  useEffect(() => {
+    void setAppLanguage(dashboardState.preferences.language)
+    void setNativeAppLanguage(dashboardState.preferences.language).catch((error) => console.warn('No se pudo aplicar el idioma en Android.', error))
+  }, [dashboardState.preferences.language])
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 1_000)
@@ -255,7 +263,7 @@ function App() {
       deliveredSimulationIds.current.add(`alarm:${dueAlarm.id}:${now.toDateString()}`)
       startRinging({ kind: 'alarm', sourceId: dueAlarm.id, title: dueAlarm.label || 'Alarma', subtitle: `Sonando a las ${dueAlarm.time}`, soundUri: dueAlarm.soundUri })
     }
-  }, [dashboardState.alarms, dashboardState.notes, now, showSimulatedAlert, startRinging])
+  }, [dashboardState.alarms, dashboardState.notes, now, showSimulatedAlert, startRinging, timeFormatter])
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
@@ -430,7 +438,7 @@ function App() {
     const note: Note = {
       id: createLocalId(),
       type,
-      title: type === 'drawing' ? 'Nuevo dibujo' : type === 'list' ? 'Nueva lista' : 'Nueva nota',
+      title: tx(type === 'drawing' ? 'Nuevo dibujo' : type === 'list' ? 'Nueva lista' : 'Nueva nota'),
       content: '',
       drawing: [],
       drawingPosition: 'below',
@@ -626,7 +634,7 @@ function App() {
     setDashboardState((current) => ({ ...current, calendarAccounts: current.calendarAccounts.map((item) => item.id === accountId ? { ...item, status: 'syncing', error: null } : item) }))
     try {
       const token = connectionToken ?? await readCalendarConnectionToken(accountId)
-      if (!token) throw new Error('La credencial de conexión no está disponible. Vuelve a conectar la cuenta.')
+      if (!token) throw new Error(tx('La credencial de conexión no está disponible. Vuelve a conectar la cuenta.'))
       const result = await calendarRelay.synchronize(account, token, snapshot.calendarOutbox.filter((entry) => entry.accountId === accountId))
       setDashboardState((current) => {
         const liveAccount = current.calendarAccounts.find((item) => item.id === accountId)
@@ -635,7 +643,7 @@ function App() {
         return { ...current, calendarEvents: applied.events, externalCalendars: applied.calendars, calendarOutbox: applied.outbox, calendarAccounts: current.calendarAccounts.map((item) => item.id === accountId ? applied.account : item) }
       })
     } catch (reason) {
-      const message = reason instanceof Error ? reason.message : 'No se pudo sincronizar el calendario.'
+      const message = reason instanceof Error ? reason.message : tx('No se pudo sincronizar el calendario.')
       const requiresAuthorization = /autoriza|credencial|401|403/i.test(message)
       setDashboardState((current) => ({ ...current, calendarAccounts: current.calendarAccounts.map((item) => item.id === accountId ? { ...item, status: requiresAuthorization ? 'reauthorize' : navigator.onLine ? 'error' : 'offline', error: message } : item) }))
     } finally {
@@ -654,7 +662,7 @@ function App() {
         return { ...current, calendarEvents: applied.events, externalCalendars: applied.calendars, calendarOutbox: applied.outbox, calendarAccounts: [...current.calendarAccounts.filter((item) => item.provider !== account.provider), applied.account] }
       })
     } catch (reason) {
-      const message = reason instanceof Error ? reason.message : 'No se pudo realizar la primera sincronización.'
+      const message = reason instanceof Error ? reason.message : tx('No se pudo realizar la primera sincronización.')
       setDashboardState((current) => ({ ...current, calendarAccounts: current.calendarAccounts.map((item) => item.id === account.id ? { ...item, status: 'error', error: message } : item) }))
     }
   }, [])
@@ -1081,7 +1089,7 @@ function App() {
         )}
       </section>
 
-      {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>Simulación web de aviso local</small></div><button type="button" onClick={() => setSimulatedAlert(null)} aria-label="Cerrar aviso"><X size={18} /></button></div> : null}
+      {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>{tx('Simulación web de aviso local')}</small></div><button type="button" onClick={() => setSimulatedAlert(null)} aria-label={tx('Cerrar aviso')}><X size={18} /></button></div> : null}
       {ringingAlert ? <RingingAlertOverlay alert={ringingAlert} snoozeMinutes={snoozeMinutes} onSnoozeMinutesChange={setSnoozeMinutes} onSnooze={snoozeRingingAlert} onStop={stopRinging} /> : null}
       {screensaverVisible ? <GalleryScreensaver photo={screensaverPhoto} now={now} time={time} date={date} calendarEvents={calendarEvents} calendars={dashboardState.externalCalendars} onDismiss={() => { setScreensaverVisible(false); registerInteraction() }} /> : null}
 
@@ -1242,15 +1250,15 @@ function GalleryScreensaver({ photo, now, time, date, calendarEvents, calendars,
     event.stopPropagation()
     onDismiss()
   }
-  return <div className={`gallery-screensaver ${photo ? 'has-photo' : 'is-empty'}`} role="button" tabIndex={0} aria-label="Cerrar salvapantallas" onPointerDown={dismiss} onClick={(event) => { event.preventDefault(); event.stopPropagation() }}>
+  return <div className={`gallery-screensaver ${photo ? 'has-photo' : 'is-empty'}`} role="button" tabIndex={0} aria-label={tx('Cerrar salvapantallas')} onPointerDown={dismiss} onClick={(event) => { event.preventDefault(); event.stopPropagation() }}>
     {photo ? <img key={photo.id} src={galleryPhotoSource(photo.uri)} alt="" /> : null}
     <div className="gallery-screensaver-shade" />
-    <div className="gallery-screensaver-clock"><time>{time}</time><span>{date}</span>{photo ? null : <small>Añade fotos desde la Galería</small>}</div>
-    <aside className="gallery-screensaver-agenda" aria-label="Próximos eventos">
-      <header><CalendarDays size={20} /><span>Próximos eventos</span></header>
+    <div className="gallery-screensaver-clock"><time>{time}</time><span>{date}</span>{photo ? null : <small>{tx('Añade fotos desde la Galería')}</small>}</div>
+    <aside className="gallery-screensaver-agenda" aria-label={tx('Próximos eventos')}>
+      <header><CalendarDays size={20} /><span>{tx('Próximos eventos')}</span></header>
       {upcomingEvents.length > 0
-        ? upcomingEvents.map((event) => <div key={event.id} className={`event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`}><i /><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}</strong><small>{formatCalendarEventTime(event, toLocalDateKey(now))}</small></span></div>)
-        : <p>No hay eventos próximos</p>}
+        ? upcomingEvents.map((event) => <div key={event.id} className={`event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`}><i /><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || tx('Evento')}</strong><small>{formatCalendarEventTime(event, toLocalDateKey(now))}</small></span></div>)
+        : <p>{tx('No hay eventos próximos')}</p>}
     </aside>
   </div>
 }
@@ -1358,50 +1366,50 @@ function GalleryPage({ photos, onAddPhotos, onMoveToTrash, onMoveSelectionToTras
     <PageHeader pageLabel="Galería" />
     <section className="gallery-panel">
       <header className="gallery-toolbar">
-        <div><p className="eyebrow">Fotos locales</p><h1>{selectionMode ? 'Seleccionar fotos' : showTrash ? 'Papelera' : 'Mis fotos'}</h1><span>{selectionMode ? `${selectedPhotoIds.size} seleccionada${selectedPhotoIds.size === 1 ? '' : 's'}` : showTrash ? `${deletedPhotos.length} eliminadas` : `${activePhotos.length} en esta tablet`}</span></div>
+        <div><p className="eyebrow">{tx('Fotos locales')}</p><h1>{tx(selectionMode ? 'Seleccionar fotos' : showTrash ? 'Papelera' : 'Mis fotos')}</h1><span>{selectionMode ? tx(selectedPhotoIds.size === 1 ? '{{count}} seleccionada' : '{{count}} seleccionadas', { count: selectedPhotoIds.size }) : showTrash ? tx('{{count}} eliminadas', { count: deletedPhotos.length }) : tx('{{count}} en esta tablet', { count: activePhotos.length })}</span></div>
         <div className="gallery-actions">
           {selectionMode ? <>
-            <button type="button" onClick={() => { setSelectedPhotoIds(allVisiblePhotosSelected ? new Set() : new Set(visiblePhotos.map((photo) => photo.id))); setConfirmSelectionDelete(false) }}><Check size={18} />{allVisiblePhotosSelected ? 'Deseleccionar todas' : 'Seleccionar todas'}</button>
-            <button type="button" onClick={() => { setSelectedPhotoIds(new Set()); setSelectionMode(false); setConfirmSelectionDelete(false) }}><X size={18} />Cancelar</button>
+            <button type="button" onClick={() => { setSelectedPhotoIds(allVisiblePhotosSelected ? new Set() : new Set(visiblePhotos.map((photo) => photo.id))); setConfirmSelectionDelete(false) }}><Check size={18} />{tx(allVisiblePhotosSelected ? 'Deseleccionar todas' : 'Seleccionar todas')}</button>
+            <button type="button" onClick={() => { setSelectedPhotoIds(new Set()); setSelectionMode(false); setConfirmSelectionDelete(false) }}><X size={18} />{tx('Cancelar')}</button>
             {showTrash ? <>
-              <button type="button" disabled={selectedPhotoIds.size === 0} onClick={restoreSelectedPhotos}><RotateCcw size={18} />{allVisiblePhotosSelected ? 'Restaurar todas' : `Restaurar ${selectedPhotoIds.size}`}</button>
+              <button type="button" disabled={selectedPhotoIds.size === 0} onClick={restoreSelectedPhotos}><RotateCcw size={18} />{allVisiblePhotosSelected ? tx('Restaurar todas') : tx('Restaurar {{count}}', { count: selectedPhotoIds.size })}</button>
               {confirmSelectionDelete
-                ? <span className="gallery-delete-confirm"><small>No se puede deshacer</small><button type="button" onClick={() => setConfirmSelectionDelete(false)}>Cancelar borrado</button><button type="button" className="is-danger" onClick={permanentlyDeleteSelectedPhotos}>Eliminar {selectedPhotoIds.size}</button></span>
-                : <button type="button" className="gallery-delete-selection" disabled={selectedPhotoIds.size === 0} onClick={() => setConfirmSelectionDelete(true)}><Trash2 size={18} />{allVisiblePhotosSelected ? 'Eliminar todas definitivamente' : `Eliminar ${selectedPhotoIds.size} definitivamente`}</button>}
-            </> : <button type="button" className="gallery-delete-selection" disabled={selectedPhotoIds.size === 0} onClick={deleteSelectedPhotos}><Trash2 size={18} />{allVisiblePhotosSelected ? 'Mover todas a papelera' : `Mover ${selectedPhotoIds.size} a papelera`}</button>}
+                ? <span className="gallery-delete-confirm"><small>{tx('No se puede deshacer')}</small><button type="button" onClick={() => setConfirmSelectionDelete(false)}>{tx('Cancelar borrado')}</button><button type="button" className="is-danger" onClick={permanentlyDeleteSelectedPhotos}>{tx('Eliminar {{count}}', { count: selectedPhotoIds.size })}</button></span>
+                : <button type="button" className="gallery-delete-selection" disabled={selectedPhotoIds.size === 0} onClick={() => setConfirmSelectionDelete(true)}><Trash2 size={18} />{allVisiblePhotosSelected ? tx('Eliminar todas definitivamente') : tx('Eliminar {{count}} definitivamente', { count: selectedPhotoIds.size })}</button>}
+            </> : <button type="button" className="gallery-delete-selection" disabled={selectedPhotoIds.size === 0} onClick={deleteSelectedPhotos}><Trash2 size={18} />{allVisiblePhotosSelected ? tx('Mover todas a papelera') : tx('Mover {{count}} a papelera', { count: selectedPhotoIds.size })}</button>}
           </> : <>
-            <button type="button" className={showTrash ? 'is-active' : ''} onClick={() => { setShowTrash((value) => !value); setSelectedPhotoIds(new Set()); setSelectionMode(false); setConfirmSelectionDelete(false); closeViewer() }}><Trash2 size={18} />{showTrash ? 'Volver a fotos' : `Papelera${deletedPhotos.length ? ` · ${deletedPhotos.length}` : ''}`}</button>
-            {visiblePhotos.length > 0 ? <button type="button" onClick={() => setSelectionMode(true)}><Check size={18} />Seleccionar</button> : null}
-            {!showTrash ? <button type="button" className="gallery-add-button" onClick={onAddPhotos}><Upload size={19} />Añadir fotos</button> : null}
+            <button type="button" className={showTrash ? 'is-active' : ''} onClick={() => { setShowTrash((value) => !value); setSelectedPhotoIds(new Set()); setSelectionMode(false); setConfirmSelectionDelete(false); closeViewer() }}><Trash2 size={18} />{showTrash ? tx('Volver a fotos') : deletedPhotos.length ? tx('Papelera · {{count}}', { count: deletedPhotos.length }) : tx('Papelera')}</button>
+            {visiblePhotos.length > 0 ? <button type="button" onClick={() => setSelectionMode(true)}><Check size={18} />{tx('Seleccionar')}</button> : null}
+            {!showTrash ? <button type="button" className="gallery-add-button" onClick={onAddPhotos}><Upload size={19} />{tx('Añadir fotos')}</button> : null}
           </>}
         </div>
       </header>
 
       {visiblePhotos.length > 0 ? <div className="gallery-grid">
-        {visiblePhotos.map((photo) => <button key={photo.id} type="button" className={`gallery-thumbnail ${selectedPhotoIds.has(photo.id) ? 'is-selected' : ''}`} onPointerDown={(event) => handlePhotoPointerDown(event, photo.id)} onPointerMove={handlePhotoPointerMove} onPointerUp={clearPhotoHold} onPointerCancel={clearPhotoHold} onContextMenu={(event) => event.preventDefault()} onClick={(event) => handlePhotoClick(event, photo.id)} aria-label={selectionMode ? `${selectedPhotoIds.has(photo.id) ? 'Deseleccionar' : 'Seleccionar'} ${photo.name}` : `Abrir ${photo.name}`} aria-pressed={selectionMode ? selectedPhotoIds.has(photo.id) : undefined}>
+        {visiblePhotos.map((photo) => <button key={photo.id} type="button" className={`gallery-thumbnail ${selectedPhotoIds.has(photo.id) ? 'is-selected' : ''}`} onPointerDown={(event) => handlePhotoPointerDown(event, photo.id)} onPointerMove={handlePhotoPointerMove} onPointerUp={clearPhotoHold} onPointerCancel={clearPhotoHold} onContextMenu={(event) => event.preventDefault()} onClick={(event) => handlePhotoClick(event, photo.id)} aria-label={selectionMode ? tx(selectedPhotoIds.has(photo.id) ? 'Deseleccionar {{name}}' : 'Seleccionar {{name}}', { name: photo.name }) : tx('Abrir {{name}}', { name: photo.name })} aria-pressed={selectionMode ? selectedPhotoIds.has(photo.id) : undefined}>
           <img src={galleryPhotoSource(photo.uri)} alt={photo.name} loading="lazy" draggable={false} />
           <span>{photo.name}</span>
           {selectionMode ? <i className="gallery-selection-mark" aria-hidden="true">{selectedPhotoIds.has(photo.id) ? <Check size={18} strokeWidth={3} /> : null}</i> : null}
         </button>)}
       </div> : <div className="gallery-empty">
         <span><Images size={46} strokeWidth={1.35} /></span>
-        <h2>{showTrash ? 'La papelera está vacía' : 'Añade tus primeras fotos'}</h2>
-        <p>{showTrash ? 'Las fotos que elimines se conservarán aquí durante 30 días.' : 'Selecciona una o varias imágenes guardadas en la tablet.'}</p>
-        {!showTrash ? <button type="button" onClick={onAddPhotos}><Upload size={18} />Elegir fotos</button> : null}
+        <h2>{tx(showTrash ? 'La papelera está vacía' : 'Añade tus primeras fotos')}</h2>
+        <p>{tx(showTrash ? 'Las fotos que elimines se conservarán aquí durante 30 días.' : 'Selecciona una o varias imágenes guardadas en la tablet.')}</p>
+        {!showTrash ? <button type="button" onClick={onAddPhotos}><Upload size={18} />{tx('Elegir fotos')}</button> : null}
       </div>}
     </section>
 
     {selectedPhoto ? <div className="gallery-viewer" data-swipe-block role="dialog" aria-modal="true" aria-label={selectedPhoto.name}>
-      <button type="button" className="gallery-viewer-close" onClick={closeViewer} aria-label="Cerrar foto"><X size={25} /></button>
+      <button type="button" className="gallery-viewer-close" onClick={closeViewer} aria-label={tx('Cerrar foto')}><X size={25} /></button>
       <img src={galleryPhotoSource(selectedPhoto.uri)} alt={selectedPhoto.name} />
       <footer>
-        <div><strong>{selectedPhoto.name}</strong><span>{new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(selectedPhoto.createdAt))}</span></div>
+        <div><strong>{selectedPhoto.name}</strong><span>{new Intl.DateTimeFormat(activeLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(selectedPhoto.createdAt))}</span></div>
         {selectedPhoto.deletedAt ? <div className="gallery-viewer-actions">
-          <button type="button" onClick={() => { onRestore(selectedPhoto.id); closeViewer() }}><RotateCcw size={18} />Restaurar</button>
+          <button type="button" onClick={() => { onRestore(selectedPhoto.id); closeViewer() }}><RotateCcw size={18} />{tx('Restaurar')}</button>
           {confirmPermanentDelete
-            ? <span className="gallery-delete-confirm"><small>Esta acción no se puede deshacer</small><button type="button" onClick={() => setConfirmPermanentDelete(false)}>Cancelar</button><button type="button" className="is-danger" onClick={() => { onPermanentlyDelete(selectedPhoto.id); closeViewer() }}>Eliminar</button></span>
-            : <button type="button" className="is-danger" onClick={() => setConfirmPermanentDelete(true)}><Trash2 size={18} />Eliminar definitivamente</button>}
-        </div> : <div className="gallery-viewer-actions"><button type="button" className="is-danger" onClick={() => { onMoveToTrash(selectedPhoto.id); closeViewer() }}><Trash2 size={18} />Mover a la papelera</button></div>}
+            ? <span className="gallery-delete-confirm"><small>{tx('Esta acción no se puede deshacer')}</small><button type="button" onClick={() => setConfirmPermanentDelete(false)}>{tx('Cancelar')}</button><button type="button" className="is-danger" onClick={() => { onPermanentlyDelete(selectedPhoto.id); closeViewer() }}>{tx('Eliminar')}</button></span>
+            : <button type="button" className="is-danger" onClick={() => setConfirmPermanentDelete(true)}><Trash2 size={18} />{tx('Eliminar definitivamente')}</button>}
+        </div> : <div className="gallery-viewer-actions"><button type="button" className="is-danger" onClick={() => { onMoveToTrash(selectedPhoto.id); closeViewer() }}><Trash2 size={18} />{tx('Mover a la papelera')}</button></div>}
       </footer>
     </div> : null}
   </div>
@@ -1662,10 +1670,10 @@ function GridDashboard({ now, time, date, widgets, notes, calendarEvents, calend
       <header className="dashboard-header">
         <div>
           <p className="eyebrow">Pablo Tablet</p>
-          <p className="welcome">Buenos días, Pablo</p>
+          <p className="welcome">{tx('Buenos días, Pablo')}</p>
         </div>
       </header>
-      {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>Arrastra para mover · arrastra los bordes para ajustar</span><button type="button" onClick={finishEditing}><Check size={17} />Listo</button></div> : null}
+      {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>{tx('Arrastra para mover · arrastra los bordes para ajustar')}</span><button type="button" onClick={finishEditing}><Check size={17} />{tx('Listo')}</button></div> : null}
       <div ref={gridRef} className={`dashboard-grid is-${orientation}`}>
         {displayedWidgets.length > 0
           ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} upcomingHolidays={upcomingHolidays} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
@@ -1677,10 +1685,10 @@ function GridDashboard({ now, time, date, widgets, notes, calendarEvents, calend
 
 function DashboardEmptyState({ time, date }: { time: string; date: string }) {
   return <section className="dashboard-empty-state">
-    <p>Panel sin módulos</p>
+    <p>{tx('Panel sin módulos')}</p>
     <time>{time}</time>
     <span>{date}</span>
-    <small>Activa al menos un widget desde Ajustes.</small>
+    <small>{tx('Activa al menos un widget desde Ajustes.')}</small>
   </section>
 }
 
@@ -1700,7 +1708,7 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
     onContextMenu={(event) => event.preventDefault()}
   >
     {children}
-    {isHolding ? <span className="widget-hold-hint">Mantén pulsado…</span> : null}
+    {isHolding ? <span className="widget-hold-hint">{tx('Mantén pulsado…')}</span> : null}
     {isEditing ? <>
       <span className="widget-size-indicator" data-swipe-block><strong>{widgetNames[widget.id]}</strong><small>{widget.layout.width} × {widget.layout.height}</small></span>
       {showResizeHandles ? resizeDirections.map((direction) => {
@@ -1765,30 +1773,30 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
 
   if (widget.id === 'assistant') return <DashboardWidgetFrame {...frameProps}><button type="button" className="assistant-widget widget-card interactive-card" onClick={() => onActivate(onOpenAssistant)}>
     <span className="assistant-widget-icon"><Sparkles size={area >= 3 ? 34 : 25} /></span>
-    <span><strong>Asistente</strong><small>{area >= 2 ? 'Consulta tu día o prepara una acción con voz o texto.' : 'Voz y texto'}</small></span>
+    <span><strong>{tx('Asistente')}</strong><small>{tx(area >= 2 ? 'Consulta tu día o prepara una acción con voz o texto.' : 'Voz y texto')}</small></span>
     <ChevronRight size={18} />
   </button></DashboardWidgetFrame>
 
   if (widget.id === 'clock') return <DashboardWidgetFrame {...frameProps}><article className="clock-card responsive-clock-widget widget-card">
-    <div className="widget-label"><span>Ahora</span></div>
+    <div className="widget-label"><span>{tx('Ahora')}</span></div>
     <time className="time">{time}{area > 1 ? <small>:{String(now.getSeconds()).padStart(2, '0')}</small> : null}</time>
     <p className="date">{date}</p>
-    {area >= 4 ? <div className="clock-details"><span><SunMedium size={20} />Que tengas un día estupendo</span><strong>{new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(now)}</strong></div> : null}
+    {area >= 4 ? <div className="clock-details"><span><SunMedium size={20} />{tx('Que tengas un día estupendo')}</span><strong>{new Intl.DateTimeFormat(activeLocale(), { weekday: 'long' }).format(now)}</strong></div> : null}
     {area >= 6 ? <div className="clock-day-progress"><span style={{ width: `${Math.round(((now.getHours() * 60 + now.getMinutes()) / 1440) * 100)}%` }} /></div> : null}
   </article></DashboardWidgetFrame>
 
   if (widget.id === 'weather') {
     const hourCount: Record<string, number> = { '1x1': 0, '1x2': 3, '1x3': 3, '1x4': 6, '2x1': 0, '2x2': 4, '2x3': 6, '2x4': 6, '3x1': 0, '3x2': 6, '3x3': 6, '3x4': 6 }
     const forecastCount: Record<string, number> = { '1x1': 0, '1x2': 0, '1x3': 3, '1x4': 5, '2x1': 0, '2x2': 3, '2x3': 4, '2x4': 5, '3x1': 0, '3x2': 4, '3x3': 5, '3x4': 5 }
-    if (!homeWeatherLocation) return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget weather-widget-empty widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}><div className="weather-icon"><MapPin size={36} /></div><div><strong>Configura el tiempo</strong><span>Añade una ubicación y márcala como Casa.</span></div></button></DashboardWidgetFrame>
-    if (!homeWeatherForecast) return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget weather-widget-empty widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}><div className="weather-icon"><RefreshCw className={weatherLoading ? 'is-spinning' : ''} size={34} /></div><div><strong>{homeWeatherLocation.name}</strong><span>{weatherLoading ? 'Actualizando la previsión…' : 'Toca para volver a intentarlo.'}</span></div></button></DashboardWidgetFrame>
+    if (!homeWeatherLocation) return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget weather-widget-empty widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}><div className="weather-icon"><MapPin size={36} /></div><div><strong>{tx('Configura el tiempo')}</strong><span>{tx('Añade una ubicación y márcala como Casa.')}</span></div></button></DashboardWidgetFrame>
+    if (!homeWeatherForecast) return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget weather-widget-empty widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}><div className="weather-icon"><RefreshCw className={weatherLoading ? 'is-spinning' : ''} size={34} /></div><div><strong>{homeWeatherLocation.name}</strong><span>{tx(weatherLoading ? 'Actualizando la previsión…' : 'Toca para volver a intentarlo.')}</span></div></button></DashboardWidgetFrame>
     const weatherHours = homeWeatherForecast.hourly
     const forecast = homeWeatherForecast.daily
     return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}>
       <div className="weather-current"><div className="weather-icon"><WeatherIcon code={homeWeatherForecast.current.weatherCode} size={area >= 4 ? 46 : 36} /></div><div><p className="temperature">{Math.round(homeWeatherForecast.current.temperature)}°</p><p className="weather-copy">{weatherDescription(homeWeatherForecast.current.weatherCode)}</p><span><Home size={13} />{homeWeatherLocation.name}</span></div></div>
-      <div className="weather-stats"><span><Droplets size={17} /><small>Humedad</small><strong>{Math.round(homeWeatherForecast.current.humidity)}%</strong></span><span><Wind size={17} /><small>Viento</small><strong>{Math.round(homeWeatherForecast.current.windSpeed)} km/h</strong></span><span><Sunrise size={17} /><small>Amanecer</small><strong>{formatWeatherHour(homeWeatherForecast.daily[0]?.sunrise ?? '')}</strong></span><span><Sunset size={17} /><small>Anochecer</small><strong>{formatWeatherHour(homeWeatherForecast.daily[0]?.sunset ?? '')}</strong></span></div>
-      {(hourCount[sizeKey] ?? 0) > 0 ? <div className="weather-hours"><p>Próximas horas</p>{weatherHours.slice(0, hourCount[sizeKey]).map((hour, index) => <span key={hour.time}><small>{index === 0 ? 'Ahora' : formatWeatherHour(hour.time)}</small><WeatherIcon code={hour.weatherCode} size={20} /><strong>{Math.round(hour.temperature)}°</strong></span>)}</div> : null}
-      {(forecastCount[sizeKey] ?? 0) > 0 ? <div className="weather-forecast"><p>Próximos días</p>{forecast.slice(0, forecastCount[sizeKey]).map((day, index) => <span key={day.date}><b>{index === 0 ? 'Hoy' : formatWeatherDay(day.date, true)}</b><WeatherIcon code={day.weatherCode} size={18} /><strong>{Math.round(day.temperatureMax)}°</strong><small>{Math.round(day.temperatureMin)}°</small></span>)}</div> : null}
+      <div className="weather-stats"><span><Droplets size={17} /><small>{tx('Humedad')}</small><strong>{Math.round(homeWeatherForecast.current.humidity)}%</strong></span><span><Wind size={17} /><small>{tx('Viento')}</small><strong>{Math.round(homeWeatherForecast.current.windSpeed)} km/h</strong></span><span><Sunrise size={17} /><small>{tx('Amanecer')}</small><strong>{formatWeatherHour(homeWeatherForecast.daily[0]?.sunrise ?? '')}</strong></span><span><Sunset size={17} /><small>{tx('Anochecer')}</small><strong>{formatWeatherHour(homeWeatherForecast.daily[0]?.sunset ?? '')}</strong></span></div>
+      {(hourCount[sizeKey] ?? 0) > 0 ? <div className="weather-hours"><p>{tx('Próximas horas')}</p>{weatherHours.slice(0, hourCount[sizeKey]).map((hour, index) => <span key={hour.time}><small>{index === 0 ? tx('Ahora') : formatWeatherHour(hour.time)}</small><WeatherIcon code={hour.weatherCode} size={20} /><strong>{Math.round(hour.temperature)}°</strong></span>)}</div> : null}
+      {(forecastCount[sizeKey] ?? 0) > 0 ? <div className="weather-forecast"><p>{tx('Próximos días')}</p>{forecast.slice(0, forecastCount[sizeKey]).map((day, index) => <span key={day.date}><b>{index === 0 ? tx('Hoy') : formatWeatherDay(day.date, true)}</b><WeatherIcon code={day.weatherCode} size={18} /><strong>{Math.round(day.temperatureMax)}°</strong><small>{Math.round(day.temperatureMin)}°</small></span>)}</div> : null}
     </button></DashboardWidgetFrame>
   }
 
@@ -1802,10 +1810,10 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     return <DashboardWidgetFrame {...frameProps}><button type="button" className={`note-card responsive-note-widget widget-card interactive-card ${featuredNote ? `note-${featuredNote.color}` : ''}`} onClick={() => onActivate(() => onOpenNotes(featuredNote?.id))}>
     <div className="widget-heading">
       <div className="heading-icon coral"><Check size={18} /></div>
-      <div><p className="widget-title">Notas</p><p className="widget-subtitle">{notes.length ? `${notes.length} guardadas en esta tablet` : 'Sin notas todavía'}</p></div>
+      <div><p className="widget-title">{tx('Notas')}</p><p className="widget-subtitle">{notes.length ? tx('{{count}} notas guardadas en esta tablet', { count: notes.length }) : tx('Sin notas todavía')}</p></div>
     </div>
-    {visibleNotes.length > 0 ? <div className="note-preview-list">{visibleNotes.map((note, index) => <span key={note.id} className={`note-preview note-${note.color} ${note.type === 'drawing' && note.pinned ? 'has-drawing-preview' : ''}`}><i /><span><strong>{note.title || 'Sin título'}</strong>{note.type === 'drawing' && note.pinned ? <NoteDrawingPreview drawing={note.drawing} /> : <small>{note.type === 'drawing' ? 'Dibujo' : note.type === 'list' ? `${parseNoteList(note.content).filter((item) => item.checked).length}/${parseNoteList(note.content).length} marcados` : (note.content || 'Texto')}</small>}</span>{index === 0 && note.pinned && note.type === 'drawing' ? <Pin className="note-preview-pin" size={14} /> : null}</span>)}</div> : <p className="note-content is-placeholder">Toca aquí para crear una nota de texto, una lista o un dibujo.</p>}
-    <div className="note-footer"><span>{featuredNote ? (featuredNote.pinned ? 'Fijada' : 'Editada') : 'Sin contenido'}</span><ChevronRight size={17} /></div>
+    {visibleNotes.length > 0 ? <div className="note-preview-list">{visibleNotes.map((note, index) => <span key={note.id} className={`note-preview note-${note.color} ${note.type === 'drawing' && note.pinned ? 'has-drawing-preview' : ''}`}><i /><span><strong>{note.title || tx('Sin título')}</strong>{note.type === 'drawing' && note.pinned ? <NoteDrawingPreview drawing={note.drawing} /> : <small>{note.type === 'drawing' ? tx('Dibujo') : note.type === 'list' ? tx('{{checked}}/{{count}} marcados', { checked: parseNoteList(note.content).filter((item) => item.checked).length, count: parseNoteList(note.content).length }) : (note.content || tx('Texto'))}</small>}</span>{index === 0 && note.pinned && note.type === 'drawing' ? <Pin className="note-preview-pin" size={14} /> : null}</span>)}</div> : <p className="note-content is-placeholder">{tx('Toca aquí para crear una nota de texto, una lista o un dibujo.')}</p>}
+    <div className="note-footer"><span>{featuredNote ? tx(featuredNote.pinned ? 'Fijada' : 'Editada') : tx('Sin contenido')}</span><ChevronRight size={17} /></div>
     </button></DashboardWidgetFrame>
   }
 
@@ -1830,24 +1838,24 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   const showHolidaySection = showUpcomingCalendarHolidays && area >= 6 && upcomingHolidays.length > 0
   const visibleAgendaCount = showHolidaySection ? Math.max(1, (agendaCount[sizeKey] ?? 0) - 1) : agendaCount[sizeKey] ?? 0
   const calendarSubtitle = visibleDayCount === 7
-    ? 'Esta semana'
+    ? tx('Esta semana')
     : showWholeMonth
-    ? new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(now)
-    : `${visibleDayCount} días desde hoy`
+    ? new Intl.DateTimeFormat(activeLocale(), { month: 'long', year: 'numeric' }).format(now)
+    : tx('{{count}} días desde hoy', { count: visibleDayCount })
 
   return <DashboardWidgetFrame {...frameProps}><article className="agenda-card calendar-widget responsive-calendar-widget widget-card">
     <button type="button" className="calendar-widget-header calendar-widget-open" onPointerDown={(event) => event.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar())}>
-      <div className="widget-heading"><div className="heading-icon blue"><CalendarDays size={18} /></div><div><p className="widget-title">Calendario</p><p className="widget-subtitle">{calendarSubtitle}</p></div></div>
-      <span>Ver calendario <ChevronRight size={17} /></span>
+      <div className="widget-heading"><div className="heading-icon blue"><CalendarDays size={18} /></div><div><p className="widget-title">{tx('Calendario')}</p><p className="widget-subtitle">{calendarSubtitle}</p></div></div>
+      <span>{tx('Ver calendario')} <ChevronRight size={17} /></span>
     </button>
     <div className="calendar-widget-body">
       <section className="calendar-widget-month">
         <div className="calendar-widget-weekdays">{['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => <span key={day}>{day}</span>)}</div>
-        <div className="calendar-widget-month-grid">{monthCells.map((cell) => <button key={cell.key} type="button" aria-label={`Abrir ${calendarDayFormatter.format(new Date(`${cell.key}T12:00:00`))}`} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(cell.key))}><strong>{cell.day}</strong>{summarizeCalendarCellEvents(cell.events, cell.key).slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || 'Evento'}</small>)}</button>)}</div>
+        <div className="calendar-widget-month-grid">{monthCells.map((cell) => <button key={cell.key} type="button" aria-label={tx('Abrir {{name}}', { name: formatCalendarDay(new Date(`${cell.key}T12:00:00`)) })} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(cell.key))}><strong>{cell.day}</strong>{summarizeCalendarCellEvents(cell.events, cell.key).slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || tx('Evento')}</small>)}</button>)}</div>
       </section>
       {(agendaCount[sizeKey] ?? 0) > 0 ? <aside className={`calendar-widget-agenda ${showHolidaySection ? 'has-holidays' : ''}`}>
-        <div className="calendar-widget-upcoming"><p>Próximos eventos</p>{upcomingEvents.length > 0 ? upcomingEvents.slice(0, visibleAgendaCount).map((event) => <button type="button" key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><CalendarEventTypeMark type={event.type} source={event.source} /><span>{event.title || 'Evento'}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>) : <span className="calendar-widget-empty"><Compass size={19} />Sin eventos próximos</span>}</div>
-        {showHolidaySection ? <div className="calendar-widget-holidays"><p><Sparkles size={12} />Próximos festivos</p>{upcomingHolidays.slice(0, 2).map((event) => <button type="button" key={event.id} className={`calendar-event-line is-holiday event-${event.color} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><Sparkles size={13} /><span>{event.title || 'Festivo'}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>)}</div> : null}
+        <div className="calendar-widget-upcoming"><p>{tx('Próximos eventos')}</p>{upcomingEvents.length > 0 ? upcomingEvents.slice(0, visibleAgendaCount).map((event) => <button type="button" key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><CalendarEventTypeMark type={event.type} source={event.source} /><span>{event.title || tx('Evento')}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>) : <span className="calendar-widget-empty"><Compass size={19} />{tx('Sin eventos próximos')}</span>}</div>
+        {showHolidaySection ? <div className="calendar-widget-holidays"><p><Sparkles size={12} />{tx('Próximos festivos')}</p>{upcomingHolidays.slice(0, 2).map((event) => <button type="button" key={event.id} className={`calendar-event-line is-holiday event-${event.color} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><Sparkles size={13} /><span>{event.title || tx('Festivo')}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>)}</div> : null}
       </aside> : null}
     </div>
   </article></DashboardWidgetFrame>
@@ -1896,25 +1904,25 @@ function isCalendarEventPast(event: CalendarEvent, now: Date) {
 }
 
 function formatCalendarEventTime(event: CalendarEvent, todayKey?: string) {
-  const shortDate = (date: string) => date === todayKey ? 'Hoy' : new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }).format(new Date(`${date}T12:00:00`))
+  const shortDate = (date: string) => date === todayKey ? tx('Hoy') : new Intl.DateTimeFormat(activeLocale(), { day: 'numeric', month: 'short' }).format(new Date(`${date}T12:00:00`))
   if (event.date !== event.endDate) {
     const range = `${shortDate(event.date)} → ${shortDate(event.endDate)}`
     return event.allDay ? range : `${range} · ${event.startTime}–${event.endTime}`
   }
-  return event.allDay ? `${shortDate(event.date)} · Todo el día` : `${shortDate(event.date)} · ${event.startTime}`
+  return event.allDay ? `${shortDate(event.date)} · ${tx('Todo el día')}` : `${shortDate(event.date)} · ${event.startTime}`
 }
 
 function formatCalendarEventTimeForDay(event: CalendarEvent, selectedDate: string) {
-  if (event.allDay) return 'Todo el día'
+  if (event.allDay) return tx('Todo el día')
   if (event.date === event.endDate) return `${event.startTime}–${event.endTime}`
-  if (selectedDate === event.date) return `${event.startTime} · Inicio`
-  if (selectedDate === event.endDate) return `${event.endTime} · Fin`
-  return 'En curso'
+  if (selectedDate === event.date) return `${event.startTime} · ${tx('Comienzo')}`
+  if (selectedDate === event.endDate) return `${event.endTime} · ${tx('Fin')}`
+  return tx('En curso')
 }
 
-const calendarMonthFormatter = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' })
-const calendarDayFormatter = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
-const calendarDayColumnFormatter = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
+const formatCalendarMonth = (date: Date) => new Intl.DateTimeFormat(activeLocale(), { month: 'long', year: 'numeric' }).format(date)
+const formatCalendarDay = (date: Date) => new Intl.DateTimeFormat(activeLocale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(date)
+const formatCalendarDayColumn = (date: Date) => new Intl.DateTimeFormat(activeLocale(), { weekday: 'short', day: 'numeric', month: 'short' }).format(date)
 const CALENDAR_HOUR_HEIGHT = 64
 
 function calendarTimeMinutes(time: string) {
@@ -1947,10 +1955,10 @@ const CALENDAR_RECURRENCES: { value: CalendarEventRecurrence; label: string }[] 
 ]
 
 function CalendarEventTypeMark({ type, source, size = 14 }: { type: CalendarEventType; source?: CalendarEvent['source']; size?: number }) {
-  if (source === 'native') return <span className="calendar-type-mark kind-native" title="Calendario de la tablet" aria-label="Calendario de la tablet"><Sparkles size={size} strokeWidth={2.2} /></span>
+  if (source === 'native') return <span className="calendar-type-mark kind-native" title={tx('Calendario de la tablet')} aria-label={tx('Calendario de la tablet')}><Sparkles size={size} strokeWidth={2.2} /></span>
   const label = CALENDAR_EVENT_TYPES.find((option) => option.value === type)?.label ?? 'Evento'
   const Icon = type === 'task' ? ListTodo : type === 'birthday' ? CakeSlice : CalendarDays
-  return <span className={`calendar-type-mark kind-${type}`} title={label} aria-label={label}><Icon size={size} strokeWidth={2.2} /></span>
+  return <span className={`calendar-type-mark kind-${type}`} title={tx(label as import('./i18n/translations').TranslationKey)} aria-label={tx(label as import('./i18n/translations').TranslationKey)}><Icon size={size} strokeWidth={2.2} /></span>
 }
 
 function nativeCalendarClass(event: CalendarEvent) {
@@ -1963,7 +1971,7 @@ function summarizeCalendarCellEvents(events: CalendarEvent[], date: string) {
   const taskSummary: CalendarEvent = {
     ...pendingTasks[0],
     id: `task-summary:${date}`,
-    title: `${pendingTasks.length} ${pendingTasks.length === 1 ? 'tarea' : 'tareas'}`,
+    title: tx(pendingTasks.length === 1 ? '{{count}} tarea' : '{{count}} tareas', { count: pendingTasks.length }),
   }
   return [taskSummary, ...events.filter((event) => event.type !== 'task')]
 }
@@ -2054,33 +2062,33 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
     <PageHeader pageLabel="Calendario" />
     {calendarView === 'day' ? <section className="calendar-three-day-panel">
       <header className="calendar-three-day-toolbar">
-        <button type="button" className="calendar-back-to-month" onClick={() => setCalendarView('month')}><ChevronLeft size={18} />Volver al mes</button>
-        <div className="calendar-three-day-title"><p className="eyebrow">Vista por horas</p><h1>{calendarDayFormatter.format(new Date(`${selectedDate}T12:00:00`))}</h1></div>
+        <button type="button" className="calendar-back-to-month" onClick={() => setCalendarView('month')}><ChevronLeft size={18} />{tx('Volver al mes')}</button>
+        <div className="calendar-three-day-title"><p className="eyebrow">{tx('Vista por horas')}</p><h1>{formatCalendarDay(new Date(`${selectedDate}T12:00:00`))}</h1></div>
         <div className="calendar-three-day-actions">
-          <button type="button" onClick={() => changeDay(-1)} aria-label="Día anterior"><ChevronLeft size={19} /></button>
-          <button type="button" className="calendar-today-button" onClick={() => showDay(todayKey)}>Hoy</button>
-          <button type="button" onClick={() => changeDay(1)} aria-label="Día siguiente"><ChevronRight size={19} /></button>
-          <button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />Nuevo</button>
+          <button type="button" onClick={() => changeDay(-1)} aria-label={tx('Día anterior')}><ChevronLeft size={19} /></button>
+          <button type="button" className="calendar-today-button" onClick={() => showDay(todayKey)}>{tx('Hoy')}</button>
+          <button type="button" onClick={() => changeDay(1)} aria-label={tx('Día siguiente')}><ChevronRight size={19} /></button>
+          <button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />{tx('Nuevo')}</button>
         </div>
       </header>
-      <div className="calendar-three-day-viewport" aria-label={`Agenda por horas del ${dayViewDates[0]} al ${dayViewDates[2]}`}>
+      <div className="calendar-three-day-viewport" aria-label={tx('Agenda por horas del {{start}} al {{end}}', { start: dayViewDates[0], end: dayViewDates[2] })}>
         <div className="calendar-three-day-date-row">
           <span className="calendar-time-corner" aria-hidden="true" />
-          {dayViewDates.map((date) => <button key={date} type="button" className={`${date === selectedDate ? 'is-selected' : ''} ${date === todayKey ? 'is-today' : ''}`} onClick={() => showDay(date)}><span>{calendarDayColumnFormatter.format(new Date(`${date}T12:00:00`))}</span>{date === todayKey ? <small>Hoy</small> : null}</button>)}
+          {dayViewDates.map((date) => <button key={date} type="button" className={`${date === selectedDate ? 'is-selected' : ''} ${date === todayKey ? 'is-today' : ''}`} onClick={() => showDay(date)}><span>{formatCalendarDayColumn(new Date(`${date}T12:00:00`))}</span>{date === todayKey ? <small>{tx('Hoy')}</small> : null}</button>)}
         </div>
-        <div className="calendar-three-day-all-day" aria-label="Eventos de todo el día">
-          <span className="calendar-time-corner">Todo el día</span>
+        <div className="calendar-three-day-all-day" aria-label={tx('Eventos de todo el día')}>
+          <span className="calendar-time-corner">{tx('Todo el día')}</span>
           {dayViewDates.map((date, columnIndex) => <div key={date}>{dayViewEvents[columnIndex].filter((event) => event.allDay).map((event) => {
             const holiday = isCalendarHoliday(event, calendars)
-            return <button key={event.id} type="button" disabled={event.source === 'native' || holiday} className={`calendar-timeline-all-day event-${event.color} ${holiday ? 'is-holiday' : ''} ${nativeCalendarClass(event)}`} onClick={() => openEditor(event.id)}>{holiday ? <Sparkles size={12} /> : <CalendarEventTypeMark type={event.type} source={event.source} size={12} />}<span>{event.title || 'Evento de todo el día'}</span>{holiday ? <small>Festivo</small> : null}</button>
+            return <button key={event.id} type="button" disabled={event.source === 'native' || holiday} className={`calendar-timeline-all-day event-${event.color} ${holiday ? 'is-holiday' : ''} ${nativeCalendarClass(event)}`} onClick={() => openEditor(event.id)}>{holiday ? <Sparkles size={12} /> : <CalendarEventTypeMark type={event.type} source={event.source} size={12} />}<span>{event.title || tx('Evento de todo el día')}</span>{holiday ? <small>{tx('Festivo')}</small> : null}</button>
           })}</div>)}
         </div>
         <div ref={dayViewScrollRef} className="calendar-three-day-scroll">
           <div className="calendar-three-day-grid">
             <div className="calendar-time-axis">{calendarHours.map((hour) => <time key={hour}>{String(hour).padStart(2, '0')}:00</time>)}</div>
-            {dayViewDates.map((date, columnIndex) => <div key={date} className={`calendar-timeline-column ${date === selectedDate ? 'is-selected' : ''} ${date === todayKey ? 'is-today' : ''}`} aria-label={calendarDayFormatter.format(new Date(`${date}T12:00:00`))}>
+            {dayViewDates.map((date, columnIndex) => <div key={date} className={`calendar-timeline-column ${date === selectedDate ? 'is-selected' : ''} ${date === todayKey ? 'is-today' : ''}`} aria-label={formatCalendarDay(new Date(`${date}T12:00:00`))}>
               {calendarHours.map((hour) => <span key={hour} className="calendar-hour-cell" />)}
-              {dayViewEvents[columnIndex].filter((event) => !event.allDay).map((event) => <button key={event.id} type="button" disabled={event.source === 'native'} style={calendarTimelineStyle(event, date)} className={`calendar-timeline-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><strong><CalendarEventTypeMark type={event.type} source={event.source} size={12} /><span>{event.title || 'Evento'}</span></strong><small>{formatCalendarEventTimeForDay(event, date)}{event.location ? ` · ${event.location}` : event.notes ? ` · ${event.notes}` : ''}</small></button>)}
+              {dayViewEvents[columnIndex].filter((event) => !event.allDay).map((event) => <button key={event.id} type="button" disabled={event.source === 'native'} style={calendarTimelineStyle(event, date)} className={`calendar-timeline-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><strong><CalendarEventTypeMark type={event.type} source={event.source} size={12} /><span>{event.title || tx('Evento')}</span></strong><small>{formatCalendarEventTimeForDay(event, date)}{event.location ? ` · ${event.location}` : event.notes ? ` · ${event.notes}` : ''}</small></button>)}
             </div>)}
           </div>
         </div>
@@ -2088,10 +2096,10 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
     </section> : <div className="calendar-layout">
       <section className="calendar-month-panel">
         <header className="calendar-toolbar">
-          <div><p className="eyebrow">Agenda unificada</p><h1>{calendarMonthFormatter.format(visibleMonth)}</h1></div>
-          <div><button type="button" className={`calendar-hide-completed ${hideCompletedTasks ? 'is-active' : ''}`} onClick={() => onHideCompletedTasksChange(!hideCompletedTasks)} aria-pressed={hideCompletedTasks}><EyeOff size={17} /><span>Ocultar finalizados</span></button><button type="button" onClick={() => changeMonth(-1)} aria-label="Mes anterior"><ChevronLeft size={20} /></button><button type="button" className="calendar-today-button" onClick={goToToday}>Hoy</button><button type="button" onClick={() => changeMonth(1)} aria-label="Mes siguiente"><ChevronRight size={20} /></button></div>
+          <div><p className="eyebrow">{tx('Agenda unificada')}</p><h1>{formatCalendarMonth(visibleMonth)}</h1></div>
+          <div><button type="button" className={`calendar-hide-completed ${hideCompletedTasks ? 'is-active' : ''}`} onClick={() => onHideCompletedTasksChange(!hideCompletedTasks)} aria-pressed={hideCompletedTasks}><EyeOff size={17} /><span>{tx('Ocultar finalizados')}</span></button><button type="button" onClick={() => changeMonth(-1)} aria-label={tx('Mes anterior')}><ChevronLeft size={20} /></button><button type="button" className="calendar-today-button" onClick={goToToday}>{tx('Hoy')}</button><button type="button" onClick={() => changeMonth(1)} aria-label={tx('Mes siguiente')}><ChevronRight size={20} /></button></div>
         </header>
-        <div className="calendar-weekdays">{['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => <span key={day}>{day}</span>)}</div>
+        <div className="calendar-weekdays">{Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(activeLocale(), { weekday: 'short' }).format(new Date(2026, 0, 5 + index)).replace('.', '')).map((day) => <span key={day}>{day}</span>)}</div>
         <div className="calendar-month-grid">{monthCells.map((day, index) => {
           if (!day) return <span key={`empty-${index}`} className="calendar-empty-day" />
           const key = toLocalDateKey(day)
@@ -2100,25 +2108,25 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
             return occurrence ? [eventForOccurrence(event, occurrence)] : []
           }).filter((event) => !hideCompletedTasks || !isCalendarEventPast(event, now))
           const displayedEvents = summarizeCalendarCellEvents(dayEvents, key)
-          return <button key={key} type="button" className={`${key === selectedDate ? 'is-selected' : ''} ${key === todayKey ? 'is-today' : ''}`} onClick={() => showDay(key)}><strong>{day.getDate()}</strong>{displayedEvents.length > 0 ? <span className="calendar-cell-events">{displayedEvents.slice(0, 2).map((event) => <span key={event.id} className={`event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}><CalendarEventTypeMark type={event.type} source={event.source} size={10} /><span>{event.title || 'Evento'}</span>{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={9} /> : null}</span>)}</span> : null}</button>
+          return <button key={key} type="button" className={`${key === selectedDate ? 'is-selected' : ''} ${key === todayKey ? 'is-today' : ''}`} onClick={() => showDay(key)}><strong>{day.getDate()}</strong>{displayedEvents.length > 0 ? <span className="calendar-cell-events">{displayedEvents.slice(0, 2).map((event) => <span key={event.id} className={`event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}><CalendarEventTypeMark type={event.type} source={event.source} size={10} /><span>{event.title || tx('Evento')}</span>{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={9} /> : null}</span>)}</span> : null}</button>
         })}</div>
       </section>
       <div className="calendar-side-column">
         <aside className="calendar-day-panel">
-          <header><div><p className="eyebrow">Agenda del día</p><h2>{calendarDayFormatter.format(new Date(`${selectedDate}T12:00:00`))}</h2></div><button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />Nuevo</button></header>
+          <header><div><p className="eyebrow">{tx('Agenda del día')}</p><h2>{formatCalendarDay(new Date(`${selectedDate}T12:00:00`))}</h2></div><button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />{tx('Nuevo')}</button></header>
           <div className="calendar-day-events">{selectedEvents.length > 0 ? selectedEvents.map((event) => {
             const isPast = isCalendarEventPast(event, now)
-            return <button key={event.id} type="button" disabled={event.source === 'native'} className={`calendar-day-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isPast ? 'is-past' : ''}`} onClick={() => openEditor(event.id)}><span className="calendar-event-time">{formatCalendarEventTimeForDay(event, selectedDate)}</span><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? 'Tarea completada' : isPast ? `Finalizado · ${formatCalendarEventTime(event)}` : event.location || event.notes || (event.date !== event.endDate ? `${formatCalendarEventTime(event)}` : 'Sin detalles')}</small></span>{event.source !== 'native' ? <ChevronRight size={18} /> : null}</button>
-          }) : <div className="calendar-day-empty"><CalendarDays size={27} /><strong>Este día está libre</strong><span>Añade una cita o recordatorio.</span><button type="button" onClick={createEvent}><Plus size={17} />Crear evento</button></div>}</div>
+            return <button key={event.id} type="button" disabled={event.source === 'native'} className={`calendar-day-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isPast ? 'is-past' : ''}`} onClick={() => openEditor(event.id)}><span className="calendar-event-time">{formatCalendarEventTimeForDay(event, selectedDate)}</span><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || tx('Evento')}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? tx('Tarea completada') : isPast ? tx('Finalizado · {{time}}', { time: formatCalendarEventTime(event) }) : event.location || event.notes || (event.date !== event.endDate ? `${formatCalendarEventTime(event)}` : tx('Sin detalles'))}</small></span>{event.source !== 'native' ? <ChevronRight size={18} /> : null}</button>
+          }) : <div className="calendar-day-empty"><CalendarDays size={27} /><strong>{tx('Este día está libre')}</strong><span>{tx('Añade una cita o recordatorio.')}</span><button type="button" onClick={createEvent}><Plus size={17} />{tx('Crear evento')}</button></div>}</div>
         </aside>
         <aside className="calendar-upcoming-panel">
-          <header><div><p className="eyebrow">Tu agenda</p><h2>Próximos eventos</h2></div><CalendarDays size={21} /></header>
+          <header><div><p className="eyebrow">{tx('Tu agenda')}</p><h2>{tx('Próximos eventos')}</h2></div><CalendarDays size={21} /></header>
           <div className="calendar-upcoming-list">{upcomingEvents.length > 0 ? upcomingEvents.map((event, index) => {
             const eventMonthKey = event.date.slice(0, 7)
             const previousMonthKey = index === 0 ? currentMonthKey : upcomingEvents[index - 1].date.slice(0, 7)
             const showMonthSeparator = eventMonthKey !== previousMonthKey
-            return <Fragment key={event.id}>{showMonthSeparator ? <div className="calendar-upcoming-month"><span>{calendarMonthFormatter.format(new Date(`${eventMonthKey}-01T12:00:00`))}</span></div> : null}<button type="button" disabled={event.source === 'native'} className={`calendar-upcoming-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><i /><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || 'Evento'}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? `Completada · ${formatCalendarEventTime(event, todayKey)}` : formatCalendarEventTime(event, todayKey)}</small></span>{event.source !== 'native' ? <ChevronRight size={17} /> : null}</button></Fragment>
-          }) : <div className="calendar-upcoming-empty"><span>No hay próximos eventos.</span></div>}</div>
+            return <Fragment key={event.id}>{showMonthSeparator ? <div className="calendar-upcoming-month"><span>{formatCalendarMonth(new Date(`${eventMonthKey}-01T12:00:00`))}</span></div> : null}<button type="button" disabled={event.source === 'native'} className={`calendar-upcoming-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><i /><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || tx('Evento')}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? tx('Completada · {{time}}', { time: formatCalendarEventTime(event, todayKey) }) : formatCalendarEventTime(event, todayKey)}</small></span>{event.source !== 'native' ? <ChevronRight size={17} /> : null}</button></Fragment>
+          }) : <div className="calendar-upcoming-empty"><span>{tx('No hay próximos eventos.')}</span></div>}</div>
         </aside>
         <CalendarConnectionsPanel accounts={accounts} onConnected={onConnected} onSync={onSync} onDisconnect={onDisconnect} />
       </div>
@@ -2132,7 +2140,7 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
   const [startYear, startMonth, startDay] = event.date.split('-').map(Number)
   const [endYear, endMonth, endDay] = event.endDate.split('-').map(Number)
   const years = Array.from({ length: 7 }, (_, index) => new Date().getFullYear() - 1 + index)
-  const months = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(2026, index, 1)) }))
+  const months = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: new Intl.DateTimeFormat(activeLocale(), { month: 'long' }).format(new Date(2026, index, 1)) }))
   const times = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`)
   const writableCalendars = calendars.filter((calendar) => !calendar.readOnly)
   const selectedCalendar = calendars.find((calendar) => calendar.provider === event.source && calendar.accountId === event.accountId && calendar.remoteId === event.calendarId)
@@ -2170,44 +2178,44 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
     const updateDate = isStart ? updateStartDate : updateEndDate
     const time = isStart ? event.startTime : event.endTime
     return <div className="calendar-boundary">
-      <span className="calendar-boundary-label">{isStart ? 'Empieza' : 'Termina'}</span>
+      <span className="calendar-boundary-label">{tx(isStart ? 'Empieza' : 'Termina')}</span>
       <div className={`calendar-boundary-fields ${event.allDay ? 'is-all-day' : ''}`}>
-        <label><span>Día</span><select value={day} onChange={(change) => updateDate(year, month, Number(change.target.value))}>{days.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-        <label><span>Mes</span><select value={month} onChange={(change) => updateDate(year, Number(change.target.value), day)}>{months.map((value) => <option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
-        <label><span>Año</span><select value={year} onChange={(change) => updateDate(Number(change.target.value), month, day)}>{years.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-        {!event.allDay ? <label><span>Hora</span><select value={time} onChange={(change) => isStart ? updateStartTime(change.target.value) : updateEndTime(change.target.value)}>{times.map((value) => <option key={value}>{value}</option>)}</select></label> : null}
+        <label><span>{tx('Día')}</span><select value={day} onChange={(change) => updateDate(year, month, Number(change.target.value))}>{days.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        <label><span>{tx('Mes')}</span><select value={month} onChange={(change) => updateDate(year, Number(change.target.value), day)}>{months.map((value) => <option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
+        <label><span>{tx('Año')}</span><select value={year} onChange={(change) => updateDate(Number(change.target.value), month, day)}>{years.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        {!event.allDay ? <label><span>{tx('Hora')}</span><select value={time} onChange={(change) => isStart ? updateStartTime(change.target.value) : updateEndTime(change.target.value)}>{times.map((value) => <option key={value}>{value}</option>)}</select></label> : null}
       </div>
     </div>
   }
 
   if (remindersOpen) return <CalendarRemindersEditor event={event} onUpdate={onUpdate} onClose={() => setRemindersOpen(false)} />
 
-  return <div className="alarm-editor-backdrop calendar-editor-backdrop" role="dialog" aria-modal="true" aria-label="Editar evento">
+  return <div className="alarm-editor-backdrop calendar-editor-backdrop" role="dialog" aria-modal="true" aria-label={tx('Editar evento')}>
     <section className="alarm-editor calendar-event-editor">
-      <header className="alarm-editor-header"><div><p className="eyebrow">{event.source === 'local' ? 'Calendario local' : event.source === 'google' ? 'Google Calendar' : 'Outlook'}</p><h2>Configurar evento</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label="Cerrar"><X size={20} /></button></header>
-      <label className="calendar-destination-field"><span>Guardar en</span><select value={event.source === 'local' ? 'local' : selectedCalendar?.id ?? 'local'} disabled={!canChangeDestination} onChange={(change) => onSetDestination(event.id, change.target.value === 'local' ? null : change.target.value)}><option value="local">Calendario local</option>{writableCalendars.map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.name} · {calendar.provider === 'google' ? 'Google' : 'Outlook'}</option>)}</select>{!canChangeDestination ? <small>Los eventos ya sincronizados conservan su calendario de origen.</small> : null}</label>
-      <label className="calendar-title-field"><span>Título</span><input value={event.title} maxLength={80} onChange={(change) => onUpdate(event.id, { title: change.target.value })} /></label>
-      <div className="calendar-type-field"><span>Tipo</span><div className="calendar-type-options">{CALENDAR_EVENT_TYPES.map((option) => <button key={option.value} type="button" className={`calendar-type-option kind-${option.value} ${event.type === option.value ? 'is-selected' : ''}`} aria-pressed={event.type === option.value} onClick={() => onUpdate(event.id, { type: option.value, completed: option.value === 'task' ? event.completed : false, recurrence: option.value === 'birthday' && event.recurrence === 'none' ? 'yearly' : event.recurrence })}><CalendarEventTypeMark type={option.value} size={17} />{option.label}</button>)}</div></div>
-      <div className="calendar-recurrence-field"><span>Repetición</span><div className="calendar-recurrence-options">{CALENDAR_RECURRENCES.map((option) => <button key={option.value} type="button" className={event.recurrence === option.value ? 'is-selected' : ''} aria-pressed={event.recurrence === option.value} onClick={() => onUpdate(event.id, { recurrence: option.value })}>{option.value !== 'none' ? <RotateCw size={14} /> : null}{option.label}</button>)}</div></div>
+      <header className="alarm-editor-header"><div><p className="eyebrow">{event.source === 'local' ? tx('Calendario local') : event.source === 'google' ? 'Google Calendar' : 'Outlook'}</p><h2>{tx('Configurar evento')}</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label={tx('Cerrar')}><X size={20} /></button></header>
+      <label className="calendar-destination-field"><span>{tx('Guardar en')}</span><select value={event.source === 'local' ? 'local' : selectedCalendar?.id ?? 'local'} disabled={!canChangeDestination} onChange={(change) => onSetDestination(event.id, change.target.value === 'local' ? null : change.target.value)}><option value="local">{tx('Calendario local')}</option>{writableCalendars.map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.name} · {calendar.provider === 'google' ? 'Google' : 'Outlook'}</option>)}</select>{!canChangeDestination ? <small>{tx('Los eventos ya sincronizados conservan su calendario de origen.')}</small> : null}</label>
+      <label className="calendar-title-field"><span>{tx('Título')}</span><input value={event.title} maxLength={80} onChange={(change) => onUpdate(event.id, { title: change.target.value })} /></label>
+      <div className="calendar-type-field"><span>{tx('Tipo')}</span><div className="calendar-type-options">{CALENDAR_EVENT_TYPES.map((option) => <button key={option.value} type="button" className={`calendar-type-option kind-${option.value} ${event.type === option.value ? 'is-selected' : ''}`} aria-pressed={event.type === option.value} onClick={() => onUpdate(event.id, { type: option.value, completed: option.value === 'task' ? event.completed : false, recurrence: option.value === 'birthday' && event.recurrence === 'none' ? 'yearly' : event.recurrence })}><CalendarEventTypeMark type={option.value} size={17} />{tx(option.label as import('./i18n/translations').TranslationKey)}</button>)}</div></div>
+      <div className="calendar-recurrence-field"><span>{tx('Repetición')}</span><div className="calendar-recurrence-options">{CALENDAR_RECURRENCES.map((option) => <button key={option.value} type="button" className={event.recurrence === option.value ? 'is-selected' : ''} aria-pressed={event.recurrence === option.value} onClick={() => onUpdate(event.id, { recurrence: option.value })}>{option.value !== 'none' ? <RotateCw size={14} /> : null}{tx(option.label as import('./i18n/translations').TranslationKey)}</button>)}</div></div>
       <div className={`calendar-event-switches ${event.type === 'task' ? 'has-task' : ''}`}>
-        {event.type === 'task' ? <button type="button" className={`calendar-task-status ${event.completed ? 'is-completed' : ''}`} role="switch" aria-checked={event.completed} onClick={() => onUpdate(event.id, { completed: !event.completed })}><span><Check size={18} />{event.completed ? 'Tarea completada' : 'Marcar como completada'}</span><span className={`toggle ${event.completed ? 'is-on' : ''}`}><span /></span></button> : null}
-        <button type="button" className="calendar-all-day" role="switch" aria-checked={event.allDay} onClick={() => onUpdate(event.id, { allDay: !event.allDay })}><span><CalendarDays size={18} />Todo el día</span><span className={`toggle ${event.allDay ? 'is-on' : ''}`}><span /></span></button>
+        {event.type === 'task' ? <button type="button" className={`calendar-task-status ${event.completed ? 'is-completed' : ''}`} role="switch" aria-checked={event.completed} onClick={() => onUpdate(event.id, { completed: !event.completed })}><span><Check size={18} />{tx(event.completed ? 'Tarea completada' : 'Marcar como completada')}</span><span className={`toggle ${event.completed ? 'is-on' : ''}`}><span /></span></button> : null}
+        <button type="button" className="calendar-all-day" role="switch" aria-checked={event.allDay} onClick={() => onUpdate(event.id, { allDay: !event.allDay })}><span><CalendarDays size={18} />{tx('Todo el día')}</span><span className={`toggle ${event.allDay ? 'is-on' : ''}`}><span /></span></button>
       </div>
       <div className="calendar-event-boundaries">{dateFields('start')}{dateFields('end')}</div>
       <div className="calendar-event-details">
-        <label className="calendar-location-field"><span>Lugar</span><input value={event.location} maxLength={100} placeholder="Añadir ubicación" onChange={(change) => onUpdate(event.id, { location: change.target.value })} /></label>
-        <label className="calendar-notes-field"><span>Notas</span><textarea value={event.notes} maxLength={500} placeholder="Añadir detalles" onChange={(change) => onUpdate(event.id, { notes: change.target.value })} /></label>
-        <button type="button" className="calendar-reminders-summary" onClick={() => setRemindersOpen(true)}><span><BellRing size={18} /><span><strong>Recordatorios</strong><small>{event.reminders.length === 0 ? 'Sin avisos' : `${event.reminders.length} ${event.reminders.length === 1 ? 'aviso configurado' : 'avisos configurados'}`}</small></span></span><ChevronRight size={18} /></button>
-        <div className="calendar-color-field"><span>Color</span><div>{(['blue', 'mint', 'coral', 'sun'] as CalendarEventColor[]).map((color) => <button key={color} type="button" className={`calendar-color event-${color} ${event.color === color ? 'is-selected' : ''}`} onClick={() => onUpdate(event.id, { color })} aria-label={`Usar color ${color}`} />)}</div></div>
+        <label className="calendar-location-field"><span>{tx('Lugar')}</span><input value={event.location} maxLength={100} placeholder={tx('Añadir ubicación')} onChange={(change) => onUpdate(event.id, { location: change.target.value })} /></label>
+        <label className="calendar-notes-field"><span>{tx('Notas')}</span><textarea value={event.notes} maxLength={500} placeholder={tx('Añadir detalles')} onChange={(change) => onUpdate(event.id, { notes: change.target.value })} /></label>
+        <button type="button" className="calendar-reminders-summary" onClick={() => setRemindersOpen(true)}><span><BellRing size={18} /><span><strong>{tx('Recordatorios')}</strong><small>{event.reminders.length === 0 ? tx('Sin avisos') : tx(event.reminders.length === 1 ? '{{count}} aviso configurado' : '{{count}} avisos configurados', { count: event.reminders.length })}</small></span></span><ChevronRight size={18} /></button>
+        <div className="calendar-color-field"><span>{tx('Color')}</span><div>{(['blue', 'mint', 'coral', 'sun'] as CalendarEventColor[]).map((color) => <button key={color} type="button" className={`calendar-color event-${color} ${event.color === color ? 'is-selected' : ''}`} onClick={() => onUpdate(event.id, { color })} aria-label={tx('Usar color {{color}}', { color })} />)}</div></div>
       </div>
-      <footer className="alarm-editor-footer"><button type="button" className="text-action danger alarm-delete" onClick={onDelete}><Trash2 size={16} />Eliminar</button><button type="button" className="alarm-done" onClick={onClose}>Hecho</button></footer>
+      <footer className="alarm-editor-footer"><button type="button" className="text-action danger alarm-delete" onClick={onDelete}><Trash2 size={16} />{tx('Eliminar')}</button><button type="button" className="alarm-done" onClick={onClose}>{tx('Hecho')}</button></footer>
     </section>
   </div>
 }
 
 function CalendarRemindersEditor({ event, onUpdate, onClose }: { event: CalendarEvent; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onClose: () => void }) {
   const years = Array.from({ length: 7 }, (_, index) => new Date().getFullYear() - 1 + index)
-  const months = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(2026, index, 1)) }))
+  const months = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: new Intl.DateTimeFormat(activeLocale(), { month: 'long' }).format(new Date(2026, index, 1)) }))
   const times = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`)
   const sortedReminders = [...event.reminders].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))
 
@@ -2225,23 +2233,23 @@ function CalendarRemindersEditor({ event, onUpdate, onClose }: { event: Calendar
     updateReminder(reminder.id, { date: `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}` })
   }
 
-  return <div className="alarm-editor-backdrop calendar-editor-backdrop" role="dialog" aria-modal="true" aria-label="Recordatorios del evento">
+  return <div className="alarm-editor-backdrop calendar-editor-backdrop" role="dialog" aria-modal="true" aria-label={tx('Recordatorios del evento')}>
     <section className="alarm-editor calendar-reminders-editor">
-      <header className="alarm-editor-header"><div><p className="eyebrow">{event.title || 'Evento'}</p><h2>Recordatorios</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label="Volver al evento"><X size={20} /></button></header>
-      <p className="calendar-reminders-help">Puedes añadir todos los avisos que necesites y elegir la fecha y hora exactas.</p>
-      <div className="calendar-reminder-presets"><button type="button" onClick={() => addReminder(offsetDateKey(event.date, -7))}><Plus size={16} />1 semana antes</button><button type="button" onClick={() => addReminder(offsetDateKey(event.date, -1))}><Plus size={16} />1 día antes</button><button type="button" onClick={() => addReminder(event.date, event.startTime, true)}><Plus size={16} />Personalizado</button></div>
+      <header className="alarm-editor-header"><div><p className="eyebrow">{event.title || tx('Evento')}</p><h2>{tx('Recordatorios')}</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label={tx('Volver al evento')}><X size={20} /></button></header>
+      <p className="calendar-reminders-help">{tx('Puedes añadir todos los avisos que necesites y elegir la fecha y hora exactas.')}</p>
+      <div className="calendar-reminder-presets"><button type="button" onClick={() => addReminder(offsetDateKey(event.date, -7))}><Plus size={16} />{tx('1 semana antes')}</button><button type="button" onClick={() => addReminder(offsetDateKey(event.date, -1))}><Plus size={16} />{tx('1 día antes')}</button><button type="button" onClick={() => addReminder(event.date, event.startTime, true)}><Plus size={16} />{tx('Personalizado')}</button></div>
       <div className="calendar-reminders-list">{sortedReminders.length > 0 ? sortedReminders.map((reminder) => {
         const [year, month, day] = reminder.date.split('-').map(Number)
         const days = Array.from({ length: new Date(year, month, 0).getDate() }, (_, index) => index + 1)
         return <div key={reminder.id} className="calendar-reminder-row">
-          <label><span>Día</span><select value={day} onChange={(change) => updateReminderDate(reminder, year, month, Number(change.target.value))}>{days.map((value) => <option key={value}>{value}</option>)}</select></label>
-          <label><span>Mes</span><select value={month} onChange={(change) => updateReminderDate(reminder, year, Number(change.target.value), day)}>{months.map((value) => <option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
-          <label><span>Año</span><select value={year} onChange={(change) => updateReminderDate(reminder, Number(change.target.value), month, day)}>{years.map((value) => <option key={value}>{value}</option>)}</select></label>
-          <label><span>Hora</span><select value={reminder.time} onChange={(change) => updateReminder(reminder.id, { time: change.target.value })}>{times.map((value) => <option key={value}>{value}</option>)}</select></label>
-          <button type="button" className="calendar-reminder-delete" onClick={() => removeReminder(reminder.id)} aria-label="Eliminar recordatorio"><Trash2 size={17} /></button>
+          <label><span>{tx('Día')}</span><select value={day} onChange={(change) => updateReminderDate(reminder, year, month, Number(change.target.value))}>{days.map((value) => <option key={value}>{value}</option>)}</select></label>
+          <label><span>{tx('Mes')}</span><select value={month} onChange={(change) => updateReminderDate(reminder, year, Number(change.target.value), day)}>{months.map((value) => <option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
+          <label><span>{tx('Año')}</span><select value={year} onChange={(change) => updateReminderDate(reminder, Number(change.target.value), month, day)}>{years.map((value) => <option key={value}>{value}</option>)}</select></label>
+          <label><span>{tx('Hora')}</span><select value={reminder.time} onChange={(change) => updateReminder(reminder.id, { time: change.target.value })}>{times.map((value) => <option key={value}>{value}</option>)}</select></label>
+          <button type="button" className="calendar-reminder-delete" onClick={() => removeReminder(reminder.id)} aria-label={tx('Eliminar recordatorio')}><Trash2 size={17} /></button>
         </div>
-      }) : <div className="calendar-reminders-empty"><BellRing size={27} /><strong>Sin recordatorios</strong><span>Añade uno con los botones superiores.</span></div>}</div>
-      <footer className="alarm-editor-footer"><span className="calendar-reminder-count">{event.reminders.length} {event.reminders.length === 1 ? 'recordatorio' : 'recordatorios'}</span><button type="button" className="alarm-done" onClick={onClose}>Hecho</button></footer>
+      }) : <div className="calendar-reminders-empty"><BellRing size={27} /><strong>{tx('Sin recordatorios')}</strong><span>{tx('Añade uno con los botones superiores.')}</span></div>}</div>
+      <footer className="alarm-editor-footer"><span className="calendar-reminder-count">{tx(event.reminders.length === 1 ? '{{count}} recordatorio' : '{{count}} recordatorios', { count: event.reminders.length })}</span><button type="button" className="alarm-done" onClick={onClose}>{tx('Hecho')}</button></footer>
     </section>
   </div>
 }
@@ -2251,7 +2259,7 @@ function formatWeatherHour(value: string) {
 }
 
 function formatWeatherDay(value: string, short = false) {
-  return new Intl.DateTimeFormat('es-ES', { weekday: short ? 'short' : 'long' }).format(new Date(`${value}T12:00:00`)).replace('.', '')
+  return new Intl.DateTimeFormat(activeLocale(), { weekday: short ? 'short' : 'long' }).format(new Date(`${value}T12:00:00`)).replace('.', '')
 }
 
 function WeatherIcon({ code, size }: { code: number; size: number }) {
@@ -2297,7 +2305,7 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
         setResults(await searchWeatherLocations(normalizedQuery, controller.signal))
       } catch (error) {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          setSearchError(error instanceof Error ? error.message : 'No se pudo buscar la ubicación.')
+          setSearchError(error instanceof Error ? error.message : tx('No se pudo buscar la ubicación.'))
         }
       } finally {
         if (!controller.signal.aborted) setIsSearching(false)
@@ -2322,52 +2330,52 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
       <section className="weather-location-manager" data-swipe-block>
         <div className="weather-saved-locations">
           {locations.map((location) => <div key={location.id} className={`weather-location-chip ${selectedLocation?.id === location.id ? 'is-active' : ''}`}>
-            <button type="button" onClick={() => onSelectLocation(location.id)}><MapPin size={14} /><span>{location.name}</span>{location.id === homeLocationId ? <small><Home size={11} />Casa</small> : null}</button>
-            {location.id !== homeLocationId ? <button type="button" className="weather-chip-action" onClick={() => onSetHomeLocation(location.id)} aria-label={`Establecer ${location.name} como Casa`} title="Establecer como Casa"><Star size={14} /></button> : null}
-            <button type="button" className="weather-chip-action is-danger" onClick={() => onRemoveLocation(location.id)} aria-label={`Eliminar ${location.name}`} title="Eliminar ubicación"><X size={14} /></button>
+            <button type="button" onClick={() => onSelectLocation(location.id)}><MapPin size={14} /><span>{location.name}</span>{location.id === homeLocationId ? <small><Home size={11} />{tx('Casa')}</small> : null}</button>
+            {location.id !== homeLocationId ? <button type="button" className="weather-chip-action" onClick={() => onSetHomeLocation(location.id)} aria-label={tx('Establecer {{name}} como Casa', { name: location.name })} title={tx('Establecer como Casa')}><Star size={14} /></button> : null}
+            <button type="button" className="weather-chip-action is-danger" onClick={() => onRemoveLocation(location.id)} aria-label={tx('Eliminar {{name}}', { name: location.name })} title={tx('Eliminar ubicación')}><X size={14} /></button>
           </div>)}
         </div>
         <div className="weather-location-search">
           <Search size={17} />
-          <input value={query} maxLength={100} placeholder="Añadir ciudad o código postal" aria-label="Buscar una ubicación" onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} onChange={(event) => { const value = event.target.value; setQuery(value); if (value.trim().length < 2) { setResults([]); setSearchError(''); setIsSearching(false) } }} />
+          <input value={query} maxLength={100} placeholder={tx('Añadir ciudad o código postal')} aria-label={tx('Buscar una ubicación')} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} onChange={(event) => { const value = event.target.value; setQuery(value); if (value.trim().length < 2) { setResults([]); setSearchError(''); setIsSearching(false) } }} />
           {isSearching ? <RefreshCw className="is-spinning" size={16} /> : null}
         </div>
         {query.trim().length >= 2 ? <div className="weather-search-results">
           {searchError ? <p className="weather-inline-error">{searchError}</p> : null}
-          {!isSearching && !searchError && results.length === 0 ? <p>No hay coincidencias.</p> : null}
+          {!isSearching && !searchError && results.length === 0 ? <p>{tx('No hay coincidencias.')}</p> : null}
           {results.map((location) => <button key={location.id} type="button" onClick={() => addLocation(location)}><MapPin size={16} /><span><strong>{location.name}</strong><small>{[location.region, location.country].filter(Boolean).join(', ')}</small></span><Plus size={17} /></button>)}
         </div> : null}
       </section>
 
-      {!selectedLocation ? <section className="weather-empty-state"><div className="weather-icon"><MapPin size={42} /></div><h2>Añade tu primera ubicación</h2><p>Busca una ciudad arriba. La primera se guardará automáticamente como Casa.</p></section> : null}
-      {selectedLocation && !forecast ? <section className="weather-empty-state"><div className="weather-icon"><RefreshCw className={isLoading ? 'is-spinning' : ''} size={42} /></div><h2>{isLoading ? `Consultando el tiempo en ${selectedLocation.name}` : 'No se pudo cargar la previsión'}</h2><p>{forecastError || 'Comprueba la conexión y vuelve a intentarlo.'}</p>{!isLoading ? <button type="button" onClick={() => onRefresh(selectedLocation)}><RefreshCw size={17} />Reintentar</button> : null}</section> : null}
+      {!selectedLocation ? <section className="weather-empty-state"><div className="weather-icon"><MapPin size={42} /></div><h2>{tx('Añade tu primera ubicación')}</h2><p>{tx('Busca una ciudad arriba. La primera se guardará automáticamente como Casa.')}</p></section> : null}
+      {selectedLocation && !forecast ? <section className="weather-empty-state"><div className="weather-icon"><RefreshCw className={isLoading ? 'is-spinning' : ''} size={42} /></div><h2>{isLoading ? tx('Consultando el tiempo en {{name}}', { name: selectedLocation.name }) : tx('No se pudo cargar la previsión')}</h2><p>{forecastError || tx('Comprueba la conexión y vuelve a intentarlo.')}</p>{!isLoading ? <button type="button" onClick={() => onRefresh(selectedLocation)}><RefreshCw size={17} />{tx('Reintentar')}</button> : null}</section> : null}
       {selectedLocation && forecast ? <div className="weather-layout">
         <section className="weather-current-panel">
           <div className="weather-page-heading">
             <span>{selectedLocation.id === homeLocationId ? <Home size={16} /> : <MapPin size={16} />}{selectedLocation.name}</span>
-            <button type="button" className="weather-refresh" disabled={isLoading} onClick={() => onRefresh(selectedLocation)}><RefreshCw className={isLoading ? 'is-spinning' : ''} size={15} />{isLoading ? 'Actualizando' : 'Actualizar'}</button>
+            <button type="button" className="weather-refresh" disabled={isLoading} onClick={() => onRefresh(selectedLocation)}><RefreshCw className={isLoading ? 'is-spinning' : ''} size={15} />{tx(isLoading ? 'Actualizando' : 'Actualizar')}</button>
           </div>
-          {forecastError ? <p className="weather-inline-error">{forecastError} Mostrando la última previsión guardada.</p> : null}
+          {forecastError ? <p className="weather-inline-error">{forecastError} {tx('Mostrando la última previsión guardada.')}</p> : null}
           <div className="weather-current-main">
             <div className="weather-current-icon"><WeatherIcon code={forecast.current.weatherCode} size={72} /></div>
-            <div><strong>{Math.round(forecast.current.temperature)}°</strong><p>{weatherDescription(forecast.current.weatherCode)}</p><span>Sensación térmica de {Math.round(forecast.current.apparentTemperature)}°</span></div>
+            <div><strong>{Math.round(forecast.current.temperature)}°</strong><p>{weatherDescription(forecast.current.weatherCode)}</p><span>{tx('Sensación térmica de {{temperature}}°', { temperature: Math.round(forecast.current.apparentTemperature) })}</span></div>
           </div>
           <div className="weather-stats">
-            <div><Droplets size={19} /><span>Humedad<strong>{Math.round(forecast.current.humidity)}%</strong></span></div>
-            <div><Wind size={19} /><span>Viento<strong>{Math.round(forecast.current.windSpeed)} km/h</strong></span></div>
-            <div><Sunrise size={19} /><span>Amanecer<strong>{formatWeatherHour(forecast.daily[0]?.sunrise ?? '')}</strong></span></div>
-            <div><Sunset size={19} /><span>Anochecer<strong>{formatWeatherHour(forecast.daily[0]?.sunset ?? '')}</strong></span></div>
+            <div><Droplets size={19} /><span>{tx('Humedad')}<strong>{Math.round(forecast.current.humidity)}%</strong></span></div>
+            <div><Wind size={19} /><span>{tx('Viento')}<strong>{Math.round(forecast.current.windSpeed)} km/h</strong></span></div>
+            <div><Sunrise size={19} /><span>{tx('Amanecer')}<strong>{formatWeatherHour(forecast.daily[0]?.sunrise ?? '')}</strong></span></div>
+            <div><Sunset size={19} /><span>{tx('Anochecer')}<strong>{formatWeatherHour(forecast.daily[0]?.sunset ?? '')}</strong></span></div>
           </div>
-          <div className="hourly-forecast" aria-label="Previsión por horas">
-            {forecast.hourly.slice(0, 6).map((hour, index) => <div key={hour.time}><span>{index === 0 ? 'Ahora' : formatWeatherHour(hour.time)}</span><WeatherIcon code={hour.weatherCode} size={25} /><strong>{Math.round(hour.temperature)}°</strong><small>{Math.round(hour.precipitationProbability)}% lluvia</small></div>)}
+          <div className="hourly-forecast" aria-label={tx('Previsión por horas')}>
+            {forecast.hourly.slice(0, 6).map((hour, index) => <div key={hour.time}><span>{index === 0 ? tx('Ahora') : formatWeatherHour(hour.time)}</span><WeatherIcon code={hour.weatherCode} size={25} /><strong>{Math.round(hour.temperature)}°</strong><small>{tx('{{value}}% lluvia', { value: Math.round(hour.precipitationProbability) })}</small></div>)}
           </div>
         </section>
         <section className="weather-forecast-panel">
-          <div className="forecast-heading"><span>Próximos días</span><small>Máx. / mín.</small></div>
+          <div className="forecast-heading"><span>{tx('Próximos días')}</span><small>{tx('Máx. / mín.')}</small></div>
           <div className="daily-forecast">
-            {forecast.daily.map((day, index) => <div key={day.date} className="daily-forecast-row"><span className="daily-icon"><WeatherIcon code={day.weatherCode} size={25} /></span><span className="daily-copy"><strong>{index === 0 ? 'Hoy' : formatWeatherDay(day.date)}</strong><small>{weatherDescription(day.weatherCode)} · {Math.round(day.precipitationProbability)}% lluvia</small></span><strong>{Math.round(day.temperatureMax)}° / {Math.round(day.temperatureMin)}°</strong></div>)}
+            {forecast.daily.map((day, index) => <div key={day.date} className="daily-forecast-row"><span className="daily-icon"><WeatherIcon code={day.weatherCode} size={25} /></span><span className="daily-copy"><strong>{index === 0 ? tx('Hoy') : formatWeatherDay(day.date)}</strong><small>{weatherDescription(day.weatherCode)} · {tx('{{value}}% lluvia', { value: Math.round(day.precipitationProbability) })}</small></span><strong>{Math.round(day.temperatureMax)}° / {Math.round(day.temperatureMin)}°</strong></div>)}
           </div>
-          <p className="weather-source-note">Datos meteorológicos de Open‑Meteo · Actualizado a las {new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(forecast.fetchedAt))}</p>
+          <p className="weather-source-note">{tx('Datos meteorológicos de Open‑Meteo · Actualizado a las {{time}}', { time: new Intl.DateTimeFormat(activeLocale(), { hour: '2-digit', minute: '2-digit' }).format(new Date(forecast.fetchedAt)) })}</p>
         </section>
       </div> : null}
     </div>
@@ -2440,23 +2448,23 @@ function ClockPage({
     <div className="fullscreen-page clock-page page-enter">
       <PageHeader pageLabel="Reloj" />
       <div className="clock-workspace">
-        <section className="focus-clock" aria-label="Reloj a pantalla completa">
-          <span className="focus-clock-kicker">Ahora</span>
+        <section className="focus-clock" aria-label={tx('Reloj a pantalla completa')}>
+          <span className="focus-clock-kicker">{tx('Ahora')}</span>
           <time>{time}</time>
           <p>{date}</p>
         </section>
         <div className="clock-management">
           <section className="alarm-panel" aria-labelledby="alarms-title">
-            <div className="alarm-panel-heading"><div><p className="eyebrow">Programación semanal</p><h1 id="alarms-title">Alarmas</h1></div><button type="button" className="text-action is-active" onClick={createAndEditAlarm}><Plus size={16} />Nueva alarma</button></div>
-            {alarms.length > 0 ? <div className="alarm-list">{[...alarms].sort((a, b) => a.time.localeCompare(b.time)).map((alarm) => <div key={alarm.id} className={`alarm-row ${alarm.enabled ? '' : 'is-disabled'}`}><button type="button" className="alarm-summary" onClick={() => setEditingAlarmId(alarm.id)} aria-label={`Configurar ${alarm.label}`}><strong>{alarm.time}</strong><span><b>{alarm.label || 'Alarma'}</b><small>{formatAlarmWeekdays(alarm.weekdays)} · {alarm.soundName}</small></span><ChevronRight size={17} /></button><button type="button" className={`alarm-toggle ${alarm.enabled ? 'is-on' : ''}`} role="switch" aria-label={`Activar ${alarm.label}`} aria-checked={alarm.enabled} onClick={() => onUpdateAlarm(alarm.id, { enabled: !alarm.enabled })}><span /></button></div>)}</div> : <div className="alarm-empty"><AlarmClock size={22} /><span>No hay alarmas configuradas.</span></div>}
+            <div className="alarm-panel-heading"><div><p className="eyebrow">{tx('Programación semanal')}</p><h1 id="alarms-title">{tx('Alarmas')}</h1></div><button type="button" className="text-action is-active" onClick={createAndEditAlarm}><Plus size={16} />{tx('Nueva alarma')}</button></div>
+            {alarms.length > 0 ? <div className="alarm-list">{[...alarms].sort((a, b) => a.time.localeCompare(b.time)).map((alarm) => <div key={alarm.id} className={`alarm-row ${alarm.enabled ? '' : 'is-disabled'}`}><button type="button" className="alarm-summary" onClick={() => setEditingAlarmId(alarm.id)} aria-label={tx('Configurar {{name}}', { name: alarm.label })}><strong>{alarm.time}</strong><span><b>{alarm.label || tx('Alarma')}</b><small>{formatAlarmWeekdays(alarm.weekdays)} · {alarm.soundName}</small></span><ChevronRight size={17} /></button><button type="button" className={`alarm-toggle ${alarm.enabled ? 'is-on' : ''}`} role="switch" aria-label={tx('Activar {{name}}', { name: alarm.label })} aria-checked={alarm.enabled} onClick={() => onUpdateAlarm(alarm.id, { enabled: !alarm.enabled })}><span /></button></div>)}</div> : <div className="alarm-empty"><AlarmClock size={22} /><span>{tx('No hay alarmas configuradas.')}</span></div>}
           </section>
           <section className="timer-panel" aria-labelledby="timers-title">
-            <div className="utility-heading"><div className="utility-tabs" role="tablist"><button type="button" role="tab" aria-selected={utilityMode === 'timers'} className={utilityMode === 'timers' ? 'is-active' : ''} onClick={() => setUtilityMode('timers')}>Temporizadores</button><button type="button" role="tab" aria-selected={utilityMode === 'stopwatch'} className={utilityMode === 'stopwatch' ? 'is-active' : ''} onClick={() => setUtilityMode('stopwatch')}>Cronómetro</button></div>{utilityMode === 'timers' ? <button type="button" className="text-action is-active" onClick={createAndEditTimer}><Plus size={16} />Nuevo</button> : null}</div>
+            <div className="utility-heading"><div className="utility-tabs" role="tablist"><button type="button" role="tab" aria-selected={utilityMode === 'timers'} className={utilityMode === 'timers' ? 'is-active' : ''} onClick={() => setUtilityMode('timers')}>{tx('Temporizadores')}</button><button type="button" role="tab" aria-selected={utilityMode === 'stopwatch'} className={utilityMode === 'stopwatch' ? 'is-active' : ''} onClick={() => setUtilityMode('stopwatch')}>{tx('Cronómetro')}</button></div>{utilityMode === 'timers' ? <button type="button" className="text-action is-active" onClick={createAndEditTimer}><Plus size={16} />{tx('Nuevo')}</button> : null}</div>
             {utilityMode === 'timers' ? (timers.length > 0 ? <div className="timer-list">{timers.map((timer) => {
               const remaining = timerRemainingSeconds(timer, now)
               const running = Boolean(timer.endsAt)
-              return <div key={timer.id} className="timer-row"><button type="button" className="timer-summary" onClick={() => setEditingTimerId(timer.id)}><span>{timer.label}</span><strong>{formatCountdown(remaining)}</strong></button><button type="button" className="text-action" onClick={() => { const next = running ? pauseTimer(timer, now) : startTimer(timer, now); onUpdateTimer(timer.id, { remainingSeconds: next.remainingSeconds, endsAt: next.endsAt }) }}>{running ? 'Pausar' : 'Iniciar'}</button><button type="button" className="text-action" onClick={() => { const next = resetTimer(timer); onUpdateTimer(timer.id, { remainingSeconds: next.remainingSeconds, endsAt: next.endsAt }) }}>Reiniciar</button><button type="button" className="text-action danger" onClick={() => onDeleteTimer(timer.id)} aria-label={`Eliminar ${timer.label}`}><Trash2 size={16} /></button></div>
-            })}</div> : <div className="alarm-empty"><Clock3 size={22} /><span>No hay temporizadores activos.</span></div>) : <StopwatchPanel stopwatch={stopwatch} now={now} onToggle={onToggleStopwatch} onReset={onResetStopwatch} />}
+              return <div key={timer.id} className="timer-row"><button type="button" className="timer-summary" onClick={() => setEditingTimerId(timer.id)}><span>{timer.label}</span><strong>{formatCountdown(remaining)}</strong></button><button type="button" className="text-action" onClick={() => { const next = running ? pauseTimer(timer, now) : startTimer(timer, now); onUpdateTimer(timer.id, { remainingSeconds: next.remainingSeconds, endsAt: next.endsAt }) }}>{tx(running ? 'Pausar' : 'Iniciar')}</button><button type="button" className="text-action" onClick={() => { const next = resetTimer(timer); onUpdateTimer(timer.id, { remainingSeconds: next.remainingSeconds, endsAt: next.endsAt }) }}>{tx('Reiniciar')}</button><button type="button" className="text-action danger" onClick={() => onDeleteTimer(timer.id)} aria-label={tx('Eliminar {{name}}', { name: timer.label })}><Trash2 size={16} /></button></div>
+            })}</div> : <div className="alarm-empty"><Clock3 size={22} /><span>{tx('No hay temporizadores activos.')}</span></div>) : <StopwatchPanel stopwatch={stopwatch} now={now} onToggle={onToggleStopwatch} onReset={onResetStopwatch} />}
           </section>
         </div>
       </div>
@@ -2477,10 +2485,10 @@ const ALARM_WEEKDAYS: { value: AlarmWeekday; short: string; label: string }[] = 
 ]
 
 function formatAlarmWeekdays(days: AlarmWeekday[]) {
-  if (days.length === 7) return 'Todos los días'
-  if (days.length === 5 && [2, 3, 4, 5, 6].every((day) => days.includes(day as AlarmWeekday))) return 'Entre semana'
-  if (days.length === 2 && days.includes(1) && days.includes(7)) return 'Fin de semana'
-  return ALARM_WEEKDAYS.filter((day) => days.includes(day.value)).map((day) => day.short).join(', ')
+  if (days.length === 7) return tx('Todos los días')
+  if (days.length === 5 && [2, 3, 4, 5, 6].every((day) => days.includes(day as AlarmWeekday))) return tx('Entre semana')
+  if (days.length === 2 && days.includes(1) && days.includes(7)) return tx('Fin de semana')
+  return ALARM_WEEKDAYS.filter((day) => days.includes(day.value)).map((day) => tx(day.label as import('./i18n/translations').TranslationKey).slice(0, 1)).join(', ')
 }
 
 function AlarmTimeStepper({ value, onChange }: { value: string; onChange: (value: string) => void }) {
@@ -2490,7 +2498,7 @@ function AlarmTimeStepper({ value, onChange }: { value: string; onChange: (value
     const nextMinute = part === 'minute' ? (minute + delta + 60) % 60 : minute
     onChange(`${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`)
   }
-  return <div className="alarm-time-field"><span>Hora</span><div className="alarm-time-stepper"><div><button type="button" onClick={() => change('hour', 1)} aria-label="Subir hora"><Plus size={16} /></button><strong>{String(hour).padStart(2, '0')}</strong><small>hora</small><button type="button" onClick={() => change('hour', -1)} aria-label="Bajar hora"><Minus size={16} /></button></div><b>:</b><div><button type="button" onClick={() => change('minute', 1)} aria-label="Subir minutos"><Plus size={16} /></button><strong>{String(minute).padStart(2, '0')}</strong><small>min</small><button type="button" onClick={() => change('minute', -1)} aria-label="Bajar minutos"><Minus size={16} /></button></div></div></div>
+  return <div className="alarm-time-field"><span>{tx('Hora')}</span><div className="alarm-time-stepper"><div><button type="button" onClick={() => change('hour', 1)} aria-label={tx('Subir hora')}><Plus size={16} /></button><strong>{String(hour).padStart(2, '0')}</strong><small>{tx('hora')}</small><button type="button" onClick={() => change('hour', -1)} aria-label={tx('Bajar hora')}><Minus size={16} /></button></div><b>:</b><div><button type="button" onClick={() => change('minute', 1)} aria-label={tx('Subir minutos')}><Plus size={16} /></button><strong>{String(minute).padStart(2, '0')}</strong><small>{tx('min')}</small><button type="button" onClick={() => change('minute', -1)} aria-label={tx('Bajar minutos')}><Minus size={16} /></button></div></div></div>
 }
 
 function AlarmEditor({ alarm, sounds, onUpdate, onDelete, onClose, onPreviewNotification }: { alarm: Alarm; sounds: DeviceAlarmSound[]; onUpdate: (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled' | 'weekdays' | 'soundName' | 'soundUri'>>) => void; onDelete: () => void; onClose: () => void; onPreviewNotification: (title: string, body: string) => void }) {
@@ -2503,7 +2511,7 @@ function AlarmEditor({ alarm, sounds, onUpdate, onDelete, onClose, onPreviewNoti
   const previewSound = async () => {
     try {
       const playedNatively = await previewAlarmSound(alarm.soundUri)
-      if (!playedNatively) onPreviewNotification(alarm.label || 'Alarma', `Sonido: ${alarm.soundName}`)
+      if (!playedNatively) onPreviewNotification(alarm.label || tx('Alarma'), tx('Sonido: {{name}}', { name: alarm.soundName }))
     } catch (error) {
       console.warn('No se pudo reproducir el sonido de alarma.', error)
     }
@@ -2511,14 +2519,14 @@ function AlarmEditor({ alarm, sounds, onUpdate, onDelete, onClose, onPreviewNoti
 
   return <div className="alarm-editor-backdrop" role="presentation" data-swipe-block>
     <section className="alarm-editor" role="dialog" aria-modal="true" aria-labelledby="alarm-editor-title">
-      <div className="alarm-editor-header"><div><p className="eyebrow">Configurar alarma</p><h2 id="alarm-editor-title">{alarm.label || 'Alarma'}</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label="Cerrar configuración"><X size={21} /></button></div>
+      <div className="alarm-editor-header"><div><p className="eyebrow">{tx('Configurar alarma')}</p><h2 id="alarm-editor-title">{alarm.label || tx('Alarma')}</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label={tx('Cerrar configuración')}><X size={21} /></button></div>
       <div className="alarm-editor-grid">
         <AlarmTimeStepper value={alarm.time} onChange={(time) => onUpdate(alarm.id, { time })} />
-        <label className="alarm-name-field"><span>Nombre</span><input value={alarm.label} maxLength={60} onChange={(event) => onUpdate(alarm.id, { label: event.target.value })} /></label>
-        <fieldset className="weekday-picker"><legend>Repetir</legend><div>{ALARM_WEEKDAYS.map((weekday) => <button key={weekday.value} type="button" className={alarm.weekdays.includes(weekday.value) ? 'is-selected' : ''} onClick={() => toggleWeekday(weekday.value)} aria-pressed={alarm.weekdays.includes(weekday.value)} aria-label={weekday.label}>{weekday.short}</button>)}</div></fieldset>
-        <div className="alarm-sound-field"><label><span>Sonido</span><select value={alarm.soundUri ?? ''} onChange={(event) => { const sound = sounds.find((item) => item.uri === event.target.value) ?? DEFAULT_ALARM_SOUND; onUpdate(alarm.id, { soundName: sound.name, soundUri: sound.uri || null }) }}>{sounds.map((sound) => <option key={sound.uri || 'default'} value={sound.uri}>{sound.name}</option>)}</select></label><button type="button" className="sound-preview" onClick={previewSound}><Volume2 size={18} />Probar</button></div>
+        <label className="alarm-name-field"><span>{tx('Nombre')}</span><input value={alarm.label} maxLength={60} onChange={(event) => onUpdate(alarm.id, { label: event.target.value })} /></label>
+        <fieldset className="weekday-picker"><legend>{tx('Repetir')}</legend><div>{ALARM_WEEKDAYS.map((weekday) => <button key={weekday.value} type="button" className={alarm.weekdays.includes(weekday.value) ? 'is-selected' : ''} onClick={() => toggleWeekday(weekday.value)} aria-pressed={alarm.weekdays.includes(weekday.value)} aria-label={tx(weekday.label as import('./i18n/translations').TranslationKey)}>{tx(weekday.label as import('./i18n/translations').TranslationKey).slice(0, 1)}</button>)}</div></fieldset>
+        <div className="alarm-sound-field"><label><span>{tx('Sonido')}</span><select value={alarm.soundUri ?? ''} onChange={(event) => { const sound = sounds.find((item) => item.uri === event.target.value) ?? DEFAULT_ALARM_SOUND; onUpdate(alarm.id, { soundName: sound.name, soundUri: sound.uri || null }) }}>{sounds.map((sound) => <option key={sound.uri || 'default'} value={sound.uri}>{sound.name === 'Sonido predeterminado' ? tx('Sonido predeterminado') : sound.name}</option>)}</select></label><button type="button" className="sound-preview" onClick={previewSound}><Volume2 size={18} />{tx('Probar')}</button></div>
       </div>
-      <div className="alarm-editor-footer"><button type="button" className="text-action danger alarm-delete" onClick={onDelete}><Trash2 size={16} />Eliminar</button><label className="alarm-enabled"><span>Alarma activa</span><button type="button" className={`alarm-toggle ${alarm.enabled ? 'is-on' : ''}`} role="switch" aria-checked={alarm.enabled} onClick={() => onUpdate(alarm.id, { enabled: !alarm.enabled })}><span /></button></label><button type="button" className="alarm-done" onClick={onClose}>Hecho</button></div>
+      <div className="alarm-editor-footer"><button type="button" className="text-action danger alarm-delete" onClick={onDelete}><Trash2 size={16} />{tx('Eliminar')}</button><label className="alarm-enabled"><span>{tx('Alarma activa')}</span><button type="button" className={`alarm-toggle ${alarm.enabled ? 'is-on' : ''}`} role="switch" aria-checked={alarm.enabled} onClick={() => onUpdate(alarm.id, { enabled: !alarm.enabled })}><span /></button></label><button type="button" className="alarm-done" onClick={onClose}>{tx('Hecho')}</button></div>
     </section>
   </div>
 }
@@ -2531,28 +2539,28 @@ function TimerEditor({ timer, onUpdate, onDelete, onClose }: { timer: Timer; onU
   }
   return <div className="alarm-editor-backdrop" role="presentation" data-swipe-block>
     <section className="alarm-editor timer-editor" role="dialog" aria-modal="true" aria-labelledby="timer-editor-title">
-      <div className="alarm-editor-header"><div><p className="eyebrow">Configurar temporizador</p><h2 id="timer-editor-title">{timer.label}</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label="Cerrar configuración"><X size={21} /></button></div>
-      <label className="timer-name-field"><span>Nombre</span><input value={timer.label} maxLength={60} onChange={(event) => onUpdate(timer.id, { label: event.target.value })} /></label>
-      <fieldset className="timer-presets"><legend>Duración rápida</legend><div>{[1, 5, 10, 15].map((minutes) => <button key={minutes} type="button" className={timer.durationSeconds === minutes * 60 ? 'is-selected' : ''} onClick={() => setMinutes(minutes)}>{minutes} min</button>)}</div></fieldset>
-      <label className="custom-duration"><span>Otra duración</span><span><input type="number" inputMode="numeric" min="1" max="1440" value={Math.max(1, Math.round(timer.durationSeconds / 60))} onChange={(event) => setMinutes(Number(event.target.value))} /> minutos</span></label>
-      <div className="alarm-editor-footer"><button type="button" className="text-action danger alarm-delete" onClick={onDelete}><Trash2 size={16} />Eliminar</button><button type="button" className="alarm-done" onClick={onClose}>Hecho</button></div>
+      <div className="alarm-editor-header"><div><p className="eyebrow">{tx('Configurar temporizador')}</p><h2 id="timer-editor-title">{timer.label}</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label={tx('Cerrar configuración')}><X size={21} /></button></div>
+      <label className="timer-name-field"><span>{tx('Nombre')}</span><input value={timer.label} maxLength={60} onChange={(event) => onUpdate(timer.id, { label: event.target.value })} /></label>
+      <fieldset className="timer-presets"><legend>{tx('Duración rápida')}</legend><div>{[1, 5, 10, 15].map((minutes) => <button key={minutes} type="button" className={timer.durationSeconds === minutes * 60 ? 'is-selected' : ''} onClick={() => setMinutes(minutes)}>{minutes} {tx('min')}</button>)}</div></fieldset>
+      <label className="custom-duration"><span>{tx('Otra duración')}</span><span><input type="number" inputMode="numeric" min="1" max="1440" value={Math.max(1, Math.round(timer.durationSeconds / 60))} onChange={(event) => setMinutes(Number(event.target.value))} /> {tx('minutos')}</span></label>
+      <div className="alarm-editor-footer"><button type="button" className="text-action danger alarm-delete" onClick={onDelete}><Trash2 size={16} />{tx('Eliminar')}</button><button type="button" className="alarm-done" onClick={onClose}>{tx('Hecho')}</button></div>
     </section>
   </div>
 }
 
 function StopwatchPanel({ stopwatch, now, onToggle, onReset }: { stopwatch: StopwatchState; now: Date; onToggle: () => void; onReset: () => void }) {
   const elapsed = stopwatch.elapsedMilliseconds + (stopwatch.startedAt ? Math.max(0, now.getTime() - new Date(stopwatch.startedAt).getTime()) : 0)
-  return <div className="stopwatch-panel"><Clock3 size={26} /><strong>{formatStopwatch(elapsed)}</strong><div><button type="button" className="text-action is-active" onClick={onToggle}>{stopwatch.startedAt ? <Pause size={16} /> : <Play size={16} />}{stopwatch.startedAt ? 'Pausar' : 'Iniciar'}</button><button type="button" className="text-action" onClick={onReset}><RotateCcw size={16} />Reiniciar</button></div></div>
+  return <div className="stopwatch-panel"><Clock3 size={26} /><strong>{formatStopwatch(elapsed)}</strong><div><button type="button" className="text-action is-active" onClick={onToggle}>{stopwatch.startedAt ? <Pause size={16} /> : <Play size={16} />}{tx(stopwatch.startedAt ? 'Pausar' : 'Iniciar')}</button><button type="button" className="text-action" onClick={onReset}><RotateCcw size={16} />{tx('Reiniciar')}</button></div></div>
 }
 
 function RingingAlertOverlay({ alert, snoozeMinutes, onSnoozeMinutesChange, onSnooze, onStop }: { alert: RingingAlert; snoozeMinutes: number; onSnoozeMinutesChange: (minutes: number) => void; onSnooze: () => void; onStop: () => void }) {
   return <div className="ringing-alert-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="ringing-alert-title" data-swipe-block>
     <section className={`ringing-alert-card ${alert.kind === 'calendar' ? 'is-calendar-reminder' : ''}`}>
       <div className="ringing-bell">{alert.kind === 'calendar' ? <CalendarDays size={46} /> : <BellRing size={46} />}</div>
-      <p className="eyebrow">{alert.kind === 'alarm' ? 'Alarma' : alert.kind === 'timer' ? 'Temporizador' : 'Recordatorio del calendario'}</p>
+      <p className="eyebrow">{tx(alert.kind === 'alarm' ? 'Alarma' : alert.kind === 'timer' ? 'Temporizador' : 'Recordatorio del calendario')}</p>
       <h2 id="ringing-alert-title">{alert.title}</h2>
       <p>{alert.subtitle}</p>
-      <div className="ringing-actions">{alert.kind !== 'timer' ? <div className="snooze-action"><select value={snoozeMinutes} onChange={(event) => onSnoozeMinutesChange(Number(event.target.value))} aria-label="Minutos para volver a recordar">{[1, 5, 10, 15].map((minutes) => <option key={minutes} value={minutes}>{minutes} min</option>)}</select><button type="button" onClick={onSnooze}>{alert.kind === 'calendar' ? 'Volver a recordar' : 'Posponer'}</button></div> : null}<button type="button" className="stop-ringing" onClick={onStop}>{alert.kind === 'calendar' ? 'Aceptar' : 'Detener'}</button></div>
+      <div className="ringing-actions">{alert.kind !== 'timer' ? <div className="snooze-action"><select value={snoozeMinutes} onChange={(event) => onSnoozeMinutesChange(Number(event.target.value))} aria-label={tx('Minutos para volver a recordar')}>{[1, 5, 10, 15].map((minutes) => <option key={minutes} value={minutes}>{minutes} {tx('min')}</option>)}</select><button type="button" onClick={onSnooze}>{tx(alert.kind === 'calendar' ? 'Volver a recordar' : 'Posponer')}</button></div> : null}<button type="button" className="stop-ringing" onClick={onStop}>{tx(alert.kind === 'calendar' ? 'Aceptar' : 'Detener')}</button></div>
     </section>
   </div>
 }
@@ -2602,26 +2610,26 @@ function NotesPage({
     setIsCreateMenuOpen(false)
   }
 
-  const createMenu = !showArchived && isCreateMenuOpen ? <div className="note-create-menu" role="group" aria-label="Elegir formato de nota">
-    <button type="button" onClick={() => createAndSelect('text')}><FileText size={18} /><span><strong>Texto</strong><small>Ideas y apuntes libres.</small></span></button>
-    <button type="button" onClick={() => createAndSelect('drawing')}><Pencil size={18} /><span><strong>Dibujo</strong><small>Un lienzo para escribir o dibujar.</small></span></button>
-    <button type="button" onClick={() => createAndSelect('list')}><ListTodo size={18} /><span><strong>Lista</strong><small>Elementos ordenables y marcables.</small></span></button>
+  const createMenu = !showArchived && isCreateMenuOpen ? <div className="note-create-menu" role="group" aria-label={tx('Elegir formato de nota')}>
+    <button type="button" onClick={() => createAndSelect('text')}><FileText size={18} /><span><strong>{tx('Texto')}</strong><small>{tx('Ideas y apuntes libres.')}</small></span></button>
+    <button type="button" onClick={() => createAndSelect('drawing')}><Pencil size={18} /><span><strong>{tx('Dibujo')}</strong><small>{tx('Un lienzo para escribir o dibujar.')}</small></span></button>
+    <button type="button" onClick={() => createAndSelect('list')}><ListTodo size={18} /><span><strong>{tx('Lista')}</strong><small>{tx('Elementos ordenables y marcables.')}</small></span></button>
   </div> : null
 
   return (
     <div className="fullscreen-page notes-page page-enter">
       <PageHeader pageLabel="Notas" />
-      <section className="notes-workspace" aria-label="Notas locales">
+      <section className="notes-workspace" aria-label={tx('Notas locales')}>
         <aside className="notes-sidebar">
-          <div className="notes-sidebar-header"><div><h1>{showArchived ? 'Archivo' : 'Mis notas'}</h1><p>{showArchived ? `${archivedNotes.length} archivadas` : `${visibleNotes.length} guardadas en esta tablet`}</p></div>{!showArchived ? <button type="button" className="icon-button" onClick={() => setIsCreateMenuOpen((open) => !open)} aria-label="Crear una nota"><Plus size={20} /></button> : null}</div>
+          <div className="notes-sidebar-header"><div><h1>{tx(showArchived ? 'Archivo' : 'Mis notas')}</h1><p>{showArchived ? tx('{{count}} archivadas', { count: archivedNotes.length }) : tx('{{count}} guardadas en esta tablet', { count: visibleNotes.length })}</p></div>{!showArchived ? <button type="button" className="icon-button" onClick={() => setIsCreateMenuOpen((open) => !open)} aria-label={tx('Crear una nota')}><Plus size={20} /></button> : null}</div>
           {createMenu}
-          <div className="note-filter" role="tablist" aria-label="Filtrar notas"><button type="button" className={!showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(false); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={!showArchived}>Activas</button><button type="button" className={showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(true); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={showArchived}>Archivo</button></div>
+          <div className="note-filter" role="tablist" aria-label={tx('Filtrar notas')}><button type="button" className={!showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(false); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={!showArchived}>{tx('Activas')}</button><button type="button" className={showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(true); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={showArchived}>{tx('Archivo')}</button></div>
           <div className="note-list">
-            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => setSelectedId(note.id)}><span className="note-list-color" /><span><strong>{note.title || 'Sin título'}</strong><small>{note.type === 'drawing' ? (note.drawing.length ? 'Dibujo guardado' : 'Lienzo vacío') : note.type === 'list' ? `${parseNoteList(note.content).filter((item) => item.checked).length}/${parseNoteList(note.content).length} marcados` : (note.content || 'Texto')}</small></span><span className="note-list-meta">{note.type === 'drawing' ? <Pencil size={14} aria-label="Dibujo" /> : note.type === 'list' ? <ListTodo size={14} aria-label="Lista" /> : <FileText size={14} aria-label="Texto" />}{note.pinned ? <Pin size={14} /> : null}</span></button>)}
-            {notesForView.length === 0 ? <div className="notes-empty"><FileText size={24} /><p>{showArchived ? 'No hay notas archivadas.' : 'Aún no hay notas.'}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>Crear la primera</button> : null}</div> : null}
+            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => setSelectedId(note.id)}><span className="note-list-color" /><span><strong>{note.title || tx('Sin título')}</strong><small>{note.type === 'drawing' ? tx(note.drawing.length ? 'Dibujo guardado' : 'Lienzo vacío') : note.type === 'list' ? tx('{{checked}}/{{count}} marcados', { checked: parseNoteList(note.content).filter((item) => item.checked).length, count: parseNoteList(note.content).length }) : (note.content || tx('Texto'))}</small></span><span className="note-list-meta">{note.type === 'drawing' ? <Pencil size={14} aria-label={tx('Dibujo')} /> : note.type === 'list' ? <ListTodo size={14} aria-label={tx('Lista')} /> : <FileText size={14} aria-label={tx('Texto')} />}{note.pinned ? <Pin size={14} /> : null}</span></button>)}
+            {notesForView.length === 0 ? <div className="notes-empty"><FileText size={24} /><p>{tx(showArchived ? 'No hay notas archivadas.' : 'Aún no hay notas.')}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>{tx('Crear la primera')}</button> : null}</div> : null}
           </div>
         </aside>
-        {selectedNote ? <NoteEditor key={selectedNote.id} note={selectedNote} readOnly={showArchived} onUpdate={onUpdateNote} onArchive={() => { onArchiveNote(selectedNote.id); setSelectedId(null) }} onRestore={() => { onRestoreNote(selectedNote.id); setShowArchived(false); setSelectedId(selectedNote.id) }} onDelete={() => { if (window.confirm('¿Eliminar esta nota de forma permanente?')) { onDeleteNote(selectedNote.id); setSelectedId(null) } }} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} /> : <div className="notes-editor-placeholder"><FileText size={32} /><h2>{showArchived ? 'Archivo vacío' : 'Tu espacio de notas'}</h2><p>{showArchived ? 'Las notas archivadas aparecerán aquí.' : 'Crea una nota para guardar ideas y recordatorios locales.'}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>Nueva nota</button> : null}</div>}
+        {selectedNote ? <NoteEditor key={selectedNote.id} note={selectedNote} readOnly={showArchived} onUpdate={onUpdateNote} onArchive={() => { onArchiveNote(selectedNote.id); setSelectedId(null) }} onRestore={() => { onRestoreNote(selectedNote.id); setShowArchived(false); setSelectedId(selectedNote.id) }} onDelete={() => { if (window.confirm(tx('¿Eliminar esta nota de forma permanente?'))) { onDeleteNote(selectedNote.id); setSelectedId(null) } }} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} /> : <div className="notes-editor-placeholder"><FileText size={32} /><h2>{tx(showArchived ? 'Archivo vacío' : 'Tu espacio de notas')}</h2><p>{tx(showArchived ? 'Las notas archivadas aparecerán aquí.' : 'Crea una nota para guardar ideas y recordatorios locales.')}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>{tx('Nueva nota')}</button> : null}</div>}
       </section>
     </div>
   )
@@ -2634,7 +2642,7 @@ function drawingPath(points: NoteDrawingPoint[]) {
 }
 
 function NoteDrawingPreview({ drawing }: { drawing: NoteDrawingStroke[] }) {
-  return <svg className="note-preview-drawing" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Vista previa del dibujo">
+  return <svg className="note-preview-drawing" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label={tx('Vista previa del dibujo')}>
     <rect width="1000" height="600" className="note-preview-drawing-paper" />
     {drawing.map((stroke, index) => <path key={`${index}-${stroke.points.length}`} d={drawingPath(stroke.points)} fill="none" stroke={stroke.color} strokeWidth={Math.max(5, stroke.width)} strokeLinecap="round" strokeLinejoin="round" />)}
   </svg>
@@ -2725,18 +2733,18 @@ function NoteDrawingCanvas({ drawing, readOnly, onChange, onEditingChange }: { d
 
   return <div className="note-drawing-panel" data-swipe-block>
     <div className="note-drawing-toolbar">
-      <div className="note-drawing-tools" aria-label="Herramientas de dibujo">
-        <button type="button" disabled={readOnly} className={tool === 'pen' ? 'is-active' : ''} onClick={() => setTool('pen')}><Pencil size={16} />Lápiz</button>
-        <button type="button" disabled={readOnly} className={tool === 'eraser' ? 'is-active' : ''} onClick={() => setTool('eraser')}><Eraser size={16} />Borrador</button>
+      <div className="note-drawing-tools" aria-label={tx('Herramientas de dibujo')}>
+        <button type="button" disabled={readOnly} className={tool === 'pen' ? 'is-active' : ''} onClick={() => setTool('pen')}><Pencil size={16} />{tx('Lápiz')}</button>
+        <button type="button" disabled={readOnly} className={tool === 'eraser' ? 'is-active' : ''} onClick={() => setTool('eraser')}><Eraser size={16} />{tx('Borrador')}</button>
       </div>
-      <div className="note-ink-colors" aria-label="Color del lápiz">{['#f4f7ff', '#7fa2ff', '#ff9b80', '#7cdec2', '#f7c85e'].map((color) => <button key={color} type="button" disabled={readOnly} className={inkColor === color && tool === 'pen' ? 'is-active' : ''} style={{ '--ink-color': color } as CSSProperties} onClick={() => { setInkColor(color); setTool('pen') }} aria-label={`Color ${color}`} />)}</div>
-      <label className="note-stroke-width">Grosor<select value={inkWidth} disabled={readOnly} onChange={(event) => { setInkWidth(Number(event.target.value)); setTool('pen') }}><option value="3">Fino</option><option value="6">Medio</option><option value="12">Grueso</option></select></label>
+      <div className="note-ink-colors" aria-label={tx('Color del lápiz')}>{['#f4f7ff', '#7fa2ff', '#ff9b80', '#7cdec2', '#f7c85e'].map((color) => <button key={color} type="button" disabled={readOnly} className={inkColor === color && tool === 'pen' ? 'is-active' : ''} style={{ '--ink-color': color } as CSSProperties} onClick={() => { setInkColor(color); setTool('pen') }} aria-label={tx('Color {{color}}', { color })} />)}</div>
+      <label className="note-stroke-width">{tx('Grosor')}<select value={inkWidth} disabled={readOnly} onChange={(event) => { setInkWidth(Number(event.target.value)); setTool('pen') }}><option value="3">{tx('Fino')}</option><option value="6">{tx('Medio')}</option><option value="12">{tx('Grueso')}</option></select></label>
       <div className="note-drawing-history">
-        <button type="button" disabled={readOnly || strokes.length === 0} onClick={() => commit(strokes.slice(0, -1))}><Undo2 size={16} />Deshacer</button>
-        <button type="button" disabled={readOnly || strokes.length === 0} className="is-danger" onClick={() => commit([])}><Trash2 size={16} />Limpiar</button>
+        <button type="button" disabled={readOnly || strokes.length === 0} onClick={() => commit(strokes.slice(0, -1))}><Undo2 size={16} />{tx('Deshacer')}</button>
+        <button type="button" disabled={readOnly || strokes.length === 0} className="is-danger" onClick={() => commit([])}><Trash2 size={16} />{tx('Limpiar')}</button>
       </div>
     </div>
-    <svg className={`note-drawing-canvas ${readOnly ? 'is-read-only' : ''}`} viewBox="0 0 1000 600" preserveAspectRatio="none" role="img" aria-label="Lienzo de dibujo de la nota" onPointerDown={startDrawing} onPointerMove={continueDrawing} onPointerUp={finishDrawing} onPointerCancel={finishDrawing}>
+    <svg className={`note-drawing-canvas ${readOnly ? 'is-read-only' : ''}`} viewBox="0 0 1000 600" preserveAspectRatio="none" role="img" aria-label={tx('Lienzo de dibujo de la nota')} onPointerDown={startDrawing} onPointerMove={continueDrawing} onPointerUp={finishDrawing} onPointerCancel={finishDrawing}>
       <rect width="1000" height="600" className="note-drawing-paper" />
       {[...strokes, ...(activeStroke ? [activeStroke] : [])].map((stroke, index) => <path key={`${index}-${stroke.points.length}`} d={drawingPath(stroke.points)} fill="none" stroke={stroke.color} strokeWidth={stroke.width} strokeLinecap="round" strokeLinejoin="round" />)}
     </svg>
@@ -2759,7 +2767,7 @@ function serializeNoteList(items: NoteListItem[]) {
 
 function NoteTextEditor({ note, readOnly, onUpdate, onEditingChange }: { note: Note; readOnly: boolean; onUpdate: (noteId: string, patch: NotePatch) => void; onEditingChange: (isEditing: boolean) => void }) {
   return <div className="note-text-editor">
-    <textarea value={note.content} maxLength={2000} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { content: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Escribe una nota…" aria-label="Contenido de la nota" />
+    <textarea value={note.content} maxLength={2000} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { content: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder={tx('Escribe una nota…')} aria-label={tx('Contenido de la nota')} />
   </div>
 }
 
@@ -2923,20 +2931,20 @@ function NoteListEditor({ note, readOnly, onUpdate, onEditingChange }: { note: N
       ? dropTargetIndex < draggedIndex ? 'is-drop-before' : 'is-drop-after'
       : ''
     return <div ref={(element) => { if (element) rowElementsRef.current.set(key, element); else rowElementsRef.current.delete(key) }} className={`note-list-row ${item.checked ? 'is-completed' : ''} ${draggedIndex === index ? 'is-dragging' : ''} ${dropPosition}`} key={key} data-note-list-index={index} style={draggedIndex === index ? { '--note-drag-y': `${dragOffsetY}px` } as CSSProperties : undefined}>
-    {dropPosition ? <span className="note-list-drop-indicator" aria-hidden="true"><span>Soltar aquí</span></span> : null}
-    <button type="button" className="note-list-reorder" disabled={readOnly} aria-label={`Mover elemento ${position + 1}`} aria-pressed={draggedIndex === index} onPointerDown={(event) => startPointerReorder(event, index)} onPointerMove={continuePointerReorder} onPointerUp={(event) => finishPointerReorder(event, true)} onPointerCancel={(event) => finishPointerReorder(event, false)} onKeyDown={(event) => { if (event.key === 'ArrowUp') { event.preventDefault(); moveWithinGroup(entries, position, -1) } else if (event.key === 'ArrowDown') { event.preventDefault(); moveWithinGroup(entries, position, 1) } }}><GripVertical size={19} aria-hidden="true" /></button>
-    <input type="checkbox" checked={item.checked} disabled={readOnly} aria-label={`${item.checked ? 'Desmarcar' : 'Marcar'} elemento ${position + 1}`} onChange={(event) => updateItem(index, { checked: event.target.checked })} />
-    <input type="text" value={item.text} maxLength={300} readOnly={readOnly} aria-label={`Elemento de lista ${position + 1}`} placeholder="Elemento de lista" onChange={(event) => updateItem(index, { text: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} />
-    {!readOnly ? <button type="button" className="note-list-remove" aria-label={`Eliminar elemento ${position + 1}`} onClick={() => removeItem(index)}><X size={17} /></button> : null}
+    {dropPosition ? <span className="note-list-drop-indicator" aria-hidden="true"><span>{tx('Soltar aquí')}</span></span> : null}
+    <button type="button" className="note-list-reorder" disabled={readOnly} aria-label={tx('Mover elemento {{position}}', { position: position + 1 })} aria-pressed={draggedIndex === index} onPointerDown={(event) => startPointerReorder(event, index)} onPointerMove={continuePointerReorder} onPointerUp={(event) => finishPointerReorder(event, true)} onPointerCancel={(event) => finishPointerReorder(event, false)} onKeyDown={(event) => { if (event.key === 'ArrowUp') { event.preventDefault(); moveWithinGroup(entries, position, -1) } else if (event.key === 'ArrowDown') { event.preventDefault(); moveWithinGroup(entries, position, 1) } }}><GripVertical size={19} aria-hidden="true" /></button>
+    <input type="checkbox" checked={item.checked} disabled={readOnly} aria-label={tx(item.checked ? 'Desmarcar elemento {{position}}' : 'Marcar elemento {{position}}', { position: position + 1 })} onChange={(event) => updateItem(index, { checked: event.target.checked })} />
+    <input type="text" value={item.text} maxLength={300} readOnly={readOnly} aria-label={tx('Elemento de lista {{position}}', { position: position + 1 })} placeholder={tx('Elemento de lista')} onChange={(event) => updateItem(index, { text: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} />
+    {!readOnly ? <button type="button" className="note-list-remove" aria-label={tx('Eliminar elemento {{position}}', { position: position + 1 })} onClick={() => removeItem(index)}><X size={17} /></button> : null}
   </div>
   }
 
   return <div className="note-list-editor">
-    <div className="note-list-scroll" aria-label="Elementos de la lista">
+    <div className="note-list-scroll" aria-label={tx('Elementos de la lista')}>
       <div className="note-list-active">{activeEntries.map((entry, position) => renderItem(entry, position, activeEntries))}</div>
-      {!readOnly ? <button type="button" className="note-list-add" onClick={addItem}><Plus size={19} />Añadir elemento</button> : null}
+      {!readOnly ? <button type="button" className="note-list-add" onClick={addItem}><Plus size={19} />{tx('Añadir elemento')}</button> : null}
       {completedEntries.length > 0 ? <div className="note-list-completed">
-        <button type="button" className="note-list-completed-toggle" aria-expanded={showCompleted} onClick={() => setShowCompleted((visible) => !visible)}>{showCompleted ? <ChevronUp size={18} /> : <ChevronDown size={18} />}<span>{completedEntries.length} {completedEntries.length === 1 ? 'elemento marcado' : 'elementos marcados'}</span></button>
+        <button type="button" className="note-list-completed-toggle" aria-expanded={showCompleted} onClick={() => setShowCompleted((visible) => !visible)}>{showCompleted ? <ChevronUp size={18} /> : <ChevronDown size={18} />}<span>{tx(completedEntries.length === 1 ? '{{count}} elemento marcado' : '{{count}} elementos marcados', { count: completedEntries.length })}</span></button>
         {showCompleted ? <div>{completedEntries.map((entry, position) => renderItem(entry, position, completedEntries))}</div> : null}
       </div> : null}
     </div>
@@ -2949,21 +2957,21 @@ function NoteEditor({ note, readOnly, onUpdate, onArchive, onRestore, onDelete, 
   const isList = note.type === 'list'
   const listItems = isList ? parseNoteList(note.content) : []
   const notificationBody = isDrawing
-    ? (note.drawing.length ? 'Tienes un dibujo guardado en esta nota.' : 'Tienes un lienzo de dibujo pendiente.')
+    ? tx(note.drawing.length ? 'Tienes un dibujo guardado en esta nota.' : 'Tienes un lienzo de dibujo pendiente.')
     : isList
-      ? (listItems.find((item) => !item.checked)?.text || 'Tienes una lista guardada en Pablo Tablet.')
-    : (note.content || 'Tienes un recordatorio en Pablo Tablet.')
+      ? (listItems.find((item) => !item.checked)?.text || tx('Tienes una lista guardada en Pablo Tablet.'))
+      : (note.content || tx('Tienes un recordatorio en Pablo Tablet.'))
 
   return (
     <div className={`note-editor note-editor-${note.type}`}>
       <div className="note-editor-actions">
-        <div className="note-colors" aria-label="Color de la nota">{colors.map((color) => <button key={color} type="button" disabled={readOnly} className={`color-dot ${color} ${note.color === color ? 'is-active' : ''}`} onClick={() => onUpdate(note.id, { color })} aria-label={`Usar color ${color}`} />)}</div>
-        {!readOnly ? <button type="button" className={`text-action ${note.pinned ? 'is-active' : ''}`} onClick={() => onUpdate(note.id, { pinned: !note.pinned })}><Pin size={16} />{note.pinned ? 'Fijada' : 'Fijar'}</button> : null}
-        <div className="editor-destructive-actions">{readOnly ? <button type="button" className="text-action" onClick={onRestore}><RotateCcw size={16} />Restaurar</button> : <button type="button" className="text-action" onClick={onArchive}><Archive size={16} />Archivar</button>}<button type="button" className="text-action danger" onClick={onDelete} aria-label="Eliminar nota"><Trash2 size={16} /></button></div>
+        <div className="note-colors" aria-label={tx('Color de la nota')}>{colors.map((color) => <button key={color} type="button" disabled={readOnly} className={`color-dot ${color} ${note.color === color ? 'is-active' : ''}`} onClick={() => onUpdate(note.id, { color })} aria-label={tx('Usar color {{color}}', { color })} />)}</div>
+        {!readOnly ? <button type="button" className={`text-action ${note.pinned ? 'is-active' : ''}`} onClick={() => onUpdate(note.id, { pinned: !note.pinned })}><Pin size={16} />{tx(note.pinned ? 'Fijada' : 'Fijar')}</button> : null}
+        <div className="editor-destructive-actions">{readOnly ? <button type="button" className="text-action" onClick={onRestore}><RotateCcw size={16} />{tx('Restaurar')}</button> : <button type="button" className="text-action" onClick={onArchive}><Archive size={16} />{tx('Archivar')}</button>}<button type="button" className="text-action danger" onClick={onDelete} aria-label={tx('Eliminar nota')}><Trash2 size={16} /></button></div>
       </div>
       <div className="note-editor-heading">
-        <input className="note-title-input" value={note.title} maxLength={80} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { title: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder="Título de la nota" aria-label="Título de la nota" />
-        <span className={`note-format-badge is-${note.type}`}>{isDrawing ? <Pencil size={15} /> : isList ? <ListTodo size={15} /> : <FileText size={15} />}{isDrawing ? 'Dibujo' : isList ? 'Lista' : 'Texto'}</span>
+        <input className="note-title-input" value={note.title} maxLength={80} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { title: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder={tx('Título de la nota')} aria-label={tx('Título de la nota')} />
+        <span className={`note-format-badge is-${note.type}`}>{isDrawing ? <Pencil size={15} /> : isList ? <ListTodo size={15} /> : <FileText size={15} />}{tx(isDrawing ? 'Dibujo' : isList ? 'Lista' : 'Texto')}</span>
       </div>
       <div className={`note-editor-body is-${note.type}`}>
         {isDrawing
@@ -2972,7 +2980,7 @@ function NoteEditor({ note, readOnly, onUpdate, onArchive, onRestore, onDelete, 
             ? <NoteListEditor key={note.id} note={note} readOnly={readOnly} onUpdate={onUpdate} onEditingChange={onEditingChange} />
             : <NoteTextEditor note={note} readOnly={readOnly} onUpdate={onUpdate} onEditingChange={onEditingChange} />}
       </div>
-      <div className="note-editor-footer">{readOnly ? <span>Nota archivada</span> : <span className="reminder-controls"><label>Recordatorio<input type="datetime-local" value={note.reminderAt ?? ''} onChange={(event) => onUpdate(note.id, { reminderAt: event.target.value || null })} /></label><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || 'Recordatorio', notificationBody)}><BellRing size={15} />Probar aviso</button></span>}<span>{isDrawing ? `${note.drawing.length} trazos · Dibujo local` : isList ? `${listItems.filter((item) => item.checked).length}/${listItems.length} marcados · Guardado local` : `${note.content.length}/2000 · Guardado local`}</span></div>
+      <div className="note-editor-footer">{readOnly ? <span>{tx('Nota archivada')}</span> : <span className="reminder-controls"><label>{tx('Recordatorio')}<input type="datetime-local" value={note.reminderAt ?? ''} onChange={(event) => onUpdate(note.id, { reminderAt: event.target.value || null })} /></label><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || tx('Recordatorio'), notificationBody)}><BellRing size={15} />{tx('Probar aviso')}</button></span>}<span>{isDrawing ? tx('{{count}} trazos · Dibujo local', { count: note.drawing.length }) : isList ? tx('{{checked}}/{{count}} marcados · Guardado local', { checked: listItems.filter((item) => item.checked).length, count: listItems.length }) : tx('{{count}}/2000 · Guardado local', { count: note.content.length })}</span></div>
     </div>
   )
 }

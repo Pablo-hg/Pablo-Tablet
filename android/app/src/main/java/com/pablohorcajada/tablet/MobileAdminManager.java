@@ -52,7 +52,7 @@ final class MobileAdminManager {
     private MobileAdminManager(Context context) {
         this.context = context;
         PabloTabletDatabase database = PabloTabletDatabase.get(context);
-        repository = new MobileAdminRepository(database);
+        repository = new MobileAdminRepository(context, database);
         pairingRateLimiter = new MobilePairingRateLimiter();
         maintenanceExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
             Thread thread = new Thread(runnable, "mobile-admin-maintenance");
@@ -148,7 +148,7 @@ final class MobileAdminManager {
 
     synchronized String pairingBaseAddress() {
         String address = localAddress();
-        if (address == null) throw new IllegalStateException("Activa el acceso móvil y conecta la tablet a una Wi-Fi privada.");
+        if (address == null) throw new IllegalStateException(AppLocale.text(context, R.string.error_mobile_admin_pairing_network));
         return address;
     }
 
@@ -183,7 +183,7 @@ final class MobileAdminManager {
             });
             networkCallbackRegistered = true;
         } catch (RuntimeException error) {
-            synchronized (this) { lastError = "No se pudieron vigilar los cambios de red."; }
+            synchronized (this) { lastError = AppLocale.text(context, R.string.error_mobile_admin_watch_network); }
         }
     }
 
@@ -202,7 +202,7 @@ final class MobileAdminManager {
         if (!networkCallbackRegistered) {
             updateObservedBinding(null);
             stopServer();
-            lastError = "No se pueden vigilar los cambios de red; el servidor se mantiene detenido por seguridad.";
+            lastError = AppLocale.text(context, R.string.error_mobile_admin_network_safety);
             return;
         }
 
@@ -229,7 +229,7 @@ final class MobileAdminManager {
             registerMdns(binding.network);
         } catch (IOException | RuntimeException error) {
             stopServer();
-            lastError = "No se pudo limitar el servidor a la Wi-Fi privada: " + safeMessage(error);
+            lastError = AppLocale.text(context, R.string.error_mobile_admin_bind, safeMessage(error));
         }
     }
 
@@ -244,29 +244,29 @@ final class MobileAdminManager {
     private WifiBinding activePrivateWifiBinding() {
         networkError = null;
         if (connectivityManager == null) {
-            networkError = "Android no permite consultar la red activa; el servidor se mantiene detenido.";
+            networkError = AppLocale.text(context, R.string.error_mobile_admin_network_unavailable);
             return null;
         }
         Network network = connectivityManager.getActiveNetwork();
         if (network == null) {
-            networkError = "La tablet no está conectada a una red Wi-Fi.";
+            networkError = AppLocale.text(context, R.string.error_mobile_admin_wifi_disconnected);
             return null;
         }
         NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
         if (capabilities == null || !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-            networkError = "La conexión activa no es una red Wi-Fi privada.";
+            networkError = AppLocale.text(context, R.string.error_mobile_admin_wifi_not_private);
             return null;
         }
         LinkProperties properties = connectivityManager.getLinkProperties(network);
         if (properties == null) {
-            networkError = "Android todavía no ha proporcionado una dirección para esta Wi-Fi.";
+            networkError = AppLocale.text(context, R.string.error_mobile_admin_wifi_address_pending);
             return null;
         }
         for (LinkAddress linkAddress : properties.getLinkAddresses()) {
             InetAddress address = linkAddress.getAddress();
             if (MobileAdminNetworkPolicy.isAllowedPrivateIpv4(address)) return new WifiBinding(network, address.getHostAddress());
         }
-        networkError = "La Wi-Fi actual no tiene una dirección IPv4 privada disponible.";
+        networkError = AppLocale.text(context, R.string.error_mobile_admin_wifi_ipv4);
         return null;
     }
 
@@ -293,7 +293,7 @@ final class MobileAdminManager {
         discoveryError = null;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
         if (nsdManager == null) {
-            discoveryError = "El servidor está activo por IP, pero Android no permite publicar el servicio local.";
+            discoveryError = AppLocale.text(context, R.string.error_mobile_admin_mdns_unavailable);
             return;
         }
 
@@ -315,7 +315,7 @@ final class MobileAdminManager {
                 synchronized (MobileAdminManager.this) {
                     if (registrationListener != this) return;
                     registrationListener = null;
-                    discoveryError = "El servidor está activo por IP, pero no se pudo publicar mediante mDNS (" + errorCode + ").";
+                    discoveryError = AppLocale.text(context, R.string.error_mobile_admin_mdns_code, errorCode);
                 }
                 notifyStatusChanged();
             }
@@ -329,7 +329,7 @@ final class MobileAdminManager {
             nsdManager.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, context.getMainExecutor(), listener);
         } catch (RuntimeException error) {
             registrationListener = null;
-            discoveryError = "El servidor está activo por IP, pero no se pudo publicar mediante mDNS.";
+            discoveryError = AppLocale.text(context, R.string.error_mobile_admin_mdns);
             notifyStatusChanged();
         }
     }
@@ -344,9 +344,9 @@ final class MobileAdminManager {
         } catch (IllegalArgumentException ignored) { }
     }
 
-    private static String safeMessage(Exception error) {
+    private String safeMessage(Exception error) {
         String message = error.getMessage();
-        return message == null || message.trim().isEmpty() ? "error de red desconocido" : message;
+        return message == null || message.trim().isEmpty() ? AppLocale.text(context, R.string.error_mobile_admin_unknown_network) : message;
     }
 
     private static final class WifiBinding {

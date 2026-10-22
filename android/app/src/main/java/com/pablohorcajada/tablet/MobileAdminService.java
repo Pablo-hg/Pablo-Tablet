@@ -46,14 +46,14 @@ public final class MobileAdminService extends Service {
         try {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(manager.statusSnapshot()), foregroundType);
         } catch (RuntimeException error) {
-            manager.reportLifecycleError("Android no pudo mostrar la notificación del servicio de administración móvil.");
+            manager.reportLifecycleError(AppLocale.text(this, R.string.error_mobile_admin_notification_failed));
             stopSelf(startId);
             return START_NOT_STICKY;
         }
         if (notificationManager != null
             && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
             && !notificationManager.areNotificationsEnabled()) {
-            manager.reportLifecycleError("El servicio está activo, pero Android oculta su notificación. Permítela en los ajustes de la aplicación.");
+            manager.reportLifecycleError(AppLocale.text(this, R.string.error_mobile_admin_notification_hidden));
         } else {
             manager.clearLifecycleError();
         }
@@ -80,10 +80,10 @@ public final class MobileAdminService extends Service {
         if (notificationManager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationChannel channel = new NotificationChannel(
             CHANNEL_ID,
-            getString(R.string.mobile_admin_channel_name),
+            AppLocale.text(this, R.string.mobile_admin_channel_name),
             NotificationManager.IMPORTANCE_LOW
         );
-        channel.setDescription(getString(R.string.mobile_admin_notification_waiting));
+        channel.setDescription(AppLocale.text(this, R.string.mobile_admin_notification_waiting));
         channel.setShowBadge(false);
         notificationManager.createNotificationChannel(channel);
     }
@@ -103,13 +103,13 @@ public final class MobileAdminService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         String content = snapshot.localAddress != null
-            ? getString(R.string.mobile_admin_notification_available, snapshot.localAddress)
+            ? AppLocale.text(this, R.string.mobile_admin_notification_available, snapshot.localAddress)
             : snapshot.error == null
-                ? getString(R.string.mobile_admin_notification_waiting)
+                ? AppLocale.text(this, R.string.mobile_admin_notification_waiting)
                 : snapshot.error;
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_mobile_admin)
-            .setContentTitle(getString(R.string.mobile_admin_notification_title))
+            .setContentTitle(AppLocale.text(this, R.string.mobile_admin_notification_title))
             .setContentText(content)
             .setContentIntent(contentIntent)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)

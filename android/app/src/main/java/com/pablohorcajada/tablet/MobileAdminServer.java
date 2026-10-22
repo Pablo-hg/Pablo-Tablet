@@ -40,7 +40,7 @@ final class MobileAdminServer extends NanoWSD {
         this.database = database;
         this.repository = repository;
         this.pairingRateLimiter = pairingRateLimiter;
-        this.feedbackRelay = new FeedbackRelayClient(BuildConfig.FEEDBACK_RELAY_URL, BuildConfig.FEEDBACK_RELAY_KEY);
+        this.feedbackRelay = new FeedbackRelayClient(this.context, BuildConfig.FEEDBACK_RELAY_URL, BuildConfig.FEEDBACK_RELAY_KEY);
     }
 
     @Override
@@ -55,7 +55,7 @@ final class MobileAdminServer extends NanoWSD {
             if (path.startsWith("/api/pair/request/") && session.getMethod() == Method.GET) return readPairingRequest(session, path);
             if (path.startsWith("/api/")) {
                 MobileAdminRepository.Device device = authenticate(session);
-                if (device == null) return error(Response.Status.UNAUTHORIZED, "La credencial de este móvil no es válida.");
+                if (device == null) return error(Response.Status.UNAUTHORIZED, AppLocale.text(context, R.string.error_mobile_credential_invalid));
                 if ("/api/state".equals(path) && session.getMethod() == Method.GET) return readState(device);
                 if ("/api/state".equals(path) && session.getMethod() == Method.PUT) return writeState(session, device);
                 if ("/api/feedback".equals(path) && session.getMethod() == Method.GET) return readFeedback(device);
@@ -64,7 +64,7 @@ final class MobileAdminServer extends NanoWSD {
                 if (path.matches("/api/feedback/[^/]+/retry") && session.getMethod() == Method.POST) return retryFeedback(path, device);
                 if ("/api/photos".equals(path) && session.getMethod() == Method.POST) return uploadPhoto(session, device);
                 if (path.startsWith("/api/photos/") && session.getMethod() == Method.GET) return readPhoto(path.substring("/api/photos/".length()));
-                return error(Response.Status.NOT_FOUND, "La operación solicitada no existe.");
+                return error(Response.Status.NOT_FOUND, AppLocale.text(context, R.string.error_mobile_operation_missing));
             }
             return serveAsset(path);
         } catch (MobileAdminRepository.PairingCapacityException error) {
@@ -74,7 +74,7 @@ final class MobileAdminServer extends NanoWSD {
         } catch (IllegalArgumentException error) {
             return error(Response.Status.BAD_REQUEST, error.getMessage());
         } catch (Exception error) {
-            return error(Response.Status.INTERNAL_ERROR, "No se pudo completar la operación en la tablet.");
+            return error(Response.Status.INTERNAL_ERROR, AppLocale.text(context, R.string.error_mobile_operation_failed));
         }
     }
 
@@ -142,7 +142,7 @@ final class MobileAdminServer extends NanoWSD {
     private Response readPairingRequest(IHTTPSession session, String path) throws Exception {
         String requestId = path.substring("/api/pair/request/".length());
         String pairingToken = session.getParms().get("pairingToken");
-        if (pairingToken == null) throw new SecurityException("Falta el token temporal de vinculación.");
+        if (pairingToken == null) throw new SecurityException(AppLocale.text(context, R.string.error_mobile_pairing_token_missing));
         return json(Response.Status.OK, repository.pairingResult(requestId, pairingToken));
     }
 
@@ -158,9 +158,9 @@ final class MobileAdminServer extends NanoWSD {
     private Response writeState(IHTTPSession session, MobileAdminRepository.Device device) throws Exception {
         JSONObject body = readJsonBody(session);
         JSONObject state = body.optJSONObject("state");
-        if (state == null) throw new IllegalArgumentException("El estado enviado no es válido.");
+        if (state == null) throw new IllegalArgumentException(AppLocale.text(context, R.string.error_mobile_state_invalid));
         String serialized = state.toString();
-        if (serialized.getBytes(StandardCharsets.UTF_8).length > MAX_JSON_BYTES) throw new IllegalArgumentException("Los datos enviados son demasiado grandes.");
+        if (serialized.getBytes(StandardCharsets.UTF_8).length > MAX_JSON_BYTES) throw new IllegalArgumentException(AppLocale.text(context, R.string.error_mobile_data_too_large));
         long updatedAt = database.writeStorage(PabloTabletDatabase.DASHBOARD_KEY, serialized);
         broadcastStateChanged(updatedAt);
         return json(Response.Status.OK, new JSONObject().put("updatedAt", updatedAt).put("changedBy", device.id));
@@ -186,7 +186,7 @@ final class MobileAdminServer extends NanoWSD {
         String feedbackId = path.substring(prefix.length(), path.length() - "/retry".length());
         JSONObject report = repository.feedbackJson(feedbackId, device.id);
         if ("sent".equals(report.optString("status"))) return json(Response.Status.OK, new JSONObject().put("report", report));
-        if (!feedbackRelay.isConfigured()) throw new IllegalArgumentException("El servicio seguro de GitHub todavía no está configurado.");
+        if (!feedbackRelay.isConfigured()) throw new IllegalArgumentException(AppLocale.text(context, R.string.error_feedback_github_not_configured));
         return json(Response.Status.OK, new JSONObject().put("report", deliverFeedback(report, device)));
     }
 
@@ -194,13 +194,13 @@ final class MobileAdminServer extends NanoWSD {
         String prefix = "/api/feedback/";
         String feedbackId = path.substring(prefix.length(), path.length() - "/refresh".length());
         JSONObject report = repository.feedbackJson(feedbackId, device.id);
-        if (!feedbackRelay.isConfigured()) throw new IllegalArgumentException("El seguimiento remoto todavía no está configurado.");
-        if (report.isNull("githubIssueNumber")) throw new IllegalArgumentException("El comentario todavía no se ha enviado.");
+        if (!feedbackRelay.isConfigured()) throw new IllegalArgumentException(AppLocale.text(context, R.string.error_feedback_tracking_not_configured));
+        if (report.isNull("githubIssueNumber")) throw new IllegalArgumentException(AppLocale.text(context, R.string.error_feedback_not_sent));
         try {
             FeedbackRelayClient.Result result = feedbackRelay.status(report);
             applyRelayStatus(report.getString("id"), device, result);
         } catch (Exception error) {
-            throw new IllegalArgumentException("No se pudo actualizar el estado: " + error.getMessage());
+            throw new IllegalArgumentException(AppLocale.text(context, R.string.error_feedback_status_update, error.getMessage()));
         }
         return json(Response.Status.OK, new JSONObject().put("report", repository.feedbackJson(feedbackId, device.id)));
     }
@@ -222,16 +222,16 @@ final class MobileAdminServer extends NanoWSD {
 
     private Response uploadPhoto(IHTTPSession session, MobileAdminRepository.Device device) throws Exception {
         int length = contentLength(session);
-        if (length <= 0) throw new IllegalArgumentException("No se recibió ninguna imagen.");
-        if (length > MAX_PHOTO_BYTES) return error(Response.Status.PAYLOAD_TOO_LARGE, "La imagen supera el límite de 30 MB.");
+        if (length <= 0) throw new IllegalArgumentException(AppLocale.text(context, R.string.error_photo_missing));
+        if (length > MAX_PHOTO_BYTES) return error(Response.Status.PAYLOAD_TOO_LARGE, AppLocale.text(context, R.string.error_photo_too_large));
         String mime = session.getHeaders().get("content-type");
-        if (mime == null || !mime.toLowerCase().startsWith("image/")) return error(Response.Status.UNSUPPORTED_MEDIA_TYPE, "El archivo debe ser una imagen.");
+        if (mime == null || !mime.toLowerCase().startsWith("image/")) return error(Response.Status.UNSUPPORTED_MEDIA_TYPE, AppLocale.text(context, R.string.error_photo_type));
 
         String encodedName = session.getHeaders().get("x-file-name");
-        String originalName = encodedName == null ? "Foto" : URLDecoder.decode(encodedName, "UTF-8");
+        String originalName = encodedName == null ? AppLocale.text(context, R.string.gallery_default_photo_name) : URLDecoder.decode(encodedName, "UTF-8");
         String id = UUID.randomUUID().toString();
         File gallery = new File(context.getFilesDir(), "gallery");
-        if (!gallery.exists() && !gallery.mkdirs()) throw new IOException("No se pudo preparar la galería privada.");
+        if (!gallery.exists() && !gallery.mkdirs()) throw new IOException(AppLocale.text(context, R.string.error_photo_gallery_prepare));
         File destination = new File(gallery, id + extensionFor(originalName, mime));
         copyExact(session.getInputStream(), destination, length);
 
@@ -256,9 +256,9 @@ final class MobileAdminServer extends NanoWSD {
 
     private Response readPhoto(String photoId) throws Exception {
         PabloTabletDatabase.StorageRecord record = database.readStorage(PabloTabletDatabase.DASHBOARD_KEY);
-        if (record.value == null) return error(Response.Status.NOT_FOUND, "La foto no existe.");
+        if (record.value == null) return error(Response.Status.NOT_FOUND, AppLocale.text(context, R.string.error_photo_not_found));
         JSONArray photos = new JSONObject(record.value).optJSONArray("galleryPhotos");
-        if (photos == null) return error(Response.Status.NOT_FOUND, "La foto no existe.");
+        if (photos == null) return error(Response.Status.NOT_FOUND, AppLocale.text(context, R.string.error_photo_not_found));
         for (int index = 0; index < photos.length(); index += 1) {
             JSONObject photo = photos.optJSONObject(index);
             if (photo == null || !photoId.equals(photo.optString("id")) || !photo.isNull("deletedAt")) continue;
@@ -267,14 +267,14 @@ final class MobileAdminServer extends NanoWSD {
             if (!file.getPath().startsWith(gallery.getPath() + File.separator) || !file.isFile()) break;
             return newFixedLengthResponse(Response.Status.OK, NanoHTTPD.getMimeTypeForFile(file.getName()), new FileInputStream(file), file.length());
         }
-        return error(Response.Status.NOT_FOUND, "La foto no existe o está en la papelera.");
+        return error(Response.Status.NOT_FOUND, AppLocale.text(context, R.string.error_photo_not_available));
     }
 
     private Response serveAsset(String path) {
         String assetName;
         if ("/".equals(path) || "/index.html".equals(path)) assetName = "public/mobile/index.html";
         else if (path.matches("/[a-zA-Z0-9._-]+")) assetName = "public/mobile" + path;
-        else return error(Response.Status.NOT_FOUND, "Página no encontrada.");
+        else return error(Response.Status.NOT_FOUND, AppLocale.text(context, R.string.error_page_not_found));
         try {
             InputStream stream = context.getAssets().open(assetName);
             String mime = withUtf8Charset(NanoHTTPD.getMimeTypeForFile(assetName));
@@ -284,7 +284,7 @@ final class MobileAdminServer extends NanoWSD {
             addSecurityHeaders(result);
             return result;
         } catch (IOException error) {
-            return error(Response.Status.NOT_FOUND, "Página no encontrada.");
+            return error(Response.Status.NOT_FOUND, AppLocale.text(context, R.string.error_page_not_found));
         }
     }
 
@@ -294,13 +294,13 @@ final class MobileAdminServer extends NanoWSD {
         return repository.authenticate(authorization.substring(7).trim());
     }
 
-    private static JSONObject readJsonBody(IHTTPSession session) throws Exception {
+    private JSONObject readJsonBody(IHTTPSession session) throws Exception {
         int length = contentLength(session);
-        if (length > MAX_JSON_BYTES) throw new IllegalArgumentException("Los datos enviados son demasiado grandes.");
+        if (length > MAX_JSON_BYTES) throw new IllegalArgumentException(AppLocale.text(context, R.string.error_mobile_data_too_large));
         Map<String, String> files = new java.util.HashMap<>();
         session.parseBody(files);
         String raw = files.get("postData");
-        if (raw == null || raw.trim().isEmpty()) throw new IllegalArgumentException("Faltan los datos de la solicitud.");
+        if (raw == null || raw.trim().isEmpty()) throw new IllegalArgumentException(AppLocale.text(context, R.string.error_request_body_missing));
         return new JSONObject(raw);
     }
 
@@ -313,13 +313,13 @@ final class MobileAdminServer extends NanoWSD {
         }
     }
 
-    private static void copyExact(InputStream source, File destination, int length) throws IOException {
+    private void copyExact(InputStream source, File destination, int length) throws IOException {
         int remaining = length;
         byte[] buffer = new byte[32 * 1024];
         try (FileOutputStream output = new FileOutputStream(destination)) {
             while (remaining > 0) {
                 int read = source.read(buffer, 0, Math.min(buffer.length, remaining));
-                if (read < 0) throw new IOException("La imagen se recibió incompleta.");
+                if (read < 0) throw new IOException(AppLocale.text(context, R.string.error_photo_incomplete));
                 output.write(buffer, 0, read);
                 remaining -= read;
             }
@@ -341,9 +341,9 @@ final class MobileAdminServer extends NanoWSD {
         return ".jpg";
     }
 
-    private static String cleanFileName(String name) {
+    private String cleanFileName(String name) {
         String cleaned = name.replaceAll("[\\r\\n\\t]", " ").trim();
-        if (cleaned.isEmpty()) cleaned = "Foto";
+        if (cleaned.isEmpty()) cleaned = AppLocale.text(context, R.string.gallery_default_photo_name);
         return cleaned.substring(0, Math.min(cleaned.length(), 160));
     }
 
@@ -366,17 +366,17 @@ final class MobileAdminServer extends NanoWSD {
         return response(status, "application/json; charset=utf-8", value.toString());
     }
 
-    private static Response error(Response.Status status, String message) {
+    private Response error(Response.Status status, String message) {
         JSONObject body = new JSONObject();
-        try { body.put("error", message == null ? "Error desconocido." : message); } catch (Exception ignored) { }
+        try { body.put("error", message == null ? AppLocale.text(context, R.string.error_unknown) : message); } catch (Exception ignored) { }
         return json(status, body);
     }
 
-    private static Response tooManyRequests(int retryAfterSeconds) {
+    private Response tooManyRequests(int retryAfterSeconds) {
         int retry = Math.max(1, retryAfterSeconds);
         JSONObject body = new JSONObject();
         try {
-            body.put("error", "Demasiados intentos de vinculación. Inténtalo de nuevo en " + retry + " segundos.");
+            body.put("error", AppLocale.text(context, R.string.error_pairing_too_many_attempts, retry));
             body.put("retryAfterSeconds", retry);
         } catch (Exception ignored) { }
         Response result = json(Response.Status.TOO_MANY_REQUESTS, body);
@@ -411,7 +411,7 @@ final class MobileAdminServer extends NanoWSD {
         @Override protected void onOpen() {
             synchronized (socketAuthorizationLock) {
                 if (!repository.isDeviceActive(deviceId)) {
-                    try { close(WebSocketFrame.CloseCode.PolicyViolation, "Credencial no válida", false); } catch (IOException ignored) { }
+                    try { close(WebSocketFrame.CloseCode.PolicyViolation, AppLocale.text(context, R.string.error_mobile_credential_short), false); } catch (IOException ignored) { }
                     return;
                 }
                 sockets.add(this);
@@ -421,7 +421,7 @@ final class MobileAdminServer extends NanoWSD {
 
         void revokeAuthorization() {
             try { send(new JSONObject().put("type", "authorization-revoked").toString()); } catch (Exception ignored) { }
-            try { close(WebSocketFrame.CloseCode.PolicyViolation, "Acceso revocado desde la tablet", false); } catch (IOException ignored) { }
+            try { close(WebSocketFrame.CloseCode.PolicyViolation, AppLocale.text(context, R.string.error_mobile_access_revoked), false); } catch (IOException ignored) { }
             sockets.remove(this);
         }
 

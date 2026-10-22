@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+import { tx } from './i18n'
 
 export interface MobileAdminStatus {
   enabled: boolean
@@ -58,7 +59,7 @@ export function supportsMobileAdmin() {
 }
 
 export async function getMobileAdminStatus(): Promise<MobileAdminStatus> {
-  if (!supportsMobileAdmin()) return { enabled: false, running: false, port: 8765, localAddress: null, hostname: null, networkGeneration: 0, error: 'Disponible al ejecutar la app Android.', serviceState: 'disabled' }
+  if (!supportsMobileAdmin()) return { enabled: false, running: false, port: 8765, localAddress: null, hostname: null, networkGeneration: 0, error: tx('Disponible al ejecutar la app Android.'), serviceState: 'disabled' }
   return NativeMobileAdmin.getStatus()
 }
 
@@ -73,7 +74,7 @@ export async function setMobileAdminEnabled(enabled: boolean): Promise<MobileAdm
 }
 
 export async function createMobilePairing() {
-  if (!supportsMobileAdmin()) throw new Error('El emparejamiento solo está disponible en la tablet Android.')
+  if (!supportsMobileAdmin()) throw new Error(tx('El emparejamiento solo está disponible en la tablet Android.'))
   return NativeMobileAdmin.createPairing()
 }
 

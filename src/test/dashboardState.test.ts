@@ -49,6 +49,12 @@ describe('migraciones del estado', () => {
     expect(loadDashboardState(JSON.stringify({ preferences: { autoRotate: false } })).preferences.autoRotate).toBe(false)
   })
 
+  it('conserva idiomas compatibles y usa español ante valores desconocidos', () => {
+    expect(loadDashboardState(JSON.stringify({ preferences: { language: 'en' } })).preferences.language).toBe('en')
+    expect(loadDashboardState(JSON.stringify({ preferences: { language: 'fr' } })).preferences.language).toBe('es')
+    expect(loadDashboardState().preferences.language).toBe('es')
+  })
+
   it('conserva temas válidos y descarta identificadores desconocidos', () => {
     expect(loadDashboardState(JSON.stringify({ preferences: { themeId: 'retro' } })).preferences.themeId).toBe('retro')
     expect(loadDashboardState(JSON.stringify({ preferences: { themeId: 'inexistente' } })).preferences.themeId).toBe('original')

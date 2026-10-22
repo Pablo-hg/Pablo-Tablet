@@ -3,6 +3,7 @@ import { LocalNotifications, Weekday, type LocalNotificationSchema } from '@capa
 import { alarmChannelId, configureAlarmChannel, configureAlertChannel } from './alarmSounds'
 import type { Alarm, CalendarEvent, Note, Timer } from './dashboardState'
 import { checkNotificationPermissionStatus } from './notificationPermissions'
+import { activeLocale, tx } from './i18n'
 
 const REMINDER_SOURCE = 'pablo-tablet-note'
 const ALARM_SOURCE = 'pablo-tablet-alarm'
@@ -90,8 +91,8 @@ export async function syncReminderNotifications(notes: Note[]) {
       .filter((note) => !note.archived && note.reminderAt && new Date(note.reminderAt).getTime() > now)
       .map((note) => ({
         id: notificationId(note.id),
-        title: note.title.trim() || 'Recordatorio',
-        body: note.content.trim() || 'Tienes un recordatorio en Pablo Tablet.',
+        title: note.title.trim() || tx('Recordatorio'),
+        body: note.content.trim() || tx('Tienes un recordatorio en Pablo Tablet.'),
         schedule: { at: new Date(note.reminderAt as string), allowWhileIdle: true },
         extra: { source: REMINDER_SOURCE, noteId: note.id },
       }))
@@ -119,8 +120,8 @@ export async function syncAlarmNotifications(alarms: Alarm[]) {
       const [hour, minute] = alarm.time.split(':').map(Number)
       return alarm.weekdays.map((weekday) => ({
         id: notificationId(`alarm:${alarm.id}:${weekday}`),
-        title: alarm.label.trim() || 'Alarma',
-        body: `Alarma programada para las ${alarm.time}.`,
+        title: alarm.label.trim() || tx('Alarma'),
+        body: tx('Alarma programada para las {{time}}.', { time: alarm.time }),
         channelId: channels.get(alarm.id),
         schedule: { on: { weekday: weekday as Weekday, hour, minute }, allowWhileIdle: true },
         extra: { source: ALARM_SOURCE, kind: 'alarm', alarmId: alarm.id, weekday },
@@ -164,17 +165,17 @@ export async function syncCalendarEventNotifications(events: CalendarEvent[]) {
   if (!Capacitor.isNativePlatform()) return
 
   try {
-    await configureAlertChannel(CALENDAR_EVENT_CHANNEL, 'Recordatorios del calendario', null, true)
+    await configureAlertChannel(CALENDAR_EVENT_CHANNEL, tx('Recordatorios del calendario'), null, true)
     const now = Date.now()
     const activeEvents = events.filter((event) => event.type !== 'task' || !event.completed)
     const activeEventIds = new Set(activeEvents.map((event) => event.id))
     const candidates = activeEvents.flatMap((event) => event.reminders.flatMap((reminder) => calendarReminderOccurrences(event, reminder).flatMap(({ index, occurrenceDate, at }) => {
       if (at.getTime() <= now) return []
-      const eventDate = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(`${occurrenceDate}T12:00:00`))
+      const eventDate = new Intl.DateTimeFormat(activeLocale(), { day: 'numeric', month: 'long' }).format(new Date(`${occurrenceDate}T12:00:00`))
       return [{
         id: notificationId(`calendar:${event.id}:${reminder.id}:${index}`),
-        title: event.title.trim() || 'Evento del calendario',
-        body: event.allDay ? `Empieza el ${eventDate}.` : `Empieza el ${eventDate} a las ${event.startTime}.`,
+        title: event.title.trim() || tx('Evento del calendario'),
+        body: event.allDay ? tx('Empieza el {{date}}.', { date: eventDate }) : tx('Empieza el {{date}} a las {{time}}.', { date: eventDate, time: event.startTime }),
         channelId: CALENDAR_EVENT_CHANNEL,
         schedule: { at, allowWhileIdle: true },
         extra: { source: CALENDAR_EVENT_SOURCE, kind: 'calendar', calendarEventId: event.id, calendarReminderId: reminder.id, recurrenceIndex: index },
@@ -207,8 +208,8 @@ export async function snoozeAlarmNotification(alarm: Alarm, minutes: number) {
   const channelId = await configureAlarmChannel(alarm) ?? alarmChannelId(alarm.id)
   await LocalNotifications.schedule({ notifications: [{
     id: notificationId(`snooze:${alarm.id}:${Date.now()}`),
-    title: alarm.label.trim() || 'Alarma',
-    body: `Alarma pospuesta ${minutes} min.`,
+    title: alarm.label.trim() || tx('Alarma'),
+    body: tx('Alarma pospuesta {{count}} min.', { count: minutes }),
     channelId,
     isExactNotification: access.exact,
     schedule: { at: new Date(Date.now() + minutes * 60_000), allowWhileIdle: true },
@@ -220,12 +221,12 @@ export async function snoozeCalendarEventNotification(event: CalendarEvent, minu
   if (!Capacitor.isNativePlatform()) return
   const access = await schedulingAccess()
   if (!access) return
-  await configureAlertChannel(CALENDAR_EVENT_CHANNEL, 'Recordatorios del calendario', null, true)
-  const eventDate = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(`${event.date}T12:00:00`))
+  await configureAlertChannel(CALENDAR_EVENT_CHANNEL, tx('Recordatorios del calendario'), null, true)
+  const eventDate = new Intl.DateTimeFormat(activeLocale(), { day: 'numeric', month: 'long' }).format(new Date(`${event.date}T12:00:00`))
   await LocalNotifications.schedule({ notifications: [{
     id: notificationId(`calendar-snooze:${event.id}:${Date.now()}`),
-    title: event.title.trim() || 'Recordatorio del calendario',
-    body: event.allDay ? `Empieza el ${eventDate}.` : `Empieza el ${eventDate} a las ${event.startTime}.`,
+    title: event.title.trim() || tx('Recordatorio del calendario'),
+    body: event.allDay ? tx('Empieza el {{date}}.', { date: eventDate }) : tx('Empieza el {{date}} a las {{time}}.', { date: eventDate, time: event.startTime }),
     channelId: CALENDAR_EVENT_CHANNEL,
     isExactNotification: access.exact,
     schedule: { at: new Date(Date.now() + minutes * 60_000), allowWhileIdle: true },
@@ -236,14 +237,14 @@ export async function snoozeCalendarEventNotification(event: CalendarEvent, minu
 export async function syncTimerNotifications(timers: Timer[]) {
   if (!Capacitor.isNativePlatform()) return
   try {
-    await configureAlertChannel(TIMER_CHANNEL, 'Temporizadores', null)
+    await configureAlertChannel(TIMER_CHANNEL, tx('Temporizadores'), null)
     const now = Date.now()
     const notifications = timers
       .filter((timer) => timer.endsAt && new Date(timer.endsAt).getTime() > now)
       .map((timer) => ({
         id: notificationId(`timer:${timer.id}`),
-        title: timer.label.trim() || 'Temporizador',
-        body: 'El temporizador ha terminado.',
+        title: timer.label.trim() || tx('Temporizador'),
+        body: tx('El temporizador ha terminado.'),
         channelId: TIMER_CHANNEL,
         schedule: { at: new Date(timer.endsAt as string), allowWhileIdle: true },
         extra: { source: TIMER_SOURCE, kind: 'timer', timerId: timer.id },
