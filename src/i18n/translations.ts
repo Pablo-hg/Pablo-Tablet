@@ -507,6 +507,7 @@ const english = {
   'Eliminar ubicación': 'Delete location',
   'Añadir ciudad o código postal': 'Add city or postcode',
   'Buscar una ubicación': 'Search for a location',
+  'Elegir ubicación guardada': 'Choose saved location',
   'No hay coincidencias.': 'No matches found.',
   'Añade tu primera ubicación': 'Add your first location',
   'Busca una ciudad arriba. La primera se guardará automáticamente como Casa.': 'Search for a city above. The first one will automatically be saved as Home.',

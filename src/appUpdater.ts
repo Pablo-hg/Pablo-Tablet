@@ -6,6 +6,12 @@ export interface InstalledAppVersion {
   currentVersionCode: number
 }
 
+export interface AppUpdateReleaseNotes {
+  versionName: string
+  releaseName: string
+  releaseNotes: string
+}
+
 export interface AppUpdateInfo {
   currentVersionName: string
   currentVersionCode: number
@@ -14,6 +20,7 @@ export interface AppUpdateInfo {
   latestVersionName: string | null
   releaseName: string | null
   releaseNotes: string | null
+  releaseHistory?: AppUpdateReleaseNotes[] | null
   publishedAt: string | null
   downloadUrl: string | null
   sha256: string | null
@@ -51,8 +58,8 @@ const AppUpdater = registerPlugin<AppUpdaterPlugin>('AppUpdater')
 
 const WEB_SIMULATION_VERSION_KEY = 'pablo-tablet.simulated-installed-version'
 const SIMULATED_PREVIOUS_VERSION = '0.4.2'
-const SIMULATED_LATEST_VERSION = '0.4.3'
-const SIMULATED_VERSION_CODE = 1043
+const SIMULATED_LATEST_VERSION = '0.4.4'
+const SIMULATED_VERSION_CODE = 1044
 const SIMULATED_ASSET_SIZE = 3_463_652
 const simulatedReleaseNotes = () => [
   tx('Notas con modos de texto, dibujo y lista interactiva reordenable.'),
@@ -83,6 +90,7 @@ const webStatus: AppUpdateInfo = {
   latestVersionName: null,
   releaseName: null,
   releaseNotes: null,
+  releaseHistory: null,
   publishedAt: null,
   downloadUrl: null,
   sha256: null,
@@ -107,6 +115,36 @@ export function resetSimulatedWebInstallation() {
   if (typeof window !== 'undefined') window.localStorage.removeItem(WEB_SIMULATION_VERSION_KEY)
 }
 
+function compareVersions(left: string, right: string) {
+  const leftParts = left.split(/[-+]/, 1)[0].split('.').map((part) => Number.parseInt(part.replace(/\D.*$/, ''), 10) || 0)
+  const rightParts = right.split(/[-+]/, 1)[0].split('.').map((part) => Number.parseInt(part.replace(/\D.*$/, ''), 10) || 0)
+  const length = Math.max(leftParts.length, rightParts.length)
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftParts[index] ?? 0) - (rightParts[index] ?? 0)
+    if (difference !== 0) return difference
+  }
+  return 0
+}
+
+export function releaseNotesForUpdate(update: AppUpdateInfo) {
+  const latestVersion = update.latestVersionName
+  const releases = (update.releaseHistory ?? [])
+    .filter((release) =>
+      latestVersion !== null &&
+      compareVersions(release.versionName, update.currentVersionName) > 0 &&
+      compareVersions(release.versionName, latestVersion) <= 0,
+    )
+    .sort((left, right) => compareVersions(left.versionName, right.versionName))
+
+  if (releases.length === 0) return update.releaseNotes
+  return releases
+    .map((release) => {
+      const notes = release.releaseNotes.replace(/^##\s+Novedades\s*/i, '').trim()
+      return `Versión ${release.versionName}\n${notes}`
+    })
+    .join('\n\n')
+}
+
 export async function checkForAppUpdate(): Promise<AppUpdateInfo> {
   if (webUpdateSimulationEnabled()) {
     const currentVersionName = simulatedInstalledVersion() ?? SIMULATED_PREVIOUS_VERSION
@@ -117,12 +155,34 @@ export async function checkForAppUpdate(): Promise<AppUpdateInfo> {
       releaseAvailable: true,
       updateAvailable,
       latestVersionName: SIMULATED_LATEST_VERSION,
-      releaseName: 'Pablo Tablet 0.4.3',
-      releaseNotes: simulatedReleaseNotes(),
-      publishedAt: '2026-10-19T00:00:00Z',
-      downloadUrl: 'https://github.com/Pablo-hg/Pablo-Tablet/releases/download/v0.4.3/Pablo-Tablet-0.4.3.apk',
+      releaseName: 'Pablo Tablet 0.4.4',
+      releaseNotes: 'Widgets y vistas mejor adaptados a pantallas compactas.',
+      releaseHistory: [
+        {
+          versionName: '0.4.1',
+          releaseName: 'Pablo Tablet 0.4.1',
+          releaseNotes: simulatedReleaseNotes(),
+        },
+        {
+          versionName: '0.4.2',
+          releaseName: 'Pablo Tablet 0.4.2',
+          releaseNotes: 'Actualizador más fiable y actualización directa a la última versión.',
+        },
+        {
+          versionName: '0.4.3',
+          releaseName: 'Pablo Tablet 0.4.3',
+          releaseNotes: 'Idiomas español e inglés y versión instalada visible en Ajustes.',
+        },
+        {
+          versionName: '0.4.4',
+          releaseName: 'Pablo Tablet 0.4.4',
+          releaseNotes: 'Widgets y vistas mejor adaptados a pantallas compactas.',
+        },
+      ],
+      publishedAt: '2026-10-22T00:00:00Z',
+      downloadUrl: 'https://github.com/Pablo-hg/Pablo-Tablet/releases/download/v0.4.4/Pablo-Tablet-0.4.4.apk',
       sha256: 'simulation-only',
-      assetName: 'Pablo-Tablet-0.4.3.apk',
+      assetName: 'Pablo-Tablet-0.4.4.apk',
       assetSize: SIMULATED_ASSET_SIZE,
     }
   }
@@ -152,7 +212,7 @@ export async function downloadAppUpdate(
     onProgress?.({ phase: 'verifying', bytesDownloaded: totalBytes, totalBytes, percent: 100 })
     await wait(700)
     onProgress?.({ phase: 'ready', bytesDownloaded: totalBytes, totalBytes, percent: 100 })
-    return { readyToInstall: true, assetName: update.assetName ?? 'Pablo-Tablet-0.4.3.apk', bytesDownloaded: totalBytes }
+    return { readyToInstall: true, assetName: update.assetName ?? 'Pablo-Tablet-0.4.4.apk', bytesDownloaded: totalBytes }
   }
   if (!appUpdatesSupported()) throw new Error('Las actualizaciones solo se pueden instalar desde la tablet Android.')
   if (!update.downloadUrl || !update.sha256 || !update.assetName) throw new Error('La Release no contiene un APK verificable.')

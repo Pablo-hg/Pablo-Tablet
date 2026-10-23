@@ -902,7 +902,11 @@ function App() {
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return
     const target = event.target as HTMLElement
-    const gestureBlocked = interactionLocked || target.closest('button, a, input, textarea, select, [role="button"], [data-swipe-block], .page-indicators')
+    const swipeSurfaceButton = target.closest('[data-page-swipe-surface]') && target.closest('button')
+    const interactiveTarget = target.closest('button, a, input, textarea, select, [role="button"]')
+    const gestureBlocked = interactionLocked
+      || target.closest('[data-swipe-block], .page-indicators')
+      || (interactiveTarget && !swipeSurfaceButton)
     if (gestureBlocked) {
       pointerStart.current = null
       return
@@ -957,8 +961,11 @@ function App() {
   const handleTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
     const target = event.target as HTMLElement
     const isNoteTextarea = Boolean(target.closest('.note-editor textarea'))
+    const swipeSurfaceButton = target.closest('[data-page-swipe-surface]') && target.closest('button')
+    const interactiveTarget = target.closest('button, a, input, select, [role="button"]')
     const gestureBlocked = (!isNoteTextarea && interactionLocked)
-      || target.closest('button, a, input, select, [role="button"], [data-swipe-block], .page-indicators')
+      || target.closest('[data-swipe-block], .page-indicators')
+      || (interactiveTarget && !swipeSurfaceButton)
       || (!isNoteTextarea && target.closest('textarea'))
     if (gestureBlocked) {
       touchStart.current = null
@@ -1700,6 +1707,8 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
 
   return <div
     className={`dashboard-widget-shell widget-size-${widget.layout.width}x${widget.layout.height} ${isEditing ? 'is-editing' : ''} ${isHolding ? 'is-holding' : ''} ${dragOffset ? 'is-dragging' : ''}`}
+    data-widget-id={widget.id}
+    data-widget-size={`${widget.layout.width}x${widget.layout.height}`}
     style={{ ...style, transform: dragOffset ? `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)` : undefined, zIndex: dragOffset ? 10 : undefined }}
     onPointerDown={(event) => isEditing ? onDragStart(widget, event) : onHoldStart(widget.id, event)}
     onPointerMove={onDragMove}
@@ -1781,13 +1790,13 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     <div className="widget-label"><span>{tx('Ahora')}</span></div>
     <time className="time">{time}{area > 1 ? <small>:{String(now.getSeconds()).padStart(2, '0')}</small> : null}</time>
     <p className="date">{date}</p>
-    {area >= 4 ? <div className="clock-details"><span><SunMedium size={20} />{tx('Que tengas un día estupendo')}</span><strong>{new Intl.DateTimeFormat(activeLocale(), { weekday: 'long' }).format(now)}</strong></div> : null}
-    {area >= 6 ? <div className="clock-day-progress"><span style={{ width: `${Math.round(((now.getHours() * 60 + now.getMinutes()) / 1440) * 100)}%` }} /></div> : null}
+    {widget.layout.height >= 2 && area >= 4 ? <div className="clock-details"><span><SunMedium size={20} />{tx('Que tengas un día estupendo')}</span><strong>{new Intl.DateTimeFormat(activeLocale(), { weekday: 'long' }).format(now)}</strong></div> : null}
+    {widget.layout.height >= 2 && area >= 6 ? <div className="clock-day-progress"><span style={{ width: `${Math.round(((now.getHours() * 60 + now.getMinutes()) / 1440) * 100)}%` }} /></div> : null}
   </article></DashboardWidgetFrame>
 
   if (widget.id === 'weather') {
-    const hourCount: Record<string, number> = { '1x1': 0, '1x2': 3, '1x3': 3, '1x4': 6, '2x1': 0, '2x2': 4, '2x3': 6, '2x4': 6, '3x1': 0, '3x2': 6, '3x3': 6, '3x4': 6 }
-    const forecastCount: Record<string, number> = { '1x1': 0, '1x2': 0, '1x3': 3, '1x4': 5, '2x1': 0, '2x2': 3, '2x3': 4, '2x4': 5, '3x1': 0, '3x2': 4, '3x3': 5, '3x4': 5 }
+    const hourCount: Record<string, number> = { '1x1': 0, '1x2': 3, '1x3': 3, '1x4': 6, '2x1': 0, '2x2': 4, '2x3': 6, '2x4': 6, '3x1': 0, '3x2': 6, '3x3': 6, '3x4': 6, '4x1': 0, '4x2': 6, '4x3': 6, '4x4': 6 }
+    const forecastCount: Record<string, number> = { '1x1': 0, '1x2': 0, '1x3': 3, '1x4': 5, '2x1': 0, '2x2': 3, '2x3': 4, '2x4': 5, '3x1': 0, '3x2': 4, '3x3': 5, '3x4': 5, '4x1': 0, '4x2': 5, '4x3': 5, '4x4': 5 }
     if (!homeWeatherLocation) return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget weather-widget-empty widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}><div className="weather-icon"><MapPin size={36} /></div><div><strong>{tx('Configura el tiempo')}</strong><span>{tx('Añade una ubicación y márcala como Casa.')}</span></div></button></DashboardWidgetFrame>
     if (!homeWeatherForecast) return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget weather-widget-empty widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}><div className="weather-icon"><RefreshCw className={weatherLoading ? 'is-spinning' : ''} size={34} /></div><div><strong>{homeWeatherLocation.name}</strong><span>{tx(weatherLoading ? 'Actualizando la previsión…' : 'Toca para volver a intentarlo.')}</span></div></button></DashboardWidgetFrame>
     const weatherHours = homeWeatherForecast.hourly
@@ -1801,7 +1810,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   }
 
   if (widget.id === 'notes') {
-    const noteCount: Record<string, number> = { '1x1': 1, '1x2': 3, '1x3': 4, '1x4': 5, '2x1': 3, '2x2': 4, '2x3': 6, '2x4': 8, '3x1': 4, '3x2': 6, '3x3': 8, '3x4': 10 }
+    const noteCount: Record<string, number> = { '1x1': 1, '1x2': 3, '1x3': 4, '1x4': 5, '2x1': 3, '2x2': 4, '2x3': 6, '2x4': 8, '3x1': 4, '3x2': 6, '3x3': 8, '3x4': 10, '4x1': 4, '4x2': 8, '4x3': 10, '4x4': 12 }
     const pinnedNotes = notes.filter((note) => note.pinned)
     const visibleNotes = [...(pinnedNotes.length > 0 ? pinnedNotes : notes)]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -1818,7 +1827,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   }
 
   const firstWeekday = (new Date(now.getFullYear(), now.getMonth(), 1).getDay() + 6) % 7
-  const dayCount: Record<string, number> = { '1x1': 7, '1x2': 14, '1x3': 21, '1x4': 42, '2x1': 7, '2x2': 28, '2x3': 42, '2x4': 42, '3x1': 21, '3x2': 35, '3x3': 42, '3x4': 42 }
+  const dayCount: Record<string, number> = { '1x1': 7, '1x2': 14, '1x3': 21, '1x4': 42, '2x1': 7, '2x2': 28, '2x3': 42, '2x4': 42, '3x1': 7, '3x2': 35, '3x3': 42, '3x4': 42, '4x1': 7, '4x2': 42, '4x3': 42, '4x4': 42 }
   const visibleDayCount = dayCount[sizeKey] ?? 7
   const showWholeMonth = visibleDayCount === 42
   const calendarStart = showWholeMonth
@@ -1834,7 +1843,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     })
     return { key, day: value.getDate(), muted: value.getMonth() !== now.getMonth(), events }
   })
-  const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 0, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 0, '3x2': 3, '3x3': 5, '3x4': 6 }
+  const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 0, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 0, '3x2': 3, '3x3': 5, '3x4': 6, '4x1': 0, '4x2': 4, '4x3': 6, '4x4': 6 }
   const showHolidaySection = showUpcomingCalendarHolidays && area >= 6 && upcomingHolidays.length > 0
   const visibleAgendaCount = showHolidaySection ? Math.max(1, (agendaCount[sizeKey] ?? 0) - 1) : agendaCount[sizeKey] ?? 0
   const calendarSubtitle = visibleDayCount === 7
@@ -2094,7 +2103,7 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
         </div>
       </div>
     </section> : <div className="calendar-layout">
-      <section className="calendar-month-panel">
+      <section className="calendar-month-panel" data-page-swipe-surface>
         <header className="calendar-toolbar">
           <div><p className="eyebrow">{tx('Agenda unificada')}</p><h1>{formatCalendarMonth(visibleMonth)}</h1></div>
           <div><button type="button" className={`calendar-hide-completed ${hideCompletedTasks ? 'is-active' : ''}`} onClick={() => onHideCompletedTasksChange(!hideCompletedTasks)} aria-pressed={hideCompletedTasks}><EyeOff size={17} /><span>{tx('Ocultar finalizados')}</span></button><button type="button" onClick={() => changeMonth(-1)} aria-label={tx('Mes anterior')}><ChevronLeft size={20} /></button><button type="button" className="calendar-today-button" onClick={goToToday}>{tx('Hoy')}</button><button type="button" onClick={() => changeMonth(1)} aria-label={tx('Mes siguiente')}><ChevronRight size={20} /></button></div>
@@ -2328,17 +2337,26 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
     <div className="fullscreen-page weather-page page-enter">
       <PageHeader pageLabel="Tiempo" />
       <section className="weather-location-manager" data-swipe-block>
-        <div className="weather-saved-locations">
-          {locations.map((location) => <div key={location.id} className={`weather-location-chip ${selectedLocation?.id === location.id ? 'is-active' : ''}`}>
-            <button type="button" onClick={() => onSelectLocation(location.id)}><MapPin size={14} /><span>{location.name}</span>{location.id === homeLocationId ? <small><Home size={11} />{tx('Casa')}</small> : null}</button>
-            {location.id !== homeLocationId ? <button type="button" className="weather-chip-action" onClick={() => onSetHomeLocation(location.id)} aria-label={tx('Establecer {{name}} como Casa', { name: location.name })} title={tx('Establecer como Casa')}><Star size={14} /></button> : null}
-            <button type="button" className="weather-chip-action is-danger" onClick={() => onRemoveLocation(location.id)} aria-label={tx('Eliminar {{name}}', { name: location.name })} title={tx('Eliminar ubicación')}><X size={14} /></button>
-          </div>)}
-        </div>
-        <div className="weather-location-search">
-          <Search size={17} />
-          <input value={query} maxLength={100} placeholder={tx('Añadir ciudad o código postal')} aria-label={tx('Buscar una ubicación')} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} onChange={(event) => { const value = event.target.value; setQuery(value); if (value.trim().length < 2) { setResults([]); setSearchError(''); setIsSearching(false) } }} />
-          {isSearching ? <RefreshCw className="is-spinning" size={16} /> : null}
+        <div className="weather-location-toolbar">
+          {locations.length > 3 && selectedLocation ? <div className="weather-location-selector">
+            <MapPin size={16} />
+            <select value={selectedLocation.id} onChange={(event) => onSelectLocation(event.target.value)} aria-label={tx('Elegir ubicación guardada')}>
+              {locations.map((location) => <option key={location.id} value={location.id}>{location.name}{location.id === homeLocationId ? ` · ${tx('Casa')}` : ''}</option>)}
+            </select>
+            {selectedLocation.id !== homeLocationId ? <button type="button" className="weather-selector-action" onClick={() => onSetHomeLocation(selectedLocation.id)} aria-label={tx('Establecer {{name}} como Casa', { name: selectedLocation.name })} title={tx('Establecer como Casa')}><Star size={15} /></button> : <span className="weather-home-badge"><Home size={12} />{tx('Casa')}</span>}
+            <button type="button" className="weather-selector-action is-danger" onClick={() => onRemoveLocation(selectedLocation.id)} aria-label={tx('Eliminar {{name}}', { name: selectedLocation.name })} title={tx('Eliminar ubicación')}><X size={15} /></button>
+          </div> : <div className="weather-saved-locations">
+            {locations.map((location) => <div key={location.id} className={`weather-location-chip ${selectedLocation?.id === location.id ? 'is-active' : ''}`}>
+              <button type="button" onClick={() => onSelectLocation(location.id)}><MapPin size={14} /><span>{location.name}</span>{location.id === homeLocationId ? <small><Home size={11} />{tx('Casa')}</small> : null}</button>
+              {location.id !== homeLocationId ? <button type="button" className="weather-chip-action" onClick={() => onSetHomeLocation(location.id)} aria-label={tx('Establecer {{name}} como Casa', { name: location.name })} title={tx('Establecer como Casa')}><Star size={14} /></button> : null}
+              <button type="button" className="weather-chip-action is-danger" onClick={() => onRemoveLocation(location.id)} aria-label={tx('Eliminar {{name}}', { name: location.name })} title={tx('Eliminar ubicación')}><X size={14} /></button>
+            </div>)}
+          </div>}
+          <div className="weather-location-search">
+            <Search size={17} />
+            <input value={query} maxLength={100} placeholder={tx('Añadir ciudad o código postal')} aria-label={tx('Buscar una ubicación')} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} onChange={(event) => { const value = event.target.value; setQuery(value); if (value.trim().length < 2) { setResults([]); setSearchError(''); setIsSearching(false) } }} />
+            {isSearching ? <RefreshCw className="is-spinning" size={16} /> : null}
+          </div>
         </div>
         {query.trim().length >= 2 ? <div className="weather-search-results">
           {searchError ? <p className="weather-inline-error">{searchError}</p> : null}
