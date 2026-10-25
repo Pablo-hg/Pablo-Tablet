@@ -12,7 +12,14 @@
     "test:coverage": "vitest run --coverage",
     "preview": "vite preview",
     "android:sync": "npm run build && cap sync android",
-    "android:open": "cap open android"
+    "android:open": "cap open android",
+    "release:check": "node scripts/release/cli.mjs check",
+    "release:prepare": "node scripts/release/cli.mjs prepare",
+    "release:validate": "node scripts/release/cli.mjs validate",
+    "release:submit": "node scripts/release/cli.mjs submit",
+    "release:merge": "node scripts/release/cli.mjs merge",
+    "release:publish": "node scripts/release/cli.mjs publish",
+    "release:verify": "node scripts/release/cli.mjs verify"
   },
   "dependencies": {
     "@capacitor-community/text-to-speech": "^8.0.2",

@@ -77,6 +77,10 @@ jobs:
       - name: Ejecutar pruebas
         run: npm test
 
+      - name: Probar automatizador de publicaciones
+        if: ${{ hashFiles('scripts/release/cli.node-test.mjs') != '' }}
+        run: node --test scripts/release/cli.node-test.mjs
+
       - name: Compilar la aplicación web
         run: npm run build
 
