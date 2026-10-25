@@ -1,5 +1,8 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
-import { tx } from './i18n'
+import releaseNotes041 from '../.github/release-notes/v0.4.1.md?raw'
+import releaseNotes042 from '../.github/release-notes/v0.4.2.md?raw'
+import releaseNotes043 from '../.github/release-notes/v0.4.3.md?raw'
+import releaseNotes044 from '../.github/release-notes/v0.4.4.md?raw'
 
 export interface InstalledAppVersion {
   currentVersionName: string
@@ -61,16 +64,10 @@ const SIMULATED_PREVIOUS_VERSION = '0.4.2'
 const SIMULATED_LATEST_VERSION = '0.4.4'
 const SIMULATED_VERSION_CODE = 1044
 const SIMULATED_ASSET_SIZE = 3_463_652
-const simulatedReleaseNotes = () => [
-  tx('Notas con modos de texto, dibujo y lista interactiva reordenable.'),
-  tx('Festivos separados de las citas y eventos personales de Tu agenda.'),
-  tx('Fila Todo el día en la vista horaria y próximos festivos configurables.'),
-  tx('Indicador del dock animado al navegar entre páginas adyacentes.'),
-].join('\n')
 
 function simulatedStartingVersion() {
   if (typeof window === 'undefined' || !import.meta.env.DEV || Capacitor.getPlatform() !== 'web') return null
-  return new URLSearchParams(window.location.search).get('simulate-update')
+  return new URLSearchParams(window.location.search).get('simulate-update') ?? SIMULATED_LATEST_VERSION
 }
 
 function simulatedInstalledVersion() {
@@ -139,10 +136,27 @@ export function releaseNotesForUpdate(update: AppUpdateInfo) {
   if (releases.length === 0) return update.releaseNotes
   return releases
     .map((release) => {
-      const notes = release.releaseNotes.replace(/^##\s+Novedades\s*/i, '').trim()
+      const notes = cleanReleaseNotes(release.releaseNotes)
       return `Versión ${release.versionName}\n${notes}`
     })
     .join('\n\n')
+}
+
+function cleanReleaseNotes(notes: string) {
+  return notes.replace(/^##\s+Novedades\s*/i, '').trim()
+}
+
+export function releaseNotesForInstalledVersion(update: AppUpdateInfo, installedVersion: string) {
+  const installedRelease = update.releaseHistory?.find(
+    (release) => compareVersions(release.versionName, installedVersion) === 0,
+  )
+  if (installedRelease) return cleanReleaseNotes(installedRelease.releaseNotes)
+
+  if (update.latestVersionName && compareVersions(update.latestVersionName, installedVersion) === 0) {
+    return update.releaseNotes ? cleanReleaseNotes(update.releaseNotes) : null
+  }
+
+  return null
 }
 
 export async function checkForAppUpdate(): Promise<AppUpdateInfo> {
@@ -156,27 +170,27 @@ export async function checkForAppUpdate(): Promise<AppUpdateInfo> {
       updateAvailable,
       latestVersionName: SIMULATED_LATEST_VERSION,
       releaseName: 'Pablo Tablet 0.4.4',
-      releaseNotes: 'Widgets y vistas mejor adaptados a pantallas compactas.',
+      releaseNotes: releaseNotes044.trim(),
       releaseHistory: [
         {
           versionName: '0.4.1',
           releaseName: 'Pablo Tablet 0.4.1',
-          releaseNotes: simulatedReleaseNotes(),
+          releaseNotes: releaseNotes041.trim(),
         },
         {
           versionName: '0.4.2',
           releaseName: 'Pablo Tablet 0.4.2',
-          releaseNotes: 'Actualizador más fiable y actualización directa a la última versión.',
+          releaseNotes: releaseNotes042.trim(),
         },
         {
           versionName: '0.4.3',
           releaseName: 'Pablo Tablet 0.4.3',
-          releaseNotes: 'Idiomas español e inglés y versión instalada visible en Ajustes.',
+          releaseNotes: releaseNotes043.trim(),
         },
         {
           versionName: '0.4.4',
           releaseName: 'Pablo Tablet 0.4.4',
-          releaseNotes: 'Widgets y vistas mejor adaptados a pantallas compactas.',
+          releaseNotes: releaseNotes044.trim(),
         },
       ],
       publishedAt: '2026-10-22T00:00:00Z',

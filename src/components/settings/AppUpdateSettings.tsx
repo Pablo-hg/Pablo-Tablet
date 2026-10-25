@@ -7,6 +7,7 @@ import {
   downloadAppUpdate,
   getInstalledAppVersion,
   installDownloadedAppUpdate,
+  releaseNotesForInstalledVersion,
   releaseNotesForUpdate,
   resetSimulatedWebInstallation,
   webUpdateSimulationEnabled,
@@ -19,6 +20,24 @@ import { tx } from '../../i18n'
 type UpdateStep = 'idle' | 'checking' | 'downloading' | 'verifying' | 'ready' | 'opening-installer' | 'awaiting-permission' | 'awaiting-result' | 'checking-result'
 
 const PENDING_UPDATE_VERSION_KEY = 'pablo-tablet.pending-update-version'
+const RELEASE_CATALOG_KEY = 'pablo-tablet.release-catalog.v2'
+
+function cachedReleaseCatalog() {
+  try {
+    const cached = window.localStorage.getItem(RELEASE_CATALOG_KEY)
+    return cached ? JSON.parse(cached) as AppUpdateInfo : null
+  } catch {
+    return null
+  }
+}
+
+function cacheReleaseCatalog(update: AppUpdateInfo) {
+  try {
+    window.localStorage.setItem(RELEASE_CATALOG_KEY, JSON.stringify(update))
+  } catch {
+    // The notes remain available for this session when storage is unavailable.
+  }
+}
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : tx('No se pudo completar la operación.')
@@ -48,6 +67,9 @@ export function AppUpdateSettings() {
   const supported = appUpdatesSupported()
   const simulated = webUpdateSimulationEnabled()
   const [update, setUpdate] = useState<AppUpdateInfo | null>(null)
+  const [releaseCatalog, setReleaseCatalog] = useState<AppUpdateInfo | null>(() => cachedReleaseCatalog())
+  const [releaseNotesLoading, setReleaseNotesLoading] = useState(false)
+  const [releaseNotesError, setReleaseNotesError] = useState<string | null>(null)
   const [step, setStep] = useState<UpdateStep>('idle')
   const stepRef = useRef<UpdateStep>('idle')
   const [message, setMessage] = useState<string | null>(null)
@@ -68,6 +90,8 @@ export function AppUpdateSettings() {
     try {
       const result = await checkForAppUpdate()
       setUpdate(result)
+      setReleaseCatalog(result)
+      cacheReleaseCatalog(result)
       setInstalledVersion({ currentVersionName: result.currentVersionName, currentVersionCode: result.currentVersionCode })
       setMessage(!result.releaseAvailable
         ? tx('No hay actualizaciones disponibles.')
@@ -207,6 +231,22 @@ export function AppUpdateSettings() {
     void getInstalledAppVersion().then(setInstalledVersion).catch(() => { })
   }
 
+  const loadInstalledReleaseNotes = async (open: boolean, version: string) => {
+    const cachedNotes = releaseCatalog ? releaseNotesForInstalledVersion(releaseCatalog, version) : null
+    if (!open || cachedNotes || releaseNotesLoading) return
+    setReleaseNotesLoading(true)
+    setReleaseNotesError(null)
+    try {
+      const result = await checkForAppUpdate()
+      setReleaseCatalog(result)
+      cacheReleaseCatalog(result)
+    } catch {
+      setReleaseNotesError(tx('No se pudieron cargar las novedades de la versión instalada.'))
+    } finally {
+      setReleaseNotesLoading(false)
+    }
+  }
+
   const busy = step === 'checking' || step === 'downloading' || step === 'verifying' || step === 'opening-installer' || step === 'checking-result'
   const downloadPercent = progress?.percent ?? null
   const progressBytes = progress && progress.totalBytes
@@ -218,6 +258,9 @@ export function AppUpdateSettings() {
     ? tx('Versión instalada: {{version}}', { version: currentVersion })
     : tx('Consultando la versión instalada…')
   const updateNotes = update ? releaseNotesForUpdate(update) : null
+  const installedReleaseNotes = currentVersion && releaseCatalog
+    ? releaseNotesForInstalledVersion(releaseCatalog, currentVersion)
+    : null
 
   return (
     <div className="app-update-settings" aria-labelledby="app-update-title">
@@ -239,7 +282,18 @@ export function AppUpdateSettings() {
         {update && !update.updateAvailable ? <CheckCircle2 className="app-update-ok" size={22} aria-label={tx('Aplicación actualizada')} /> : null}
       </div>
 
-      {update?.updateAvailable && updateNotes ? <details className="app-update-notes"><summary>{tx('Ver novedades')}</summary><p>{updateNotes}</p></details> : null}
+      {supported && currentVersion ? (
+        <details className="app-update-notes" onToggle={(event) => void loadInstalledReleaseNotes(event.currentTarget.open, currentVersion)}>
+          <summary>{tx('Novedades de la versión instalada')}</summary>
+          {releaseNotesLoading ? <p>{tx('Cargando novedades…')}</p> : null}
+          {!releaseNotesLoading && installedReleaseNotes ? <p>{installedReleaseNotes}</p> : null}
+          {!releaseNotesLoading && releaseNotesError ? <p role="alert">{releaseNotesError}</p> : null}
+          {!releaseNotesLoading && releaseCatalog && !installedReleaseNotes && !releaseNotesError
+            ? <p>{tx('No hay novedades disponibles para la versión {{version}}.', { version: currentVersion })}</p>
+            : null}
+        </details>
+      ) : null}
+      {update?.updateAvailable && updateNotes ? <details className="app-update-notes"><summary>{tx('Novedades de la actualización disponible')}</summary><p>{updateNotes}</p></details> : null}
       {showProgress ? (
         <section className="app-update-progress" aria-label={tx('Proceso de actualización')}>
           <ol className="app-update-steps">

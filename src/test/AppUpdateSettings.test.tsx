@@ -10,6 +10,7 @@ const updater = vi.hoisted(() => ({
   downloadAppUpdate: vi.fn(),
   getInstalledAppVersion: vi.fn(),
   installDownloadedAppUpdate: vi.fn(),
+  releaseNotesForInstalledVersion: vi.fn(),
   resetSimulatedWebInstallation: vi.fn(),
 }))
 
@@ -20,6 +21,7 @@ vi.mock('../appUpdater', () => ({
   downloadAppUpdate: updater.downloadAppUpdate,
   getInstalledAppVersion: updater.getInstalledAppVersion,
   installDownloadedAppUpdate: updater.installDownloadedAppUpdate,
+  releaseNotesForInstalledVersion: updater.releaseNotesForInstalledVersion,
   releaseNotesForUpdate: (update: { releaseNotes: string | null }) => update.releaseNotes,
   resetSimulatedWebInstallation: updater.resetSimulatedWebInstallation,
   webUpdateSimulationEnabled: () => updater.simulated,
@@ -42,6 +44,8 @@ const availableUpdate = {
 
 describe('AppUpdateSettings', () => {
   beforeEach(() => {
+    window.localStorage.removeItem('pablo-tablet.pending-update-version')
+    window.localStorage.removeItem('pablo-tablet.release-catalog.v2')
     updater.simulated = false
     updater.checkForAppUpdate.mockReset().mockResolvedValue(availableUpdate)
     updater.downloadAppUpdate.mockReset().mockImplementation(async (_update, onProgress) => {
@@ -52,6 +56,7 @@ describe('AppUpdateSettings', () => {
     })
     updater.getInstalledAppVersion.mockReset().mockResolvedValue({ currentVersionName: '0.2.0', currentVersionCode: 1001 })
     updater.installDownloadedAppUpdate.mockReset().mockResolvedValue({ permissionRequired: false, installerOpened: true })
+    updater.releaseNotesForInstalledVersion.mockReset().mockImplementation((_update, version) => version === '0.2.0' ? 'Novedades ya instaladas.' : null)
     updater.confirmSimulatedWebInstallation.mockReset()
     updater.resetSimulatedWebInstallation.mockReset()
   })
@@ -62,6 +67,27 @@ describe('AppUpdateSettings', () => {
     expect(await screen.findByText('Versión instalada: 0.2.0')).toBeInTheDocument()
     expect(updater.getInstalledAppVersion).toHaveBeenCalledTimes(1)
     expect(updater.checkForAppUpdate).not.toHaveBeenCalled()
+  })
+
+  it('permite consultar siempre las novedades instaladas y las conserva localmente', async () => {
+    const user = userEvent.setup()
+    const view = render(<AppUpdateSettings />)
+
+    await screen.findByText('Versión instalada: 0.2.0')
+    await user.click(screen.getByText('Novedades de la versión instalada'))
+
+    expect(await screen.findByText('Novedades ya instaladas.')).toBeInTheDocument()
+    expect(updater.checkForAppUpdate).toHaveBeenCalledTimes(1)
+    expect(window.localStorage.getItem('pablo-tablet.release-catalog.v2')).toContain('0.2.0')
+
+    view.unmount()
+    updater.checkForAppUpdate.mockRejectedValue(new Error('Sin conexión'))
+    render(<AppUpdateSettings />)
+    await screen.findByText('Versión instalada: 0.2.0')
+    await user.click(screen.getByText('Novedades de la versión instalada'))
+
+    expect(screen.getByText('Novedades ya instaladas.')).toBeInTheDocument()
+    expect(updater.checkForAppUpdate).toHaveBeenCalledTimes(1)
   })
 
   it('muestra la versión pública y separa descarga e instalación', async () => {
