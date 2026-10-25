@@ -89,7 +89,120 @@ jobs:
             --generate-notes \
             --title "Pablo Tablet ${VERSION_NAME}"
 
+  
   update-issues:
+    name: Actualizar incidencias publicadas
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Marcar incidencias publicadas como implementadas
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo
+
+            // Buscar el PR asociado a la versión publicada.
+            const associatedPulls = await github.paginate(
+              github.rest.repos.listPullRequestsAssociatedWithCommit,
+              { owner, repo, commit_sha: context.sha },
+            )
+
+            const publicationPull = associatedPulls.find((pull) =>
+              pull.merged_at &&
+              pull.base.ref === 'main' &&
+              (
+                pull.head.ref.startsWith('release/') ||
+                pull.head.ref.startsWith('hotfix/')
+              )
+            )
+
+            if (!publicationPull) {
+              core.setFailed(
+                'El tag no está asociado a un pull request fusionado de release/* o hotfix/* hacia main.'
+              )
+              return
+            }
+
+            // Obtener los Issues incluidos en la Release.
+            const section = publicationPull.body?.match(
+              /##\s+Incidencias incluidas\s*([\s\S]*?)(?=\n##\s|$)/i
+            )?.[1] ?? ''
+
+            const issueNumbers = [...new Set(
+              [...section.matchAll(/#(\d+)/g)]
+                .map((match) => Number(match[1]))
+            )]
+
+            if (issueNumbers.length === 0) {
+              core.setFailed(
+                'El pull request de publicación no enumera incidencias bajo "Incidencias incluidas".'
+              )
+              return
+            }
+
+            // Actualizar los estados de las incidencias.
+            for (const issue_number of issueNumbers) {
+              const { data: issue } = await github.rest.issues.get({
+                owner,
+                repo,
+                issue_number
+              })
+
+              const labels = issue.labels
+                .map((label) =>
+                  typeof label === 'string' ? label : label.name
+                )
+                .filter(Boolean)
+
+              // Solo modificar incidencias del feedback móvil.
+              if (!labels.includes('feedback-movil')) {
+                core.info(
+                  `#${issue_number} no es feedback móvil; no se modifica su estado.`
+                )
+                continue
+              }
+
+              // Una incidencia instalada nunca debe retroceder.
+              if (labels.includes('instalado')) {
+                core.info(
+                  `#${issue_number} ya está instalado; se conserva su estado.`
+                )
+                continue
+              }
+
+              // Eliminar estados anteriores.
+              for (const name of ['visto', 'en-desarrollo']) {
+                if (!labels.includes(name)) continue
+
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number,
+                  name
+                })
+              }
+
+              // Marcar como implementado únicamente si es necesario.
+              if (!labels.includes('implementado')) {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number,
+                  labels: ['implementado']
+                })
+              }
+
+              // IMPORTANTE:
+              // No cerrar automáticamente el Issue.
+              // Publicado no significa instalado ni validado.
+              // La instalación y validación física son manuales.
+              // El cierre solo se realiza después de validarlo.
+
+              core.info(
+                `#${issue_number} publicado y marcado como implementado. Pendiente de instalación y validación física.`
+              )
+            }
+
     name: Actualizar incidencias publicadas
     needs: release
     runs-on: ubuntu-latest
