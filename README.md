@@ -199,6 +199,16 @@ npm test
 
 La estrategia, los casos cubiertos y las limitaciones de las pruebas están documentados en [TESTS.md](TESTS.md). Para trabajar en modo interactivo puede usarse `npm run test:watch`; el informe HTML de cobertura se genera con `npm run test:coverage`.
 
+## Publicar una versión
+
+Cuando una o varias funcionalidades ya están terminadas en `dev`, el único comando de uso cotidiano es:
+
+```bash
+npm run release
+```
+
+El asistente obliga a elegir los Issues y commits exactos, simula conflictos y dependencias, prepara el PR hacia `main`, espera al CI y solicita autorizaciones separadas antes de fusionar y publicar. El procedimiento y el modo seguro `--dry-run` están en [PUBLICACION-AUTOMATIZADA.md](PUBLICACION-AUTOMATIZADA.md).
+
 ## Android
 
 ```bash

@@ -14,18 +14,14 @@ if (packageJson.name !== 'pablo-tablet') {
   process.exit(1)
 }
 packageJson.scripts ??= {}
-for (const action of ['check', 'prepare', 'validate', 'submit', 'merge', 'publish', 'verify']) {
-  const key = `release:${action}`
-  const value = `node scripts/release/cli.mjs ${action}`
-  if (packageJson.scripts[key] && packageJson.scripts[key] !== value) {
-    console.error(`El script ${key} ya existe con otro valor. No se ha sobrescrito.`)
-    process.exit(1)
-  }
+const key = 'release'
+const value = 'node scripts/release/cli.mjs wizard'
+if (packageJson.scripts[key] && packageJson.scripts[key] !== value) {
+  console.error(`El script ${key} ya existe con otro valor. No se ha sobrescrito.`)
+  process.exit(1)
 }
-for (const action of ['check', 'prepare', 'validate', 'submit', 'merge', 'publish', 'verify']) {
-  packageJson.scripts[`release:${action}`] = `node scripts/release/cli.mjs ${action}`
-}
+packageJson.scripts[key] = value
 const actual = readFileSync(path, 'utf8')
 const updated = JSON.stringify(packageJson, null, 2) + '\n'
 if (actual !== updated) writeFileSync(path, updated, 'utf8')
-console.log('Comandos npm añadidos a package.json. No se ha modificado ninguna versión ni publicado nada.')
+console.log('Comando único npm run release añadido a package.json. No se ha modificado ninguna versión ni publicado nada.')
