@@ -1,6 +1,6 @@
 // Instala únicamente los comandos npm de la automatización. No crea tags, PR ni APK.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { resolve, join } from 'node:path'
+import { join } from 'node:path'
 
 const root = process.cwd()
 const path = join(root, 'package.json')
