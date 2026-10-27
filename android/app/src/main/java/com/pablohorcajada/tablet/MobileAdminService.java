@@ -46,6 +46,7 @@ public final class MobileAdminService extends Service {
         try {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(manager.statusSnapshot()), foregroundType);
         } catch (RuntimeException error) {
+            manager.stopPreservingLifecycleError();
             manager.reportLifecycleError(AppLocale.text(this, R.string.error_mobile_admin_notification_failed));
             stopSelf(startId);
             return START_NOT_STICKY;
