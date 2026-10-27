@@ -123,7 +123,8 @@ final class MobileAdminServer extends NanoWSD {
             MobileAdminRepository.PairingRequest request = repository.requestPairing(
                 body.optString("pairingToken"),
                 body.optString("deviceName"),
-                body.optString("userAgent", session.getHeaders().get("user-agent"))
+                body.optString("userAgent", session.getHeaders().get("user-agent")),
+                body.optString("deviceModel")
             );
             pairingRateLimiter.recordSuccess(remoteAddress);
             JSONObject result = new JSONObject();

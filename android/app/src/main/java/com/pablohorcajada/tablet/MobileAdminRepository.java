@@ -81,6 +81,10 @@ final class MobileAdminRepository {
     }
 
     PairingRequest requestPairing(String pairingToken, String requestedName, String userAgent) throws Exception {
+        return requestPairing(pairingToken, requestedName, userAgent, "");
+    }
+
+    PairingRequest requestPairing(String pairingToken, String requestedName, String userAgent, String deviceModel) throws Exception {
         cleanupExpired();
         long now = System.currentTimeMillis();
         SQLiteDatabase writable = database.getWritableDatabase();
@@ -103,6 +107,8 @@ final class MobileAdminRepository {
             row.put("request_id", requestId);
             row.put("session_id", sessionId);
             row.put("device_name", name);
+            String model = deviceModel == null ? "" : deviceModel.replaceAll("[\\p{Cntrl}]", " ").trim();
+            row.put("device_model", model.substring(0, Math.min(80, model.length())));
             row.put("user_agent", agent);
             row.put("status", "pending");
             row.put("created_at", now);
@@ -140,7 +146,7 @@ final class MobileAdminRepository {
         long now = System.currentTimeMillis();
         try (Cursor cursor = database.getReadableDatabase().query(
             "pairing_requests",
-            new String[] { "request_id", "device_name", "user_agent", "status", "created_at", "expires_at" },
+            new String[] { "request_id", "device_name", "user_agent", "status", "created_at", "expires_at", "device_model" },
             "status = ? AND expires_at > ?",
             new String[] { "pending", Long.toString(now) },
             null,
@@ -160,7 +166,7 @@ final class MobileAdminRepository {
         writable.beginTransaction();
         try (Cursor cursor = writable.query(
             "pairing_requests",
-            new String[] { "session_id", "device_name", "user_agent", "expires_at", "status" },
+            new String[] { "session_id", "device_name", "user_agent", "expires_at", "status", "device_model" },
             "request_id = ?",
             new String[] { requestId },
             null,
@@ -176,6 +182,7 @@ final class MobileAdminRepository {
             ContentValues device = new ContentValues();
             device.put("device_id", UUID.randomUUID().toString());
             device.put("name", cursor.getString(1));
+            device.put("device_model", cursor.getString(5));
             device.put("user_agent", cursor.getString(2));
             device.put("token_hash", hash(credential));
             device.put("created_at", now);
@@ -236,7 +243,7 @@ final class MobileAdminRepository {
         JSONArray result = new JSONArray();
         try (Cursor cursor = database.getReadableDatabase().query(
             "mobile_devices",
-            new String[] { "device_id", "name", "user_agent", "created_at", "last_seen_at", "revoked_at" },
+            new String[] { "device_id", "name", "user_agent", "created_at", "last_seen_at", "revoked_at", "device_model" },
             null,
             null,
             null,
@@ -249,6 +256,7 @@ final class MobileAdminRepository {
                     device.put("id", cursor.getString(0));
                     device.put("name", cursor.getString(1));
                     device.put("userAgent", cursor.getString(2));
+                    device.put("deviceModel", cursor.getString(6));
                     device.put("createdAt", cursor.getLong(3));
                     device.put("lastSeenAt", cursor.getLong(4));
                     device.put("revokedAt", cursor.isNull(5) ? JSONObject.NULL : cursor.getLong(5));
@@ -556,6 +564,7 @@ final class MobileAdminRepository {
         try {
             request.put("id", cursor.getString(0));
             request.put("deviceName", cursor.getString(1));
+            request.put("deviceModel", cursor.getString(6));
             request.put("userAgent", cursor.getString(2));
             request.put("status", cursor.getString(3));
             request.put("createdAt", cursor.getLong(4));

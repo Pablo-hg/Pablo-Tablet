@@ -12,6 +12,9 @@ button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled, input:disabled, textarea:disabled, select:disabled { cursor: not-allowed; opacity: .48; }
 .hidden { display: none !important; }
+.install-card { margin: 20px 0; }
+.install-card h2 { margin-top: 0; }
+.install-card small { display: block; margin-top: 12px; color: #99a3c6; }
 
 .app-header {
   position: sticky;

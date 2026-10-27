@@ -20,6 +20,16 @@ import {
 } from './mobileAdmin'
 import { SettingToggle } from './components/settings/SettingsControls'
 import { activeLocale, tx } from './i18n'
+import { mobileDeviceInfo } from './mobileDeviceInfo'
+
+function DeviceDetails({ userAgent, deviceModel }: { userAgent: string; deviceModel?: string }) {
+  const info = mobileDeviceInfo(userAgent)
+  return <>
+    <small>{tx('Dispositivo')}: {tx(info.device)}{deviceModel ? ` · ${deviceModel}` : ''}</small>
+    <small>{tx('Navegador')}: {info.browser === 'Navegador' ? tx('Navegador') : info.browser}{info.platform ? ` · ${info.platform}` : ''}</small>
+    <details className="mobile-device-details"><summary>{tx('Detalles técnicos')}</summary><p>{userAgent}</p></details>
+  </>
+}
 
 export function MobileAdminSettings() {
   const [status, setStatus] = useState<MobileAdminStatus | null>(null)
@@ -253,7 +263,7 @@ export function MobileAdminSettings() {
       {requests.map((request) => (
         <div className="pairing-request" key={request.id} role="alertdialog" aria-label={tx('Autorizar {{name}}', { name: request.deviceName })}>
           <span className="mobile-status-icon"><ShieldCheck size={21} /></span>
-          <div><strong>{request.deviceName}</strong><small>{request.userAgent}</small><small>{tx('Solicitado a las {{time}}', { time: new Intl.DateTimeFormat(activeLocale(), { hour: '2-digit', minute: '2-digit' }).format(request.createdAt) })}</small></div>
+          <div><small>{tx('Nombre elegido por el usuario')}</small><strong>{request.deviceName}</strong><DeviceDetails userAgent={request.userAgent} deviceModel={request.deviceModel} /><small>{tx('Solicitado a las {{time}}', { time: new Intl.DateTimeFormat(activeLocale(), { hour: '2-digit', minute: '2-digit' }).format(request.createdAt) })}</small><small className="device-identity-help">{tx('Confirma con la persona que solicita el acceso. Estos datos no verifican su identidad.')}</small></div>
           <div className="pairing-request-actions"><button type="button" onClick={() => void decide(request, false)} disabled={busy}><X size={16} />{tx('Rechazar')}</button><button type="button" className="is-primary" onClick={() => void decide(request, true)} disabled={busy}><Check size={16} />{tx('Permitir')}</button></div>
         </div>
       ))}
@@ -264,6 +274,7 @@ export function MobileAdminSettings() {
           <Smartphone size={19} />
           <div className="authorized-device-copy">
             {editingId === device.id ? <input value={editingName} maxLength={60} onChange={(event) => setEditingName(event.target.value)} aria-label={tx('Nombre del dispositivo')} /> : <strong>{device.name}</strong>}
+            <DeviceDetails userAgent={device.userAgent} deviceModel={device.deviceModel} />
             <small>{tx('Último acceso: {{time}}', { time: new Date(device.lastSeenAt).toLocaleString(activeLocale()) })}</small>
           </div>
           {editingId === device.id ? <button type="button" className="icon-button" onClick={() => void saveName(device)} aria-label={tx('Guardar nombre')}><Check size={17} /></button> : <button type="button" className="icon-button" onClick={() => { setEditingId(device.id); setEditingName(device.name) }} aria-label={tx('Cambiar nombre')}><Pencil size={16} /></button>}

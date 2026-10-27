@@ -51,6 +51,18 @@ public class MobileAdminRepositoryTest {
     }
 
     @Test
+    public void keepsChosenNameAndModelThroughPairingAndApproval() throws Exception {
+        MobileAdminRepository.PairingSession session = repository.createPairing("http://192.168.1.50:8765");
+        MobileAdminRepository.PairingRequest request = repository.requestPairing(session.token, "Móvil de Pablo", "Chrome", "  Samsung Galaxy S24\n  ");
+        JSONObject pending = repository.pendingRequests().getJSONObject(0);
+        assertEquals("Móvil de Pablo", pending.getString("deviceName"));
+        assertEquals("Samsung Galaxy S24", pending.getString("deviceModel"));
+        String credential = repository.approve(request.id);
+        assertNotNull(repository.authenticate(credential));
+        assertEquals("Samsung Galaxy S24", repository.devices().getJSONObject(0).getString("deviceModel"));
+    }
+
+    @Test
     public void rejectsInvalidExpiredAndExplicitlyRejectedPairings() throws Exception {
         MobileAdminRepository.PairingSession rejectedSession = repository.createPairing("http://192.168.1.50:8765");
         MobileAdminRepository.PairingRequest rejectedRequest = repository.requestPairing(rejectedSession.token, "Móvil rechazado", "Chrome");

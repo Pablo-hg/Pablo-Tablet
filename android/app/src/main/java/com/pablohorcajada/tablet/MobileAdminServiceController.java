@@ -30,7 +30,9 @@ final class MobileAdminServiceController {
         try {
             ContextCompat.startForegroundService(context, serviceIntent(context));
         } catch (RuntimeException error) {
-            MobileAdminManager.get(context).reportLifecycleError(AppLocale.text(context, R.string.error_mobile_admin_service_failed));
+            MobileAdminManager manager = MobileAdminManager.get(context);
+            manager.stopPreservingLifecycleError();
+            manager.reportLifecycleError(AppLocale.text(context, R.string.error_mobile_admin_service_failed));
         }
     }
 

@@ -17,6 +17,8 @@ const toastElement = document.querySelector('#toast')
 const tabs = [...document.querySelectorAll('[data-tab]')]
 
 let credential = localStorage.getItem(STORAGE_TOKEN)
+let deferredInstallPrompt = null
+let installed = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true
 let dashboard = null
 let activeTab = 'overview'
 let socket = null
@@ -30,6 +32,18 @@ let photoUrls = []
 let feedbackReports = []
 
 const mobileEnglish = {
+  'Ej. Móvil de Pablo': 'E.g. Pablo’s phone',
+  'Ej. Samsung Galaxy S24': 'E.g. Samsung Galaxy S24',
+  'Modelo del dispositivo (opcional)': 'Device model (optional)',
+  'El navegador puede ocultar el modelo. Puedes escribirlo para reconocer el dispositivo en la tablet.': 'Your browser may hide the model. You can enter it to recognise the device on the tablet.',
+  'Acceso directo en tu móvil': 'Shortcut on your phone',
+  'Abre Pablo Tablet desde la pantalla de inicio, sin escanear el QR cada vez.': 'Open Pablo Tablet from your home screen without scanning the QR code each time.',
+  'Añadir a pantalla de inicio': 'Add to home screen',
+  'Instalar Pablo Tablet': 'Install Pablo Tablet',
+  'Necesitas seguir en la misma Wi-Fi que la tablet. Si cambia su dirección IP, utiliza la nueva dirección que aparece en Ajustes.': 'Stay on the same Wi-Fi as the tablet. If its IP address changes, use the new address shown in Settings.',
+  'En Chrome o Brave, abre el menú ⋮ y elige «Añadir a pantalla de inicio» o «Instalar aplicación», si aparece. El navegador crea el acceso directo; esta web no puede hacerlo automáticamente.': 'In Chrome or Brave, open the ⋮ menu and choose “Add to home screen” or “Install app”, if available. Your browser creates the shortcut; this website cannot do it automatically.',
+  'En Safari, pulsa Compartir y elige «Añadir a pantalla de inicio». Si no aparece, abre esta dirección en Safari.': 'In Safari, tap Share and choose “Add to Home Screen”. If unavailable, open this address in Safari.',
+  'Abre el menú del navegador y busca «Instalar» o «Crear acceso directo».': 'Open your browser menu and look for “Install” or “Create shortcut”.',
   'Conectando…': 'Connecting…',
   'Actualizar': 'Refresh',
   'Nuevo dispositivo': 'New device',
@@ -103,7 +117,45 @@ function translateShell() {
   document.documentElement.lang = language()
   document.querySelectorAll('[data-i18n]').forEach((element) => { element.textContent = tr(element.dataset.i18n) })
   document.querySelectorAll('[data-i18n-aria]').forEach((element) => { element.setAttribute('aria-label', tr(element.dataset.i18nAria)) })
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((element) => { element.setAttribute('placeholder', tr(element.dataset.i18nPlaceholder)) })
+  updateInstallButton()
 }
+
+function updateInstallButton() {
+  document.querySelector('#install-button').textContent = tr(deferredInstallPrompt ? 'Instalar Pablo Tablet' : 'Añadir a pantalla de inicio')
+}
+
+function showInstallHelp() {
+  const help = document.querySelector('#install-help')
+  const appleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  help.textContent = tr(appleMobile ? 'En Safari, pulsa Compartir y elige «Añadir a pantalla de inicio». Si no aparece, abre esta dirección en Safari.' : /Android/i.test(navigator.userAgent) ? 'En Chrome o Brave, abre el menú ⋮ y elige «Añadir a pantalla de inicio» o «Instalar aplicación», si aparece. El navegador crea el acceso directo; esta web no puede hacerlo automáticamente.' : 'Abre el menú del navegador y busca «Instalar» o «Crear acceso directo».')
+  help.classList.remove('hidden')
+}
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault()
+  deferredInstallPrompt = event
+  updateInstallButton()
+})
+window.addEventListener('appinstalled', () => {
+  installed = true
+  deferredInstallPrompt = null
+  document.querySelector('#install-card').classList.add('hidden')
+})
+document.querySelector('#install-button').addEventListener('click', async () => {
+  const prompt = deferredInstallPrompt
+  if (!prompt) { showInstallHelp(); return }
+  deferredInstallPrompt = null
+  updateInstallButton()
+  try {
+    await prompt.prompt()
+    const choice = await prompt.userChoice
+    if (choice.outcome === 'accepted') {
+      installed = true
+      document.querySelector('#install-card').classList.add('hidden')
+    }
+  } catch { showInstallHelp() }
+})
 
 const params = new URLSearchParams(location.search)
 const pairingToken = params.get('pair')
@@ -127,6 +179,7 @@ function showOnly(screen) {
   pairScreen.classList.toggle('hidden', screen !== 'pair')
   lockedScreen.classList.toggle('hidden', screen !== 'locked')
   appScreen.classList.toggle('hidden', screen !== 'app')
+  document.querySelector('#install-card').classList.toggle('hidden', screen !== 'app' || installed)
 }
 
 function setConnection(isOnline, label) {
@@ -594,7 +647,8 @@ async function beginPairing() {
   button.disabled = true
   message.textContent = tr('Enviando solicitud a la tablet…')
   try {
-    const result = await fetch('/api/pair/request', { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ pairingToken, deviceName: name, userAgent: navigator.userAgent }) })
+    const deviceModel = document.querySelector('#device-model').value.trim()
+    const result = await fetch('/api/pair/request', { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ pairingToken, deviceName: name, deviceModel, userAgent: navigator.userAgent }) })
     const body = await result.json()
     if (!result.ok) throw new Error(body.error)
     message.textContent = tr('Solicitud enviada. Acéptala físicamente en la tablet.')
@@ -656,10 +710,8 @@ refreshButton.addEventListener('click', () => {
 document.querySelector('#pair-button').addEventListener('click', () => void beginPairing())
 
 async function boot() {
-  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=11').catch(() => {})
+  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=12').catch(() => {})
   if (!credential && pairingToken) {
-    const platform = /Android/i.test(navigator.userAgent) ? 'Android' : /iPhone|iPad/i.test(navigator.userAgent) ? 'iPhone/iPad' : 'Móvil'
-    document.querySelector('#device-name').value = `${navigator.userAgent.includes('Chrome') ? 'Chrome' : navigator.userAgent.includes('Safari') ? 'Safari' : 'Navegador'} en ${platform}`
     showOnly('pair')
     setConnection(false, tr('Pendiente de autorización'))
     return
