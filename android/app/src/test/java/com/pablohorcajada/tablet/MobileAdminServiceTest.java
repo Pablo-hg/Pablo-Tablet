@@ -81,6 +81,23 @@ public class MobileAdminServiceTest {
     }
 
     @Test
+    public void stickyRestartWithNullIntentRestoresOnlyEnabledAccess() {
+        new MobileAdminAccessPreference(context).setEnabled(true);
+        ServiceController<MobileAdminService> controller = Robolectric.buildService(MobileAdminService.class).create();
+        MobileAdminService service = controller.get();
+
+        assertEquals(Service.START_STICKY, service.onStartCommand(null, 0, 11));
+        assertNotNull(shadowOf(service).getLastForegroundNotification());
+
+        new MobileAdminAccessPreference(context).setEnabled(false);
+
+        assertEquals(Service.START_NOT_STICKY, service.onStartCommand(null, 0, 12));
+        assertTrue(shadowOf(service).isStoppedBySelf());
+        assertFalse(MobileAdminManager.get(context).isRunning());
+        controller.destroy();
+    }
+
+    @Test
     public void destructionPreservesAServiceLifecycleErrorForSettings() {
         ServiceController<MobileAdminService> controller = Robolectric.buildService(MobileAdminService.class).create();
         MobileAdminManager manager = MobileAdminManager.get(context);

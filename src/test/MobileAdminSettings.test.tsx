@@ -10,6 +10,7 @@ const mobileAdmin = vi.hoisted(() => ({
   createPairing: vi.fn(),
   cancelPairing: vi.fn(),
   revokeAll: vi.fn(),
+  pendingRequests: vi.fn(),
   addStatusListener: vi.fn(),
   removeStatusListener: vi.fn(),
   statusListener: null as null | ((status: Record<string, unknown>) => void),
@@ -23,7 +24,7 @@ vi.mock('../mobileAdmin', () => ({
   createMobilePairing: mobileAdmin.createPairing,
   addMobileAdminStatusListener: mobileAdmin.addStatusListener,
   decidePairingRequest: vi.fn(),
-  listPendingPairingRequests: vi.fn().mockResolvedValue([]),
+  listPendingPairingRequests: mobileAdmin.pendingRequests,
   renameAuthorizedDevice: vi.fn(),
   revokeAuthorizedDevice: vi.fn(),
   revokeAllAuthorizedDevices: mobileAdmin.revokeAll,
@@ -58,6 +59,7 @@ describe('MobileAdminSettings', () => {
       serviceState: 'available',
     })
     mobileAdmin.listDevices.mockResolvedValue([])
+    mobileAdmin.pendingRequests.mockResolvedValue([])
     mobileAdmin.createPairing.mockResolvedValue({ id: 'pair-1', url: 'http://192.168.1.50:8765/?pair=token', expiresAt: Date.now() + 300_000, networkGeneration: 1 })
     mobileAdmin.cancelPairing.mockResolvedValue(undefined)
     mobileAdmin.revokeAll.mockResolvedValue(0)
@@ -77,6 +79,18 @@ describe('MobileAdminSettings', () => {
     expect(mobileAdmin.setEnabled).toHaveBeenCalledWith(true)
     await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'))
     expect(screen.getByText('http://192.168.1.50:8765')).toBeInTheDocument()
+  })
+
+  it('muestra nombre, modelo y navegador legibles sin desplegar la cadena técnica', async () => {
+    mobileAdmin.getStatus.mockResolvedValue({ enabled: true, running: true, localAddress: 'http://192.168.1.50:8765', networkGeneration: 1, serviceState: 'available' })
+    mobileAdmin.pendingRequests.mockResolvedValue([{ id: 'pending-1', deviceName: 'Móvil de Pablo', deviceModel: 'Samsung Galaxy S24', userAgent: 'Mozilla/5.0 (Linux; Android 10; K) Chrome/155.0.0.0 Mobile Safari/537.36', createdAt: Date.now() }])
+    const user = userEvent.setup()
+    render(<MobileAdminSettings />)
+    await user.click(await screen.findByRole('button', { name: /vincular un móvil/i }))
+    expect(await screen.findByText('Móvil de Pablo')).toBeInTheDocument()
+    expect(screen.getByText('Dispositivo: Móvil Android · Samsung Galaxy S24')).toBeInTheDocument()
+    expect(screen.getByText('Navegador: Chrome 155 · Android')).toBeInTheDocument()
+    expect(screen.getByText('Detalles técnicos').closest('details')).not.toHaveAttribute('open')
   })
 
   it('cancela el QR activo al desactivar el acceso y permite volver a activarlo', async () => {
