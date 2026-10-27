@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 final class PabloTabletDatabase extends SQLiteOpenHelper {
     static final String DASHBOARD_KEY = "dashboard-state";
     private static final String DATABASE_NAME = "pablo_tablet.db";
-    private static final int DATABASE_VERSION = 4;
+    private static final int DATABASE_VERSION = 5;
     private static PabloTabletDatabase instance;
 
     static synchronized PabloTabletDatabase get(Context context) {
@@ -37,6 +37,10 @@ final class PabloTabletDatabase extends SQLiteOpenHelper {
         if (oldVersion < 2) createMobileAdminTables(database);
         if (oldVersion < 3) createFeedbackTables(database);
         if (oldVersion >= 3 && oldVersion < 4) addFeedbackTrackingColumns(database);
+        if (oldVersion >= 2 && oldVersion < 5) {
+            database.execSQL("ALTER TABLE mobile_devices ADD COLUMN device_model TEXT NOT NULL DEFAULT ''");
+            database.execSQL("ALTER TABLE pairing_requests ADD COLUMN device_model TEXT NOT NULL DEFAULT ''");
+        }
     }
 
     StorageRecord readStorage(String key) {
@@ -84,6 +88,7 @@ final class PabloTabletDatabase extends SQLiteOpenHelper {
             "CREATE TABLE IF NOT EXISTS mobile_devices (" +
                 "device_id TEXT PRIMARY KEY NOT NULL," +
                 "name TEXT NOT NULL," +
+                "device_model TEXT NOT NULL DEFAULT ''," +
                 "user_agent TEXT NOT NULL," +
                 "token_hash TEXT UNIQUE NOT NULL," +
                 "created_at INTEGER NOT NULL," +
@@ -105,6 +110,7 @@ final class PabloTabletDatabase extends SQLiteOpenHelper {
                 "request_id TEXT PRIMARY KEY NOT NULL," +
                 "session_id TEXT NOT NULL," +
                 "device_name TEXT NOT NULL," +
+                "device_model TEXT NOT NULL DEFAULT ''," +
                 "user_agent TEXT NOT NULL," +
                 "status TEXT NOT NULL," +
                 "created_at INTEGER NOT NULL," +

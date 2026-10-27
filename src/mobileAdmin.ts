@@ -22,6 +22,7 @@ export interface PairingSession {
 export interface PairingRequest {
   id: string
   deviceName: string
+  deviceModel?: string
   userAgent: string
   status: 'pending'
   createdAt: number
@@ -31,6 +32,7 @@ export interface PairingRequest {
 export interface AuthorizedDevice {
   id: string
   name: string
+  deviceModel?: string
   userAgent: string
   createdAt: number
   lastSeenAt: number

@@ -851,6 +851,15 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
+.mobile-device-details { font-size: 12px; color: var(--muted); min-width: 0; }
+.mobile-device-details summary { cursor: pointer; }
+.mobile-device-details p { overflow-wrap: anywhere; white-space: normal; margin: 6px 0; }
+.pairing-request .device-identity-help { white-space: normal; }
+@media (max-width: 700px) {
+  .pairing-request { flex-wrap: wrap; }
+  .pairing-request-actions { margin-left: auto; }
+}
+
 .mobile-server-status.is-online .mobile-status-icon {
   color: #77e4bd;
   background: rgba(61, 207, 154, 0.13);

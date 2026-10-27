@@ -1,4 +1,12 @@
 const english = {
+  'Móvil Android': 'Android phone',
+  'Tablet Android': 'Android tablet',
+  'iPhone': 'iPhone',
+  'iPad': 'iPad',
+  'Navegador': 'Browser',
+  'Detalles técnicos': 'Technical details',
+  'Nombre elegido por el usuario': 'Name chosen by the user',
+  'Confirma con la persona que solicita el acceso. Estos datos no verifican su identidad.': 'Confirm with the person requesting access. These details do not verify their identity.',
   'Pablo Tablet': 'Pablo Tablet',
   'Inicio': 'Home',
   'Ajustes': 'Settings',

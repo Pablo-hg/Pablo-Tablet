@@ -13,6 +13,62 @@ describe('administración móvil', () => {
     Object.defineProperty(window, 'fetch', { configurable: true, value: originalFetch })
     Object.defineProperty(window, 'WebSocket', { configurable: true, value: originalWebSocket })
     window.localStorage.clear()
+    window.history.replaceState({}, '', '/')
+  })
+
+  async function openMobilePanel() {
+    document.open()
+    document.write(readFileSync(resolve(process.cwd(), 'public/mobile/index.html'), 'utf8'))
+    document.close()
+    window.localStorage.setItem('pablo-tablet.mobile-token.v1', 'test-credential')
+    Object.defineProperty(window, 'fetch', { configurable: true, value: vi.fn(async () => ({ ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => ({ state: { preferences: {} }, device: { name: 'Test phone' } }) })) })
+    Object.defineProperty(window, 'WebSocket', { configurable: true, value: class { addEventListener() {} close() {} } })
+    Object.assign(window, { calendarEventTiming })
+    window.eval(readFileSync(resolve(process.cwd(), 'public/mobile/app.js'), 'utf8').replace("import { calendarEventTiming } from './calendarTiming.js'", ''))
+    const view = within(document.body)
+    await waitFor(() => expect(view.getByRole('heading', { name: 'Tu panel' })).toBeInTheDocument())
+    return view
+  }
+
+  it('ofrece instrucciones de acceso directo cuando el navegador no permite instalar automáticamente', async () => {
+    const view = await openMobilePanel()
+    fireEvent.click(view.getByRole('button', { name: 'Añadir a pantalla de inicio' }))
+    expect(document.querySelector('#install-help')).not.toHaveClass('hidden')
+    expect(document.querySelector('#install-help')).toHaveTextContent(/menú del navegador|Chrome o Brave|Safari/)
+  })
+
+  it('solo invoca el diálogo de instalación tras pulsar el botón y permite cancelar', async () => {
+    const view = await openMobilePanel()
+    const prompt = vi.fn().mockResolvedValue(undefined)
+    const event = new Event('beforeinstallprompt', { cancelable: true })
+    Object.assign(event, { prompt, userChoice: Promise.resolve({ outcome: 'dismissed' }) })
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(prompt).not.toHaveBeenCalled()
+    fireEvent.click(view.getByRole('button', { name: 'Instalar Pablo Tablet' }))
+    await waitFor(() => expect(prompt).toHaveBeenCalledOnce())
+    expect(document.querySelector('#install-card')).not.toHaveClass('hidden')
+    window.dispatchEvent(new Event('appinstalled'))
+    expect(document.querySelector('#install-card')).toHaveClass('hidden')
+  })
+
+  it('envía por separado el nombre elegido y el modelo opcional al solicitar acceso', async () => {
+    document.open()
+    document.write(readFileSync(resolve(process.cwd(), 'public/mobile/index.html'), 'utf8'))
+    document.close()
+    window.history.replaceState({}, '', '/?pair=temporary-token')
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => ({ ok: false, json: async () => ({ error: 'Solicitud de prueba' }) }))
+    Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock })
+    Object.assign(window, { calendarEventTiming })
+    window.eval(readFileSync(resolve(process.cwd(), 'public/mobile/app.js'), 'utf8').replace("import { calendarEventTiming } from './calendarTiming.js'", ''))
+    const view = within(document.body)
+    expect(view.getByLabelText('Nombre del dispositivo')).toHaveValue('')
+    expect(document.querySelector('#install-card')).toHaveClass('hidden')
+    fireEvent.change(view.getByLabelText('Nombre del dispositivo'), { target: { value: 'Móvil de Pablo' } })
+    fireEvent.change(view.getByLabelText('Modelo del dispositivo (opcional)'), { target: { value: 'Samsung Galaxy S24' } })
+    fireEvent.click(view.getByRole('button', { name: 'Solicitar autorización' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ pairingToken: 'temporary-token', deviceName: 'Móvil de Pablo', deviceModel: 'Samsung Galaxy S24' })
   })
 
   it('aplica en la administración móvil el idioma elegido en la tablet', async () => {
@@ -178,7 +234,7 @@ describe('administración móvil', () => {
     fireEvent.click(view.getByRole('button', { name: 'Actualizar estado' }))
     await waitFor(() => expect(view.getByText('Implementado', { selector: '.feedback-status' })).toBeInTheDocument())
     expect(view.getByText('Implementado', { selector: '.feedback-progress .current' })).toBeInTheDocument()
-    expect(view.getByRole('status')).toHaveTextContent('Se ha cambiado el estado de tu comentario a «Implementado».')
+    expect(document.querySelector('#toast')).toHaveTextContent('Se ha cambiado el estado de tu comentario a «Implementado».')
   })
 
   it('mantiene vivo el WebSocket y oculta reconexiones breves', async () => {

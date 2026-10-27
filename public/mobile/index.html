@@ -7,7 +7,7 @@
     <meta name="description" content="Administración local de Pablo Tablet" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css?v=11" />
+    <link rel="stylesheet" href="/styles.css?v=12" />
     <title>Pablo Tablet</title>
   </head>
   <body>
@@ -21,7 +21,9 @@
         <p class="eyebrow" data-i18n="Nuevo dispositivo">Nuevo dispositivo</p>
         <h1 data-i18n="Vincular este móvil">Vincular este móvil</h1>
         <p data-i18n="Elige un nombre reconocible y solicita permiso. Después tendrás que aceptarlo en la pantalla de la tablet.">Elige un nombre reconocible y solicita permiso. Después tendrás que aceptarlo en la pantalla de la tablet.</p>
-        <label><span data-i18n="Nombre del dispositivo">Nombre del dispositivo</span><input id="device-name" maxlength="60" autocomplete="off" /></label>
+        <label><span data-i18n="Nombre del dispositivo">Nombre del dispositivo</span><input id="device-name" maxlength="60" autocomplete="off" placeholder="Ej. Móvil de Pablo" data-i18n-placeholder="Ej. Móvil de Pablo" /></label>
+        <label><span data-i18n="Modelo del dispositivo (opcional)">Modelo del dispositivo (opcional)</span><input id="device-model" maxlength="80" autocomplete="off" placeholder="Ej. Samsung Galaxy S24" data-i18n-placeholder="Ej. Samsung Galaxy S24" /></label>
+        <small data-i18n="El navegador puede ocultar el modelo. Puedes escribirlo para reconocer el dispositivo en la tablet.">El navegador puede ocultar el modelo. Puedes escribirlo para reconocer el dispositivo en la tablet.</small>
         <button id="pair-button" class="primary-button" type="button" data-i18n="Solicitar autorización">Solicitar autorización</button>
         <p id="pair-message" class="status-message" aria-live="polite"></p>
       </section>
@@ -47,9 +49,16 @@
         </nav>
         <div id="editor-content" class="editor-content"></div>
       </section>
+      <section id="install-card" class="card install-card hidden" aria-labelledby="install-title">
+        <h2 id="install-title" data-i18n="Acceso directo en tu móvil">Acceso directo en tu móvil</h2>
+        <p data-i18n="Abre Pablo Tablet desde la pantalla de inicio, sin escanear el QR cada vez.">Abre Pablo Tablet desde la pantalla de inicio, sin escanear el QR cada vez.</p>
+        <button id="install-button" type="button" class="primary-button">Añadir a pantalla de inicio</button>
+        <p id="install-help" class="hidden" role="status"></p>
+        <small data-i18n="Necesitas seguir en la misma Wi-Fi que la tablet. Si cambia su dirección IP, utiliza la nueva dirección que aparece en Ajustes.">Necesitas seguir en la misma Wi-Fi que la tablet. Si cambia su dirección IP, utiliza la nueva dirección que aparece en Ajustes.</small>
+      </section>
     </main>
 
     <div id="toast" class="toast hidden" role="status"></div>
-    <script src="/app.js?v=11" type="module"></script>
+    <script src="/app.js?v=12" type="module"></script>
   </body>
 </html>
