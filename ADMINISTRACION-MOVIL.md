@@ -4,7 +4,7 @@
 
 ## Alcance implementado
 
-La Teclast T65 sigue siendo la fuente de verdad. Al arrancar Pablo Tablet se abre un servidor HTTP local en el puerto `8765` y se anuncia un servicio `_http._tcp.` llamado `pablotablet` mediante Android NSD. La dirección IP válida se muestra en **Ajustes → Administración móvil**.
+La Teclast T65 sigue siendo la fuente de verdad. Cuando el usuario activa el acceso LAN, un servicio Android en primer plano mantiene el servidor HTTP local en el puerto `8765` y anuncia un servicio `_http._tcp.` llamado `pablotablet` mediante Android NSD. La dirección IP válida se muestra en **Ajustes → Administración móvil**.
 
 El editor móvil se sirve desde la propia tablet y sus funciones locales no necesitan Internet. La búsqueda de una ciudad en Tiempo sí requiere acceso a Open‑Meteo para resolver sus datos. Permite:
 
@@ -53,6 +53,25 @@ Las tablas `mobile_devices`, `pairing_sessions` y `pairing_requests` viven en `p
 
 Cada minuto se marcan las solicitudes caducadas, se borran sus credenciales temporales y se purga el historial de vinculación con más de 24 horas. El limitador conserva como máximo 256 direcciones de origen y elimina entradas inactivas, por lo que ni SQLite ni la memoria crecen indefinidamente por este flujo.
 
+## Ciclo de vida y recuperación
+
+`MobileAdminService` usa el tipo `connectedDevice`, mantiene una notificación persistente y devuelve `START_STICKY` mientras el acceso LAN esté activado. Comparte el proceso de la aplicación, pero su ciclo de vida es independiente del de la interfaz. Android puede recrearlo después de terminar el proceso; la recuperación no tiene un plazo garantizado.
+
+La preferencia LAN no basta para abrir el servidor: el servicio debe haber entrado en primer plano. Al detenerlo se cierran el servidor, sus conexiones y el anuncio mDNS. Los cambios de Wi-Fi no pueden reabrirlos hasta que el servicio vuelva a arrancar. Los arranques repetidos reutilizan el mismo gestor y la misma notificación.
+
+El receptor de `BOOT_COMPLETED` y `MY_PACKAGE_REPLACED` restaura el servicio solo si el acceso seguía activado. Con el acceso desactivado no se abre el servidor ni se anuncia en la red.
+
+| Situación | Comportamiento esperado |
+| --- | --- |
+| Cerrar la interfaz o retirarla de recientes | El servicio y la administración móvil continúan disponibles |
+| Android termina el proceso | Android puede recrear el servicio y el móvil intenta reconectar con su credencial existente |
+| Reiniciar la tablet o actualizar la aplicación | Se restaura el servicio si el acceso LAN estaba activado |
+| Desactivar el acceso LAN | Se detienen el servidor y el anuncio; no se restauran tras cambios de red o reinicio |
+| Perder y recuperar la Wi-Fi | Se cierra el enlace anterior y se usa la nueva IPv4 privada; si cambia la IP, hay que abrir la dirección actual que muestra Ajustes |
+| Pulsar «Forzar detención» en Android | La aplicación queda detenida hasta una nueva interacción del usuario; no se espera recuperación automática |
+
+«Forzar detención» no equivale a cerrar la interfaz ni a una muerte del proceso por el sistema. Android conserva el estado de detención hasta una interacción del usuario: [documentación de Android](https://developer.android.com/about/versions/15/behavior-changes-all#package-stopped-state).
+
 ## Validación pendiente en hardware
 
 El código compila como web y Android. Antes de considerar cerrada esta fase hay que probar en la Teclast T65:
@@ -65,4 +84,4 @@ El código compila como web y Android. Antes de considerar cerrada esta fase hay
 - resolución mDNS/NSD;
 - comportamiento de instalación desde pantalla de inicio.
 
-El servidor actual vive dentro del proceso de Pablo Tablet. Como el dispositivo funciona en modo kiosco, esto cubre el uso normal, pero la recuperación autónoma mediante un Android Service/Watchdog queda como endurecimiento posterior.
+Para validar la recuperación hay que comprobar, después de cada escenario, la conexión desde el móvil autorizado, el rechazo HTTP `401` de `/api/state` sin credencial, una única instancia de `MobileAdminService` y una sola notificación. La prueba de muerte del proceso debe distinguirse expresamente de «Forzar detención». Las pruebas locales no acreditan que una corrección esté instalada; se repiten sobre la versión oficial actualizada desde **Buscar actualizaciones**.

@@ -32,6 +32,7 @@ final class MobileAdminManager {
     private final NsdManager nsdManager;
     private final Set<Runnable> statusListeners = new CopyOnWriteArraySet<>();
     private boolean networkCallbackRegistered;
+    private boolean serviceStarted;
     private MobileAdminServer server;
     private String boundAddress;
     private Network boundNetwork;
@@ -68,6 +69,8 @@ final class MobileAdminManager {
     }
 
     synchronized void start() {
+        // Only the foreground service may grant ownership of the LAN server.
+        serviceStarted = isEnabled();
         if (!isEnabled()) repository.cancelPendingPairings();
         reconcileServer();
         notifyStatusChanged();
@@ -75,9 +78,9 @@ final class MobileAdminManager {
 
     synchronized void setEnabled(boolean enabled) {
         accessPreference.setEnabled(enabled);
-        if (enabled) {
+        if (enabled && serviceStarted) {
             reconcileServer();
-        } else {
+        } else if (!enabled) {
             repository.cancelPendingPairings();
             updateObservedBinding(null);
             stop();
@@ -94,6 +97,7 @@ final class MobileAdminManager {
     }
 
     private void stop(boolean preserveLifecycleError) {
+        serviceStarted = false;
         stopServer();
         lastError = null;
         discoveryError = null;
@@ -193,7 +197,7 @@ final class MobileAdminManager {
     }
 
     private void reconcileServer() {
-        if (!isEnabled()) {
+        if (!isEnabled() || !serviceStarted) {
             updateObservedBinding(null);
             stopServer();
             lastError = null;

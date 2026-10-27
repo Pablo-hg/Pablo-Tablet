@@ -57,4 +57,17 @@ public class MobileAdminBootReceiverTest {
 
         assertNull(shadowApplication.getNextStartedService());
     }
+
+    @Test
+    public void restoresAfterPackageReplacementOnlyWhileAccessIsEnabled() {
+        new MobileAdminAccessPreference(context).setEnabled(true);
+        receiver.onReceive(context, new Intent(Intent.ACTION_MY_PACKAGE_REPLACED));
+
+        assertEquals(new ComponentName(context, MobileAdminService.class), shadowApplication.getNextStartedService().getComponent());
+
+        new MobileAdminAccessPreference(context).setEnabled(false);
+        receiver.onReceive(context, new Intent(Intent.ACTION_MY_PACKAGE_REPLACED));
+
+        assertNull(shadowApplication.getNextStartedService());
+    }
 }
