@@ -28,6 +28,14 @@ El borrado de fotografías continúa realizándose desde la tablet. Los dibujos 
 
 El QR y la solicitud caducan a los cinco minutos. El QR también se invalida al cerrar su panel. Una autorización aceptada crea una credencial larga, individual y revocable. La credencial en claro solo queda en el navegador móvil; la tablet persiste su hash SHA-256 y los datos básicos del dispositivo.
 
+Al solicitar acceso, la persona escribe un nombre reconocible y puede indicar el modelo del dispositivo. La tablet muestra el nombre, el tipo de dispositivo y el navegador en líneas separadas, tanto en la solicitud como en los dispositivos autorizados. La cadena técnica completa queda plegada en **Detalles técnicos**. El modelo es opcional y lo indica el usuario: los navegadores modernos pueden ocultarlo y reducir la información del sistema.
+
+## Acceso directo en el móvil
+
+Después de vincular el móvil aparece **Acceso directo en tu móvil**. Si el navegador ofrece instalación, el botón abre su diálogo de instalación. En el acceso LAN por HTTP se muestran instrucciones para usar **Añadir a pantalla de inicio** desde el menú de Chrome/Brave o **Compartir → Añadir a pantalla de inicio** en Safari. La web no puede crear un acceso directo automáticamente.
+
+El acceso directo abre la dirección del editor sin guardar el token temporal del QR. Sigue necesitando conexión con la tablet y la autorización del navegador; no convierte el editor en una aplicación autónoma ni permite editar sin conexión. Si cambia la IP de la tablet, hay que usar la nueva dirección de Ajustes.
+
 La acción **Revocar todos los dispositivos** solo aparece si existe al menos un móvil autorizado y requiere confirmación explícita. La operación revoca todas las credenciales activas, cancela QR y solicitudes pendientes y elimina credenciales temporales en una única transacción. Después cierra los WebSockets asociados; los clientes abiertos eliminan su credencial local y muestran que deben volver a vincularse. Es posible generar un QR nuevo inmediatamente después.
 
 El endpoint de solicitud admite un máximo de 5 intentos por dirección IP y 30 intentos globales por minuto. Tras 3 fallos consecutivos de una misma IP aplica esperas progresivas de 30, 60, 120 segundos, hasta un máximo de 5 minutos. Los límites usan la dirección remota del socket, nunca cabeceras aportadas por el navegador, y responden con HTTP `429`, `Retry-After` y un mensaje con el tiempo restante. Hay como máximo 8 solicitudes simultáneas pendientes. El gestor nativo conserva estos contadores aunque se cierre la pantalla o se reinicie el servidor local por un cambio de red.
