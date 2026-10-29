@@ -33,9 +33,6 @@ let feedbackReports = []
 
 const mobileEnglish = {
   'Ej. Móvil de Pablo': 'E.g. Pablo’s phone',
-  'Ej. Samsung Galaxy S24': 'E.g. Samsung Galaxy S24',
-  'Modelo del dispositivo (opcional)': 'Device model (optional)',
-  'El navegador puede ocultar el modelo. Puedes escribirlo para reconocer el dispositivo en la tablet.': 'Your browser may hide the model. You can enter it to recognise the device on the tablet.',
   'Acceso directo en tu móvil': 'Shortcut on your phone',
   'Abre Pablo Tablet desde la pantalla de inicio, sin escanear el QR cada vez.': 'Open Pablo Tablet from your home screen without scanning the QR code each time.',
   'Añadir a pantalla de inicio': 'Add to home screen',
@@ -647,8 +644,7 @@ async function beginPairing() {
   button.disabled = true
   message.textContent = tr('Enviando solicitud a la tablet…')
   try {
-    const deviceModel = document.querySelector('#device-model').value.trim()
-    const result = await fetch('/api/pair/request', { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ pairingToken, deviceName: name, deviceModel, userAgent: navigator.userAgent }) })
+    const result = await fetch('/api/pair/request', { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ pairingToken, deviceName: name, userAgent: navigator.userAgent }) })
     const body = await result.json()
     if (!result.ok) throw new Error(body.error)
     message.textContent = tr('Solicitud enviada. Acéptala físicamente en la tablet.')
@@ -710,7 +706,7 @@ refreshButton.addEventListener('click', () => {
 document.querySelector('#pair-button').addEventListener('click', () => void beginPairing())
 
 async function boot() {
-  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=12').catch(() => {})
+  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=13').catch(() => {})
   if (!credential && pairingToken) {
     showOnly('pair')
     setConnection(false, tr('Pendiente de autorización'))
