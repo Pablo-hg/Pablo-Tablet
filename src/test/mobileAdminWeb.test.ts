@@ -52,7 +52,7 @@ describe('administración móvil', () => {
     expect(document.querySelector('#install-card')).toHaveClass('hidden')
   })
 
-  it('envía por separado el nombre elegido y el modelo opcional al solicitar acceso', async () => {
+  it('solicita acceso solo con el nombre elegido y los datos automáticos del navegador', async () => {
     document.open()
     document.write(readFileSync(resolve(process.cwd(), 'public/mobile/index.html'), 'utf8'))
     document.close()
@@ -65,10 +65,10 @@ describe('administración móvil', () => {
     expect(view.getByLabelText('Nombre del dispositivo')).toHaveValue('')
     expect(document.querySelector('#install-card')).toHaveClass('hidden')
     fireEvent.change(view.getByLabelText('Nombre del dispositivo'), { target: { value: 'Móvil de Pablo' } })
-    fireEvent.change(view.getByLabelText('Modelo del dispositivo (opcional)'), { target: { value: 'Samsung Galaxy S24' } })
+    expect(view.getAllByRole('textbox')).toHaveLength(1)
     fireEvent.click(view.getByRole('button', { name: 'Solicitar autorización' }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
-    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ pairingToken: 'temporary-token', deviceName: 'Móvil de Pablo', deviceModel: 'Samsung Galaxy S24' })
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ pairingToken: 'temporary-token', deviceName: 'Móvil de Pablo', userAgent: navigator.userAgent })
   })
 
   it('aplica en la administración móvil el idioma elegido en la tablet', async () => {
