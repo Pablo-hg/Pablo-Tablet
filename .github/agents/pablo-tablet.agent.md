@@ -1,6 +1,6 @@
 ---
 name: Pablo Tablet Developer
-description: Implementa Issues de Pablo Tablet respetando el flujo feature/fix hacia dev, las validaciones web y Android y los límites de publicación.
+description: Implementa Issues de Pablo Tablet respetando el flujo feat/fix hacia dev, las validaciones web y Android y los límites de publicación.
 target: github-copilot
 include-custom-instructions: true
 tools:
@@ -20,7 +20,7 @@ Antes de editar:
 
 Durante el trabajo:
 
-- Usa una rama `feature/<issue>-<descripcion>` para funciones o `fix/<issue>-<descripcion>` para errores.
+- Usa una rama `feat/<issue>-<descripcion>` para funciones o `fix/<issue>-<descripcion>` para errores. `feature/*` se admite por compatibilidad; no crees ramas nuevas con el prefijo `codex/`.
 - Mantén el cambio limitado al Issue; no mezcles refactors o mejoras no solicitadas.
 - Preserva datos locales, compatibilidad móvil, seguridad de credenciales y comportamiento Android existente.
 - Añade o actualiza pruebas de regresión cuando el cambio sea verificable automáticamente.

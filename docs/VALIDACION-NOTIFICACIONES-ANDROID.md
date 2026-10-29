@@ -4,7 +4,7 @@ Revisión del 29 de octubre de 2026. Incidencia: [#30](https://github.com/Pablo-
 
 ## Punto de partida
 
-- Rama `codex/issue-30-notificaciones-android`, creada desde `origin/main` en `b0b4410`, que corresponde a `v0.4.7`, y vinculada en GitHub Development.
+- Rama de trabajo `fix/30-notificaciones-android`, que conserva el contenido de la rama inicial `codex/issue-30-notificaciones-android`, creada desde `origin/main` en `b0b4410` (`v0.4.7`). La sustitución corrige el prefijo rechazado por la validación del PR hacia `dev`.
 - La implementación anterior de la tarea 30 está presente en la versión base, junto con las correcciones posteriores del límite de alarmas del calendario. No se ha recuperado ni fusionado la antigua rama completa.
 - Pablo confirma que la Teclast con 0.4.7 muestra **Notificaciones preparadas**. Esta es una comprobación del estado de los permisos; todavía no acredita la entrega de avisos.
 - En 0.4.7, Pablo confirma que el temporizador de 1 minuto suena y muestra el aviso mientras está en Tiempo, con el botón «Detener». Queda por confirmar la ausencia de repetición tras detenerlo. El temporizador solo ofrece «Detener»; el pospuesto corresponde a alarmas y calendario.
