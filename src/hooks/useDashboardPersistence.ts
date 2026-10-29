@@ -1,4 +1,4 @@
-import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { DASHBOARD_STORAGE_KEY, readAppStorageRecord, usesNativeAppStorage, writeAppStorage } from '../appStorage'
 import { loadDashboardState, saveDashboardState, type DashboardState } from '../dashboardState'
 
@@ -10,6 +10,7 @@ interface DashboardPersistenceOptions {
 
 export function useDashboardPersistence({ state, stateRef, setState }: DashboardPersistenceOptions) {
   const persistenceReady = useRef(!usesNativeAppStorage())
+  const [ready, setReady] = useState(!usesNativeAppStorage())
   const lastStoredUpdatedAt = useRef<number | null>(null)
   const applyingRemoteState = useRef(false)
 
@@ -31,11 +32,10 @@ export function useDashboardPersistence({ state, stateRef, setState }: Dashboard
           persistenceReady.current = true
           stateRef.current = nextState
           setState(nextState)
+          setReady(true)
         }
       } catch (error) {
         console.warn('No se pudo abrir el almacenamiento privado de Pablo Tablet.', error)
-      } finally {
-        if (!cancelled) persistenceReady.current = true
       }
     }
     void hydrateState()
@@ -50,6 +50,10 @@ export function useDashboardPersistence({ state, stateRef, setState }: Dashboard
         const stored = await readAppStorageRecord(DASHBOARD_STORAGE_KEY)
         if (cancelled || !stored.value || stored.updatedAt === null || stored.updatedAt === lastStoredUpdatedAt.current) return
         lastStoredUpdatedAt.current = stored.updatedAt
+        if (!persistenceReady.current) {
+          persistenceReady.current = true
+          setReady(true)
+        }
         if (JSON.stringify(stateRef.current) === stored.value) return
         const nextState = loadDashboardState(stored.value)
         applyingRemoteState.current = true
@@ -78,4 +82,6 @@ export function useDashboardPersistence({ state, stateRef, setState }: Dashboard
       saveDashboardState(state)
     }
   }, [state, stateRef])
+
+  return ready
 }

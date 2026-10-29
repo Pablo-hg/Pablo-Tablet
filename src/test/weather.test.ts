@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchWeatherForecast, searchWeatherLocations, weatherDescription, type WeatherLocation } from '../weather'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fetchWeatherForecast, isWeatherHourDay, searchWeatherLocations, weatherDescription, type WeatherForecast, type WeatherLocation } from '../weather'
 
 const madrid: WeatherLocation = {
   id: 'madrid',
@@ -17,6 +17,7 @@ function response(payload: unknown, ok = true) {
 
 describe('meteorología', () => {
   beforeEach(() => vi.unstubAllGlobals())
+  afterEach(() => vi.unstubAllGlobals())
 
   it('busca ubicaciones y descarta resultados sin coordenadas válidas', async () => {
     const fetchMock = vi.fn().mockResolvedValue(response({ results: [
@@ -45,6 +46,7 @@ describe('meteorología', () => {
         temperature_2m: [19, 21.4, 22],
         precipitation_probability: [0, 5, 10],
         weather_code: [1, 2, 3],
+        is_day: [0, 1, 1],
       },
       daily: {
         time: ['2026-10-04', '2026-10-05'],
@@ -62,8 +64,26 @@ describe('meteorología', () => {
     expect(forecast.locationId).toBe('madrid')
     expect(forecast.current).toMatchObject({ temperature: 21.4, apparentTemperature: 20.8, humidity: 55, weatherCode: 2, isDay: true })
     expect(forecast.hourly.map((hour) => hour.time)).toEqual(['2026-10-04T10:00', '2026-10-04T11:00'])
+    expect(forecast.hourly.every((hour) => hour.isDay)).toBe(true)
     expect(forecast.daily).toHaveLength(2)
     expect(weatherDescription(forecast.current.weatherCode)).toBe('Parcialmente nublado')
+  })
+
+  it('distingue noche y día en la previsión y en cachés antiguas, incluida la medianoche', () => {
+    const forecast = {
+      current: { isDay: false },
+      daily: [
+        { date: '2026-10-28', sunrise: '2026-10-28T07:39', sunset: '2026-10-28T18:17' },
+        { date: '2026-10-29', sunrise: '2026-10-29T07:40', sunset: '2026-10-29T18:16' },
+      ],
+    } as WeatherForecast
+    const hour = { time: '2026-10-28T23:00', temperature: 14, weatherCode: 0, precipitationProbability: 0 }
+    expect(isWeatherHourDay({ ...hour, isDay: false }, forecast)).toBe(false)
+    expect(isWeatherHourDay({ ...hour, isDay: true }, forecast)).toBe(true)
+    expect(isWeatherHourDay(hour, forecast)).toBe(false)
+    expect(isWeatherHourDay({ ...hour, time: '2026-10-29T00:00' }, forecast)).toBe(false)
+    expect(isWeatherHourDay({ ...hour, time: '2026-10-29T07:40' }, forecast)).toBe(true)
+    expect(isWeatherHourDay({ ...hour, time: '2026-10-29T18:16' }, forecast)).toBe(false)
   })
 
   it('informa de respuestas fallidas o incompletas', async () => {

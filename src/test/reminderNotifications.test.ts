@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Alarm, CalendarEvent } from '../dashboardState'
-import { MAX_SCHEDULED_CALENDAR_NOTIFICATIONS, syncAlarmNotifications, syncCalendarEventNotifications } from '../reminderNotifications'
+import type { Alarm, CalendarEvent, Timer } from '../dashboardState'
+import { MAX_SCHEDULED_CALENDAR_NOTIFICATIONS, syncAlarmNotifications, syncCalendarEventNotifications, syncReminderNotifications, syncTimerNotifications } from '../reminderNotifications'
 
 const notificationPlugin = vi.hoisted(() => ({
   checkPermissions: vi.fn(),
@@ -29,6 +29,7 @@ vi.mock('@capacitor/local-notifications', () => ({
 vi.mock('../alarmSounds', () => ({
   alarmChannelId: vi.fn((id: string) => `alarm-${id}`),
   configureAlarmChannel: vi.fn(async (alarm: Alarm) => `alarm-${alarm.id}`),
+  configureTimerChannel: vi.fn(async (timer: Timer) => `timer-${timer.id}-${timer.soundUri || 'default'}`),
   configureAlertChannel: vi.fn(async () => undefined),
 }))
 
@@ -56,6 +57,55 @@ describe('sincronización de notificaciones locales', () => {
     notificationPlugin.schedule.mockResolvedValue({ notifications: [] })
   })
 
+  it('actualiza fecha y tono de un temporizador conservando su ID, y cancela al pausarlo', async () => {
+    const timer: Timer = {
+      id: 'timer-1', label: 'Horno', durationSeconds: 300, remainingSeconds: 300,
+      endsAt: '2099-01-01T10:05:00.000Z', soundName: 'Campanas', soundUri: 'content://sounds/1', createdAt: '2099-01-01T10:00:00.000Z',
+    }
+    await syncTimerNotifications([timer])
+    const first = notificationPlugin.schedule.mock.calls[0][0].notifications[0]
+    expect(first).toMatchObject({ channelId: 'timer-timer-1-content://sounds/1', isExactNotification: true })
+    notificationPlugin.getPending.mockResolvedValue({ notifications: [first] })
+    notificationPlugin.schedule.mockClear()
+
+    await syncTimerNotifications([{ ...timer, soundUri: 'content://sounds/2', endsAt: '2099-01-01T10:10:00.000Z' }])
+    expect(notificationPlugin.update).toHaveBeenCalledWith({ notifications: [expect.objectContaining({
+      id: first.id, channelId: 'timer-timer-1-content://sounds/2', schedule: { at: new Date('2099-01-01T10:10:00.000Z'), allowWhileIdle: true },
+    })] })
+    expect(notificationPlugin.schedule).not.toHaveBeenCalled()
+
+    await syncTimerNotifications([{ ...timer, endsAt: null }])
+    expect(notificationPlugin.cancel).toHaveBeenCalledWith({ notifications: [{ id: first.id }] })
+  })
+
+  it('limpia temporizadores eliminados, pendientes y entregados, incluso sin permiso', async () => {
+    notificationPlugin.checkPermissions.mockResolvedValue({ display: 'denied' })
+    const orphan = { id: 301, extra: { source: 'pablo-tablet-timer', timerId: 'deleted' } }
+    notificationPlugin.getPending.mockResolvedValue({ notifications: [orphan] })
+    notificationPlugin.getDeliveredNotifications.mockResolvedValue({ notifications: [orphan] })
+    await syncTimerNotifications([])
+    expect(notificationPlugin.cancel).toHaveBeenCalledWith({ notifications: [{ id: 301 }] })
+    expect(notificationPlugin.removeDeliveredNotificationsById).toHaveBeenCalledWith({ ids: [301] })
+    expect(notificationPlugin.schedule).not.toHaveBeenCalled()
+  })
+
+  it('actualiza el recordatorio de una nota y lo retira al archivarla', async () => {
+    const note = {
+      id: 'note-1', type: 'text' as const, title: 'Revisar', content: 'Informe', drawing: [], drawingPosition: 'below' as const, drawingVisible: true,
+      color: 'violet' as const, pinned: false, archived: false, reminderAt: '2099-01-01T10:00:00.000Z',
+      createdAt: '2098-01-01T10:00:00.000Z', updatedAt: '2098-01-01T10:00:00.000Z',
+    }
+    await syncReminderNotifications([note])
+    const first = notificationPlugin.schedule.mock.calls[0][0].notifications[0]
+    notificationPlugin.getPending.mockResolvedValue({ notifications: [first] })
+    notificationPlugin.schedule.mockClear()
+    await syncReminderNotifications([{ ...note, title: 'Revisar mañana', reminderAt: '2099-01-02T10:00:00.000Z' }])
+    expect(notificationPlugin.update).toHaveBeenCalledWith({ notifications: [expect.objectContaining({ id: first.id, title: 'Revisar mañana' })] })
+    expect(notificationPlugin.schedule).not.toHaveBeenCalled()
+    await syncReminderNotifications([{ ...note, archived: true }])
+    expect(notificationPlugin.cancel).toHaveBeenCalledWith({ notifications: [{ id: first.id }] })
+  })
+
   it('programa una alarma nueva con un identificador estable', async () => {
     await syncAlarmNotifications([alarm])
 
@@ -65,6 +115,7 @@ describe('sincronización de notificaciones locales', () => {
         title: 'Despertar',
         channelId: 'alarm-alarm-1',
         isExactNotification: true,
+        schedule: { on: { weekday: 1, hour: 7, minute: 30, second: 0 }, allowWhileIdle: true },
         extra: expect.objectContaining({ source: 'pablo-tablet-alarm', alarmId: 'alarm-1' }),
       })],
     })

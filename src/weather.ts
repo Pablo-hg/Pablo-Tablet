@@ -16,6 +16,8 @@ export interface WeatherHour {
   temperature: number
   precipitationProbability: number
   weatherCode: number
+  // Older cached forecasts did not store this field.
+  isDay?: boolean
 }
 
 export interface WeatherDay {
@@ -73,6 +75,7 @@ interface OpenMeteoForecastResponse {
     temperature_2m?: number[]
     precipitation_probability?: number[]
     weather_code?: number[]
+    is_day?: number[]
   }
   daily?: {
     time?: string[]
@@ -121,7 +124,7 @@ export async function fetchWeatherForecast(location: WeatherLocation, signal?: A
   url.searchParams.set('latitude', String(location.latitude))
   url.searchParams.set('longitude', String(location.longitude))
   url.searchParams.set('current', 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,is_day')
-  url.searchParams.set('hourly', 'temperature_2m,precipitation_probability,weather_code')
+  url.searchParams.set('hourly', 'temperature_2m,precipitation_probability,weather_code,is_day')
   url.searchParams.set('daily', 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset')
   url.searchParams.set('timezone', location.timezone || 'auto')
   url.searchParams.set('forecast_days', '7')
@@ -138,6 +141,7 @@ export async function fetchWeatherForecast(location: WeatherLocation, signal?: A
     temperature: finiteNumber(payload.hourly?.temperature_2m?.[index]),
     precipitationProbability: finiteNumber(payload.hourly?.precipitation_probability?.[index]),
     weatherCode: finiteNumber(payload.hourly?.weather_code?.[index]),
+    isDay: typeof payload.hourly?.is_day?.[index] === 'number' ? payload.hourly.is_day[index] !== 0 : undefined,
   }))
   const firstUpcomingHour = Math.max(0, hourly.findIndex((hour) => hour.time >= payload.current!.time!))
 
@@ -168,6 +172,15 @@ export async function fetchWeatherForecast(location: WeatherLocation, signal?: A
 
   void saveCachedWeatherForecast(forecast)
   return forecast
+}
+
+export function isWeatherHourDay(hour: WeatherHour, forecast: WeatherForecast) {
+  if (typeof hour.isDay === 'boolean') return hour.isDay
+  const day = forecast.daily.find((candidate) => candidate.date === hour.time.slice(0, 10))
+  // All timestamps use the forecast location's timezone. Compare local strings,
+  // rather than interpreting them in the tablet's timezone.
+  if (day?.sunrise && day.sunset) return hour.time >= day.sunrise && hour.time < day.sunset
+  return forecast.current.isDay
 }
 
 export function loadCachedWeatherForecasts(): Record<string, WeatherForecast> {
