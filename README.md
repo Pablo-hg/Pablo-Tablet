@@ -189,7 +189,7 @@ Estas son áreas de trabajo del MVP y no representan el número de la siguiente 
 
 ## Desarrollo
 
-Las contribuciones parten de `dev` mediante ramas `feature/<issue>-<descripcion>` o `fix/<issue>-<descripcion>`. Una rama `release/<major>.<minor>.<patch>` creada desde `main` selecciona únicamente los cambios ya probados que se publicarán; `main` queda reservado para versiones publicables. Todos los nombres se escriben en minúsculas, sin espacios ni tildes. Antes de crear una rama, consulta la nomenclatura y los comandos exactos en [FLUJO-DE-RAMAS-Y-VERSIONES.md](FLUJO-DE-RAMAS-Y-VERSIONES.md).
+Las contribuciones parten de `dev` mediante ramas `feat/<issue>-<descripcion>` o `fix/<issue>-<descripcion>`; `feature/*` se admite por compatibilidad. Una rama `release/<major>.<minor>.<patch>` creada desde `main` selecciona únicamente los cambios ya probados que se publicarán; `main` queda reservado para versiones publicables. Todos los nombres se escriben en minúsculas, sin espacios ni tildes. Antes de crear una rama, consulta la nomenclatura y los comandos exactos en [FLUJO-DE-RAMAS-Y-VERSIONES.md](FLUJO-DE-RAMAS-Y-VERSIONES.md).
 
 ```bash
 npm install

@@ -21,8 +21,10 @@ describe('navegación y flujos principales', () => {
     const connectionsHeading = screen.getByRole('heading', { name: 'Cuentas sincronizadas' })
     expect(upcomingHeading.compareDocumentPosition(connectionsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Ir a Tiempo' }))
+    expect(document.querySelector('.tablet-content')).toHaveClass('is-weather')
     expect(screen.getByText('Añade tu primera ubicación')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Ir a Inicio' }))
+    expect(document.querySelector('.tablet-content')).not.toHaveClass('is-weather')
     expect(screen.getByText('Buenos días, Pablo')).toBeInTheDocument()
   })
 

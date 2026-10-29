@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import { LocalNotifications, Weekday, type LocalNotificationSchema } from '@capacitor/local-notifications'
-import { alarmChannelId, configureAlarmChannel, configureAlertChannel } from './alarmSounds'
+import { alarmChannelId, configureAlarmChannel, configureAlertChannel, configureTimerChannel } from './alarmSounds'
 import type { Alarm, CalendarEvent, Note, Timer } from './dashboardState'
 import { checkNotificationPermissionStatus } from './notificationPermissions'
 import { activeLocale, tx } from './i18n'
@@ -11,7 +11,6 @@ const ALARM_SNOOZE_SOURCE = 'pablo-tablet-alarm-snooze'
 const TIMER_SOURCE = 'pablo-tablet-timer'
 const CALENDAR_EVENT_SOURCE = 'pablo-tablet-calendar-event'
 const CALENDAR_SNOOZE_SOURCE = 'pablo-tablet-calendar-snooze'
-const TIMER_CHANNEL = 'pablo_timer_alerts'
 const CALENDAR_EVENT_CHANNEL = 'pablo_calendar_reminders_silent'
 // Android limits the number of alarms a single application can own (500 on the
 // Teclast T65). Keep enough headroom for alarms, timers and snoozed reminders.
@@ -123,7 +122,7 @@ export async function syncAlarmNotifications(alarms: Alarm[]) {
         title: alarm.label.trim() || tx('Alarma'),
         body: tx('Alarma programada para las {{time}}.', { time: alarm.time }),
         channelId: channels.get(alarm.id),
-        schedule: { on: { weekday: weekday as Weekday, hour, minute }, allowWhileIdle: true },
+        schedule: { on: { weekday: weekday as Weekday, hour, minute, second: 0 }, allowWhileIdle: true },
         extra: { source: ALARM_SOURCE, kind: 'alarm', alarmId: alarm.id, weekday },
       }))
     })
@@ -205,7 +204,7 @@ export async function snoozeAlarmNotification(alarm: Alarm, minutes: number) {
   if (!Capacitor.isNativePlatform()) return
   const access = await schedulingAccess()
   if (!access) return
-  const channelId = await configureAlarmChannel(alarm) ?? alarmChannelId(alarm.id)
+  const channelId = await configureAlarmChannel(alarm) ?? alarmChannelId(alarm.id, alarm.soundUri)
   await LocalNotifications.schedule({ notifications: [{
     id: notificationId(`snooze:${alarm.id}:${Date.now()}`),
     title: alarm.label.trim() || tx('Alarma'),
@@ -237,18 +236,16 @@ export async function snoozeCalendarEventNotification(event: CalendarEvent, minu
 export async function syncTimerNotifications(timers: Timer[]) {
   if (!Capacitor.isNativePlatform()) return
   try {
-    await configureAlertChannel(TIMER_CHANNEL, tx('Temporizadores'), null)
     const now = Date.now()
-    const notifications = timers
-      .filter((timer) => timer.endsAt && new Date(timer.endsAt).getTime() > now)
-      .map((timer) => ({
-        id: notificationId(`timer:${timer.id}`),
-        title: timer.label.trim() || tx('Temporizador'),
-        body: tx('El temporizador ha terminado.'),
-        channelId: TIMER_CHANNEL,
-        schedule: { at: new Date(timer.endsAt as string), allowWhileIdle: true },
-        extra: { source: TIMER_SOURCE, kind: 'timer', timerId: timer.id },
-      }))
+    const activeTimers = timers.filter((timer) => timer.endsAt && new Date(timer.endsAt).getTime() > now)
+    const notifications = await Promise.all(activeTimers.map(async (timer) => ({
+      id: notificationId(`timer:${timer.id}`),
+      title: timer.label.trim() || tx('Temporizador'),
+      body: tx('El temporizador ha terminado.'),
+      channelId: await configureTimerChannel(timer),
+      schedule: { at: new Date(timer.endsAt as string), allowWhileIdle: true },
+      extra: { source: TIMER_SOURCE, kind: 'timer', timerId: timer.id },
+    })))
     const timerIds = new Set(timers.map((timer) => timer.id))
     await reconcileNotifications(TIMER_SOURCE, notifications, (notification) => (
       notification.extra?.source === TIMER_SOURCE
