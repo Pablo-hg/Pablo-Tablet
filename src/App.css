@@ -1512,3 +1512,56 @@
   .weather-saved-locations, .weather-location-selector { flex: 1 1 100%; max-width: 100%; }
   .weather-location-search { flex-basis: 100%; }
 }
+
+/* #33: Al editar notas en horizontal, ajustar el espacio útil al teclado de
+   Android y priorizar el texto. No altera la maquetación del resto de páginas. */
+.tablet-shell.is-notes-keyboard-open {
+  height: var(--notes-visible-height);
+  min-height: 0;
+}
+.tablet-shell.is-notes-keyboard-open .tablet-content {
+  box-sizing: border-box;
+  height: var(--notes-visible-height) !important;
+  min-height: 0 !important;
+  overflow: hidden;
+  padding: 8px 12px !important;
+}
+.tablet-shell.is-notes-keyboard-open .notes-page {
+  height: 100%;
+  min-height: 0;
+}
+.tablet-shell.is-notes-keyboard-open .page-indicators,
+.tablet-shell.is-notes-keyboard-open .notes-page .compact-header,
+.tablet-shell.is-notes-keyboard-open .notes-sidebar,
+.tablet-shell.is-notes-keyboard-open .note-editor-actions,
+.tablet-shell.is-notes-keyboard-open .note-editor-footer {
+  display: none;
+}
+.tablet-shell.is-notes-keyboard-open .notes-workspace {
+  border-radius: 14px;
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 10px;
+}
+.tablet-shell.is-notes-keyboard-open .note-editor {
+  min-height: 0;
+  padding: 0;
+}
+.tablet-shell.is-notes-keyboard-open .note-editor-heading {
+  align-items: center;
+}
+.tablet-shell.is-notes-keyboard-open .note-title-input {
+  font-size: 1rem;
+  padding-bottom: 4px;
+}
+.tablet-shell.is-notes-keyboard-open .note-format-badge {
+  display: none;
+}
+.tablet-shell.is-notes-keyboard-open .note-editor-body {
+  margin: 6px 0 0;
+  min-height: 0;
+}
+.tablet-shell.is-notes-keyboard-open .note-combined-content.text-only textarea {
+  min-height: 0;
+}

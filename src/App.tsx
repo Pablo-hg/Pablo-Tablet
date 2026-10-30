@@ -93,6 +93,7 @@ import { formatCountdown, pauseTimer, resetTimer, startTimer, timerHasFinished, 
 import { isNightModeActive } from './nightMode'
 import { useDashboardPersistence } from './hooks/useDashboardPersistence'
 import { useDeviceEffects } from './hooks/useDeviceEffects'
+import { useNotesKeyboardViewport } from './hooks/useNotesKeyboardViewport'
 import { useWeatherForecasts } from './hooks/useWeatherForecasts'
 import { AppNavigation, type AppScreen } from './app/AppNavigation'
 import { AppShell } from './app/AppShell'
@@ -2612,6 +2613,7 @@ function NotesPage({
 }) {
   const [showArchived, setShowArchived] = useState(false)
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false)
+  const notesPageRef = useNotesKeyboardViewport()
   const visibleNotes = useMemo(
     () => notes.filter((note) => !note.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt)),
     [notes],
@@ -2635,7 +2637,7 @@ function NotesPage({
   </div> : null
 
   return (
-    <div className="fullscreen-page notes-page page-enter">
+    <div ref={notesPageRef} className="fullscreen-page notes-page page-enter">
       <PageHeader pageLabel="Notas" />
       <section className="notes-workspace" aria-label={tx('Notas locales')}>
         <aside className="notes-sidebar">
