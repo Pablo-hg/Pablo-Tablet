@@ -146,7 +146,7 @@ function App() {
   const deliveredSimulationIds = useRef(new Set<string>())
   const calendarSyncInFlight = useRef(new Set<string>())
   const dashboardStateRef = useRef(dashboardState)
-  useDashboardPersistence({ state: dashboardState, stateRef: dashboardStateRef, setState: setDashboardState })
+  const dashboardReady = useDashboardPersistence({ state: dashboardState, stateRef: dashboardStateRef, setState: setDashboardState })
 
   const enabledPages = useMemo(
     () => DASHBOARD_PAGES.filter((page) => dashboardState.preferences.enabledPageIds.includes(page.id)),
@@ -178,7 +178,7 @@ function App() {
   const selectedWeatherLocation = dashboardState.weatherLocations.find((location) => location.id === dashboardState.selectedWeatherLocationId) ?? homeWeatherLocation
   const { forecasts: weatherForecasts, loading: weatherLoading, errors: weatherErrors, refresh: refreshWeather } = useWeatherForecasts(homeWeatherLocation, selectedWeatherLocation)
   const nightModeActive = isNightModeActive(now, dashboardState.preferences)
-  useDeviceEffects(dashboardState, nightModeActive)
+  useDeviceEffects(dashboardState, nightModeActive, dashboardReady)
   const activeThemeId = nightModeActive && dashboardState.preferences.themeId === 'original'
     ? 'amoled'
     : dashboardState.preferences.themeId
@@ -238,6 +238,7 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!dashboardReady) return
     const finished = dashboardState.timers.filter((timer) => timerHasFinished(timer, now))
     if (finished.length === 0) return
     const timeout = window.setTimeout(() => {
@@ -246,9 +247,10 @@ function App() {
       startRinging({ kind: 'timer', sourceId: timer.id, title: timer.label || 'Temporizador', subtitle: 'El temporizador ha terminado.', soundUri: null })
     }, 0)
     return () => window.clearTimeout(timeout)
-  }, [dashboardState.timers, now, startRinging])
+  }, [dashboardState.timers, now, startRinging, dashboardReady])
 
   useEffect(() => {
+    if (!dashboardReady) return
     const cutoff = now.getTime() - 35_000
     if (!Capacitor.isNativePlatform()) {
       const dueNote = dashboardState.notes.find((note) => !note.archived && note.reminderAt && new Date(note.reminderAt).getTime() <= now.getTime() && new Date(note.reminderAt).getTime() > cutoff && !deliveredSimulationIds.current.has(`note:${note.id}:${note.reminderAt}`))
@@ -265,10 +267,10 @@ function App() {
       deliveredSimulationIds.current.add(`alarm:${dueAlarm.id}:${now.toDateString()}`)
       startRinging({ kind: 'alarm', sourceId: dueAlarm.id, title: dueAlarm.label || 'Alarma', subtitle: `Sonando a las ${dueAlarm.time}`, soundUri: dueAlarm.soundUri })
     }
-  }, [dashboardState.alarms, dashboardState.notes, now, showSimulatedAlert, startRinging, timeFormatter])
+  }, [dashboardState.alarms, dashboardState.notes, now, showSimulatedAlert, startRinging, timeFormatter, dashboardReady])
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return
+    if (!Capacitor.isNativePlatform() || !dashboardReady) return
     const removers: (() => void)[] = []
 
     const showNotificationAlert = (notification: { id: number; title?: string; body?: string; extra?: Record<string, unknown> }) => {
@@ -336,7 +338,7 @@ function App() {
     }).then((listener) => { removers.push(() => listener.remove()) })
 
     return () => removers.forEach((remove) => remove())
-  }, [registerInteraction, startRinging])
+  }, [registerInteraction, startRinging, dashboardReady])
 
   useEffect(() => {
     const preferences = dashboardState.preferences
@@ -993,6 +995,14 @@ function App() {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     setInteractionLocked(false)
     moveToNavigationPage(activeNavigationIndex + (deltaX < 0 ? 1 : -1))
+  }
+
+  if (!dashboardReady) {
+    return <main className="tablet-shell" data-theme={activeThemeId} aria-busy="true">
+      <section className="tablet-content" aria-label="Pablo Tablet">
+        <p role="status">{tx('Recuperando los datos guardados…')}</p>
+      </section>
+    </main>
   }
 
   return (
