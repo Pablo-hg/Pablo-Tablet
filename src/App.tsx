@@ -82,6 +82,7 @@ import { DEFAULT_ALARM_SOUND, getDeviceAlarmSounds, previewAlarmSound, stopAlarm
 import { snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
 import { arrangeWidgets, DASHBOARD_COLUMNS, DASHBOARD_ROWS, DEFAULT_WIDGETS, placeWidgets, resizeWidgets, type DashboardOrientation, type DashboardWidgetId, type PlacedWidget, type WidgetPosition } from './widgetLayout'
 import { playInteractionSound } from './deviceSettings'
+import { shouldPlayInteractionSoundOnClick } from './interactionSoundEvents'
 import { deleteGalleryPhotoFile, galleryPhotoSource, pickGalleryPhotos } from './gallery'
 import { compactCalendarOutbox, createCalendarOutboxEntry } from './calendarSync/repository'
 import { applyCalendarSync } from './calendarSync/repository'
@@ -964,8 +965,9 @@ function App() {
       suppressClick.current = false
       return
     }
-    const target = event.target as HTMLElement
-    if (dashboardState.preferences.interactionSoundsEnabled && target.closest('button, select') && !target.closest('.settings-range-row')) {
+    // Los selectores nativos de Android ya reproducen su propio sonido al elegir.
+    // No añadir otro clic manual al abrir/cerrar su menú.
+    if (dashboardState.preferences.interactionSoundsEnabled && shouldPlayInteractionSoundOnClick(event.target)) {
       void playInteractionSound(activeMediaVolume)
     }
   }
