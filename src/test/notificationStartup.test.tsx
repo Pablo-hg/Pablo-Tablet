@@ -53,6 +53,20 @@ describe('avisos al arrancar Android', () => {
     expect(sync.alarms).toHaveBeenCalledTimes(1)
   })
 
+  it('repone periódicamente los avisos de calendario y detiene la reposición al desmontar', async () => {
+    storage.read.mockResolvedValue({ value: JSON.stringify(loadDashboardState()), updatedAt: 1 })
+    const { result, unmount } = renderHook(useStartup)
+    await act(async () => {})
+    expect(result.current).toBe(true)
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    expect(sync.calendar).toHaveBeenCalledTimes(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(60 * 60_000) })
+    expect(sync.calendar).toHaveBeenCalledTimes(2)
+    unmount()
+    await act(async () => { await vi.advanceTimersByTimeAsync(60 * 60_000) })
+    expect(sync.calendar).toHaveBeenCalledTimes(2)
+  })
+
   it('no reemplaza los datos ni cancela avisos si falla la lectura inicial', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     storage.read.mockRejectedValue(new Error('storage unavailable'))

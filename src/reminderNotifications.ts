@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core'
+import { calendarOccurrenceIndexNear, calendarOccurrenceStart, toLocalDateKey } from './calendarRecurrence'
 import { LocalNotifications, Weekday, type LocalNotificationSchema } from '@capacitor/local-notifications'
 import { alarmChannelId, configureAlarmChannel, configureAlertChannel, configureTimerChannel } from './alarmSounds'
 import type { Alarm, CalendarEvent, Note, Timer } from './dashboardState'
@@ -136,28 +137,21 @@ export async function syncAlarmNotifications(alarms: Alarm[]) {
   }
 }
 
-function recurringDate(date: string, recurrence: CalendarEvent['recurrence'], index: number) {
-  if (recurrence === 'none' || index === 0) return date
-  const [year, month, day] = date.split('-').map(Number)
-  if (recurrence === 'daily' || recurrence === 'weekly') {
-    const value = new Date(year, month - 1, day + index * (recurrence === 'daily' ? 1 : 7), 12)
-    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
-  }
-  const targetYear = recurrence === 'monthly' ? year + Math.floor((month - 1 + index) / 12) : year + index
-  const targetMonth = recurrence === 'monthly' ? ((month - 1 + index) % 12) + 1 : month
-  const safeDay = Math.min(day, new Date(targetYear, targetMonth, 0).getDate())
-  return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`
-}
-
-function calendarReminderOccurrences(event: CalendarEvent, reminder: CalendarEvent['reminders'][number]) {
+function calendarReminderOccurrences(event: CalendarEvent, reminder: CalendarEvent['reminders'][number], now: number) {
   const count = event.recurrence === 'daily' || event.recurrence === 'weekly' ? 40 : event.recurrence === 'monthly' ? 24 : event.recurrence === 'yearly' ? 10 : 1
   const eventStart = new Date(`${event.date}T${event.startTime}:00`).getTime()
   const reminderOffset = new Date(`${reminder.date}T${reminder.time}:00`).getTime() - eventStart
-  return Array.from({ length: count }, (_, index) => {
-    const occurrenceDate = recurringDate(event.date, event.recurrence, index)
+  const occurrence = (index: number) => {
+    const occurrenceDate = calendarOccurrenceStart(event, index)
     const occurrenceStart = new Date(`${occurrenceDate}T${event.startTime}:00`)
     return { index, occurrenceDate, at: new Date(occurrenceStart.getTime() + reminderOffset) }
-  })
+  }
+  // Keep the original recurrence index in notification IDs as the window moves.
+  let firstIndex = calendarOccurrenceIndexNear(event, toLocalDateKey(new Date(now - reminderOffset)))
+  if (event.recurrence !== 'none') {
+    while (occurrence(firstIndex).at.getTime() <= now) firstIndex += 1
+  }
+  return Array.from({ length: count }, (_, offset) => occurrence(firstIndex + offset))
 }
 
 export async function syncCalendarEventNotifications(events: CalendarEvent[]) {
@@ -168,7 +162,7 @@ export async function syncCalendarEventNotifications(events: CalendarEvent[]) {
     const now = Date.now()
     const activeEvents = events.filter((event) => event.type !== 'task' || !event.completed)
     const activeEventIds = new Set(activeEvents.map((event) => event.id))
-    const candidates = activeEvents.flatMap((event) => event.reminders.flatMap((reminder) => calendarReminderOccurrences(event, reminder).flatMap(({ index, occurrenceDate, at }) => {
+    const candidates = activeEvents.flatMap((event) => event.reminders.flatMap((reminder) => calendarReminderOccurrences(event, reminder, now).flatMap(({ index, occurrenceDate, at }) => {
       if (at.getTime() <= now) return []
       const eventDate = new Intl.DateTimeFormat(activeLocale(), { day: 'numeric', month: 'long' }).format(new Date(`${occurrenceDate}T12:00:00`))
       return [{
