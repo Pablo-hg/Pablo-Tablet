@@ -52,9 +52,11 @@ export function useDeviceEffects(state: DashboardState, nightModeActive: boolean
     const onVisible = () => {
       if (document.visibilityState === 'visible') syncAll()
     }
+    const calendarRefresh = window.setInterval(() => void syncCalendarEventNotifications(state.calendarEvents), 60 * 60_000)
     window.addEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, syncAll)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
+      window.clearInterval(calendarRefresh)
       window.removeEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, syncAll)
       document.removeEventListener('visibilitychange', onVisible)
     }

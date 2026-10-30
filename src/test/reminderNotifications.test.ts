@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Alarm, CalendarEvent } from '../dashboardState'
 import { MAX_SCHEDULED_CALENDAR_NOTIFICATIONS, syncAlarmNotifications, syncCalendarEventNotifications } from '../reminderNotifications'
 
@@ -44,6 +44,7 @@ const alarm: Alarm = {
 }
 
 describe('sincronización de notificaciones locales', () => {
+  afterEach(() => vi.useRealTimers())
   beforeEach(() => {
     vi.clearAllMocks()
     notificationPlugin.checkPermissions.mockResolvedValue({ display: 'granted' })
@@ -134,6 +135,65 @@ describe('sincronización de notificaciones locales', () => {
     expect(notificationPlugin.schedule).toHaveBeenCalledWith({
       notifications: [expect.objectContaining({ isExactNotification: false })],
     })
+  })
+
+  it.each([
+    { recurrence: 'daily' as const, date: '2020-01-01', now: '2026-10-30T10:00:00', next: '2026-10-30', count: 40 },
+    { recurrence: 'weekly' as const, date: '2020-01-01', now: '2026-10-30T10:00:00', next: '2026-11-04', count: 40 },
+    { recurrence: 'monthly' as const, date: '2020-01-31', now: '2026-02-28T10:00:00', next: '2026-02-28', count: 24 },
+    { recurrence: 'yearly' as const, date: '2000-02-29', now: '2026-02-28T10:00:00', next: '2026-02-28', count: 10 },
+  ])('programa las próximas ocurrencias de una serie antigua $recurrence', async ({ recurrence, date, now, next, count }) => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(now))
+    const event: CalendarEvent = {
+      id: 'old-series', source: 'local', accountId: null, calendarId: null, externalId: null, externalVersion: null, syncStatus: 'local',
+      type: 'event', recurrence, completed: false, title: 'Serie antigua', date, endDate: date,
+      startTime: '12:00', endTime: '13:00', allDay: false, timeZone: 'Europe/Madrid', location: '', notes: '', color: 'sun',
+      reminders: [{ id: 'r1', date, time: '11:55' }], createdAt: '', updatedAt: '',
+    }
+    await syncCalendarEventNotifications([event])
+    expect(notificationPlugin.schedule).toHaveBeenCalledOnce()
+    const scheduled = notificationPlugin.schedule.mock.calls[0][0].notifications
+    expect(scheduled).toHaveLength(count)
+    expect(scheduled[0].schedule.at).toEqual(new Date(`${next}T11:55:00`))
+    expect(scheduled.every((notification: { schedule: { at: Date } }) => notification.schedule.at.getTime() > Date.now())).toBe(true)
+    if (recurrence === 'monthly') expect(scheduled[1].schedule.at).toEqual(new Date('2026-03-31T11:55:00'))
+    if (recurrence === 'yearly') expect(scheduled[2].schedule.at).toEqual(new Date('2028-02-29T11:55:00'))
+  })
+
+  it('conserva IDs al desplazar la ventana diaria y repone la última ocurrencia', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-30T10:00:00'))
+    const event: CalendarEvent = {
+      id: 'daily-series', source: 'local', accountId: null, calendarId: null, externalId: null, externalVersion: null, syncStatus: 'local',
+      type: 'event', recurrence: 'daily', completed: false, title: 'Serie', date: '2020-01-01', endDate: '2020-01-01',
+      startTime: '12:00', endTime: '13:00', allDay: false, timeZone: 'Europe/Madrid', location: '', notes: '', color: 'sun',
+      reminders: [{ id: 'r1', date: '2020-01-01', time: '11:55' }], createdAt: '', updatedAt: '',
+    }
+    await syncCalendarEventNotifications([event])
+    expect(notificationPlugin.schedule).toHaveBeenCalledOnce()
+    const first = notificationPlugin.schedule.mock.calls[0][0].notifications
+    notificationPlugin.getPending.mockResolvedValue({ notifications: first.slice(1) })
+    notificationPlugin.schedule.mockClear()
+    vi.setSystemTime(new Date('2026-10-31T10:00:00'))
+    await syncCalendarEventNotifications([event])
+    expect(notificationPlugin.update.mock.calls[0][0].notifications.map((notification: { id: number }) => notification.id))
+      .toEqual(first.slice(1).map((notification: { id: number }) => notification.id))
+    expect(notificationPlugin.schedule.mock.calls[0][0].notifications).toHaveLength(1)
+  })
+
+  it('busca por la fecha del aviso cuando el recordatorio precede varios días al evento', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-30T10:00:00'))
+    const event: CalendarEvent = {
+      id: 'early-reminder', source: 'local', accountId: null, calendarId: null, externalId: null, externalVersion: null, syncStatus: 'local',
+      type: 'event', recurrence: 'weekly', completed: false, title: 'Serie', date: '2020-01-01', endDate: '2020-01-01',
+      startTime: '12:00', endTime: '13:00', allDay: false, timeZone: 'Europe/Madrid', location: '', notes: '', color: 'sun',
+      reminders: [{ id: 'r1', date: '2019-12-29', time: '11:55' }], createdAt: '', updatedAt: '',
+    }
+    await syncCalendarEventNotifications([event])
+    expect(notificationPlugin.schedule).toHaveBeenCalledOnce()
+    expect(notificationPlugin.schedule.mock.calls[0][0].notifications[0].schedule.at).toEqual(new Date('2026-11-01T11:55:00'))
   })
 
   it('limita los recordatorios de calendario y conserva primero los más próximos', async () => {
