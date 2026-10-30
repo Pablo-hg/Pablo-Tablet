@@ -194,9 +194,10 @@ function App() {
   const activeMediaVolume = nightModeActive ? dashboardState.preferences.nightMediaVolume : dashboardState.preferences.mediaVolume
 
   useEffect(() => {
+    if (!dashboardReady) return
     void setAppLanguage(dashboardState.preferences.language)
     void setNativeAppLanguage(dashboardState.preferences.language).catch((error) => console.warn('No se pudo aplicar el idioma en Android.', error))
-  }, [dashboardState.preferences.language])
+  }, [dashboardState.preferences.language, dashboardReady])
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 1_000)
@@ -204,6 +205,7 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!dashboardReady) return
     const purgeExpiredGalleryPhotos = () => {
       const expirationTime = Date.now() - 30 * 24 * 60 * 60 * 1_000
       const expired = dashboardStateRef.current.galleryPhotos.filter((photo) => photo.deletedAt && new Date(photo.deletedAt).getTime() <= expirationTime)
@@ -216,7 +218,7 @@ function App() {
     purgeExpiredGalleryPhotos()
     const interval = window.setInterval(purgeExpiredGalleryPhotos, 6 * 60 * 60 * 1_000)
     return () => window.clearInterval(interval)
-  }, [])
+  }, [dashboardReady])
 
   const registerInteraction = useCallback(() => {
     setInteractionVersion((version) => version + 1)
