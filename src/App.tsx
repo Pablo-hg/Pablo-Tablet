@@ -18,6 +18,8 @@ import {
   CloudLightning,
   CloudRain,
   CloudSun,
+  CloudMoon,
+  Moon,
   Compass,
   Droplets,
   EyeOff,
@@ -88,7 +90,7 @@ import { calendarRelay } from './calendarSync/relayClient'
 import { readCalendarConnectionToken, removeCalendarConnectionToken, writeCalendarConnectionToken } from './calendarSync/secretVault'
 import { CalendarConnectionsPanel } from './calendarSync/CalendarConnectionsPanel'
 import type { CalendarAccount, SyncedCalendar } from './calendarSync/contracts'
-import { searchWeatherLocations, weatherDescription, type WeatherForecast, type WeatherLocation } from './weather'
+import { isWeatherHourDay, searchWeatherLocations, weatherDescription, type WeatherForecast, type WeatherLocation } from './weather'
 import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, nextCalendarOccurrence, offsetDateKey, toLocalDateKey } from './calendarRecurrence'
 import { formatCountdown, pauseTimer, resetTimer, startTimer, timerHasFinished, timerRemainingSeconds } from './timerLogic'
 import { isNightModeActive } from './nightMode'
@@ -105,6 +107,7 @@ import { nativeCalendarEventsForYears } from './nativeCalendarDates'
 import { activeLocale, setAppLanguage, tx } from './i18n'
 import { setNativeAppLanguage } from './nativeLocale'
 import './App.css'
+import './pages/WeatherPage.css'
 import './themes.css'
 
 type SimulatedAlert = { title: string; body: string }
@@ -1023,7 +1026,7 @@ function App() {
       onClickCapture={handleClickCapture}
       onClick={handleClick}
     >
-      <section className={`tablet-content ${screen === 'settings' ? 'is-settings' : ''} ${screen === 'home' && activePage?.id === 'calendar' ? 'is-calendar' : ''}`} aria-label="Pablo Tablet">
+      <section className={`tablet-content ${screen === 'settings' ? 'is-settings' : ''} ${screen === 'home' && activePage?.id === 'calendar' ? 'is-calendar' : ''} ${screen === 'home' && activePage?.id === 'weather' ? 'is-weather' : ''}`} aria-label="Pablo Tablet">
         {screen === 'home' && activePage?.id === 'assistant' ? (
           <AssistantPage
             enabled={dashboardState.preferences.assistantEnabled}
@@ -2286,13 +2289,31 @@ function formatWeatherDay(value: string, short = false) {
   return new Intl.DateTimeFormat(activeLocale(), { weekday: short ? 'short' : 'long' }).format(new Date(`${value}T12:00:00`)).replace('.', '')
 }
 
-function WeatherIcon({ code, size }: { code: number; size: number }) {
-  if (code === 0) return <SunMedium size={size} strokeWidth={1.55} />
-  if (code === 1 || code === 2) return <CloudSun size={size} strokeWidth={1.55} />
+function WeatherIcon({ code, size, isDay = true }: { code: number; size: number; isDay?: boolean }) {
+  if (code === 0) return isDay ? <SunMedium size={size} strokeWidth={1.55} /> : <Moon size={size} strokeWidth={1.55} />
+  if (code === 1 || code === 2) return isDay ? <CloudSun size={size} strokeWidth={1.55} /> : <CloudMoon size={size} strokeWidth={1.55} />
   if (code === 3 || code === 45 || code === 48) return <Cloud size={size} strokeWidth={1.55} />
   if ((code >= 71 && code <= 77) || code === 85 || code === 86) return <Snowflake size={size} strokeWidth={1.55} />
   if (code >= 95) return <CloudLightning size={size} strokeWidth={1.55} />
   return <CloudRain size={size} strokeWidth={1.55} />
+}
+
+function WeatherTemperatureTrend({ hours }: { hours: WeatherForecast['hourly'] }) {
+  if (hours.length < 2) return null
+  const temperatures = hours.map((hour) => hour.temperature)
+  const low = Math.min(...temperatures) - 2
+  const high = Math.max(...temperatures) + 2
+  const points = hours.map((hour, index) => ({
+    x: 8 + (index / (hours.length - 1)) * 584,
+    y: 12 + ((high - hour.temperature) / (high - low)) * 76,
+  }))
+  const line = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
+  return <svg className="weather-temperature-trend" viewBox="0 0 600 100" preserveAspectRatio="none" role="img" aria-label={tx('Evolución de la temperatura')}>
+    {[25, 50, 75].map((y) => <line key={y} x1="0" y1={y} x2="600" y2={y} className="weather-trend-guide" />)}
+    <path d={`${line} L 592 100 L 8 100 Z`} className="weather-trend-area" />
+    <path d={line} className="weather-trend-line" />
+    {points.map((point, index) => <circle key={hours[index].time} cx={point.x} cy={point.y} r="3.5" />)}
+  </svg>
 }
 
 function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts, loading, errors, onAddLocation, onRemoveLocation, onSetHomeLocation, onSelectLocation, onRefresh, onEditingChange }: {
@@ -2317,6 +2338,8 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
   const forecast = selectedLocation ? forecasts[selectedLocation.id] : null
   const isLoading = selectedLocation ? Boolean(loading[selectedLocation.id]) : false
   const forecastError = selectedLocation ? errors[selectedLocation.id] : ''
+  const hourlyForecast = forecast?.hourly.slice(0, 12) ?? []
+  const todayForecast = forecast?.daily[0]
 
   useEffect(() => {
     const normalizedQuery = query.trim()
@@ -2383,6 +2406,7 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
       {!selectedLocation ? <section className="weather-empty-state"><div className="weather-icon"><MapPin size={42} /></div><h2>{tx('Añade tu primera ubicación')}</h2><p>{tx('Busca una ciudad arriba. La primera se guardará automáticamente como Casa.')}</p></section> : null}
       {selectedLocation && !forecast ? <section className="weather-empty-state"><div className="weather-icon"><RefreshCw className={isLoading ? 'is-spinning' : ''} size={42} /></div><h2>{isLoading ? tx('Consultando el tiempo en {{name}}', { name: selectedLocation.name }) : tx('No se pudo cargar la previsión')}</h2><p>{forecastError || tx('Comprueba la conexión y vuelve a intentarlo.')}</p>{!isLoading ? <button type="button" onClick={() => onRefresh(selectedLocation)}><RefreshCw size={17} />{tx('Reintentar')}</button> : null}</section> : null}
       {selectedLocation && forecast ? <div className="weather-layout">
+        <div className="weather-primary-column">
         <section className="weather-current-panel">
           <div className="weather-page-heading">
             <span>{selectedLocation.id === homeLocationId ? <Home size={16} /> : <MapPin size={16} />}{selectedLocation.name}</span>
@@ -2390,8 +2414,9 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
           </div>
           {forecastError ? <p className="weather-inline-error">{forecastError} {tx('Mostrando la última previsión guardada.')}</p> : null}
           <div className="weather-current-main">
-            <div className="weather-current-icon"><WeatherIcon code={forecast.current.weatherCode} size={72} /></div>
-            <div><strong>{Math.round(forecast.current.temperature)}°</strong><p>{weatherDescription(forecast.current.weatherCode)}</p><span>{tx('Sensación térmica de {{temperature}}°', { temperature: Math.round(forecast.current.apparentTemperature) })}</span></div>
+            <div className="weather-current-icon"><WeatherIcon code={forecast.current.weatherCode} isDay={forecast.current.isDay} size={72} /></div>
+            <div className="weather-current-copy"><strong>{Math.round(forecast.current.temperature)}°</strong><p>{weatherDescription(forecast.current.weatherCode)}</p><span>{tx('Sensación térmica de {{temperature}}°', { temperature: Math.round(forecast.current.apparentTemperature) })}</span></div>
+            {todayForecast ? <dl className="weather-today-range"><div><dt>{tx('Máxima de hoy')}</dt><dd>{Math.round(todayForecast.temperatureMax)}°</dd></div><div><dt>{tx('Mínima de hoy')}</dt><dd>{Math.round(todayForecast.temperatureMin)}°</dd></div></dl> : null}
           </div>
           <div className="weather-stats">
             <div><Droplets size={19} /><span>{tx('Humedad')}<strong>{Math.round(forecast.current.humidity)}%</strong></span></div>
@@ -2399,10 +2424,15 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
             <div><Sunrise size={19} /><span>{tx('Amanecer')}<strong>{formatWeatherHour(forecast.daily[0]?.sunrise ?? '')}</strong></span></div>
             <div><Sunset size={19} /><span>{tx('Anochecer')}<strong>{formatWeatherHour(forecast.daily[0]?.sunset ?? '')}</strong></span></div>
           </div>
-          <div className="hourly-forecast" aria-label={tx('Previsión por horas')}>
-            {forecast.hourly.slice(0, 6).map((hour, index) => <div key={hour.time}><span>{index === 0 ? tx('Ahora') : formatWeatherHour(hour.time)}</span><WeatherIcon code={hour.weatherCode} size={25} /><strong>{Math.round(hour.temperature)}°</strong><small>{tx('{{value}}% lluvia', { value: Math.round(hour.precipitationProbability) })}</small></div>)}
+        </section>
+        <section className="weather-hours-panel" aria-label={tx('Previsión por horas')}>
+          <div className="forecast-heading"><span>{tx('Próximas horas')}</span><small aria-label={tx('Temperatura y lluvia')}>{formatWeatherHour(hourlyForecast[0]?.time ?? '')} – {formatWeatherHour(hourlyForecast.at(-1)?.time ?? '')}</small></div>
+          <WeatherTemperatureTrend hours={hourlyForecast} />
+          <div className="hourly-forecast" data-swipe-block>
+            {hourlyForecast.map((hour) => <div key={hour.time}><span>{formatWeatherHour(hour.time)}</span><WeatherIcon code={hour.weatherCode} isDay={isWeatherHourDay(hour, forecast)} size={25} /><strong>{Math.round(hour.temperature)}°</strong><small>{tx('{{value}}% lluvia', { value: Math.round(hour.precipitationProbability) })}</small></div>)}
           </div>
         </section>
+        </div>
         <section className="weather-forecast-panel">
           <div className="forecast-heading"><span>{tx('Próximos días')}</span><small>{tx('Máx. / mín.')}</small></div>
           <div className="daily-forecast">
