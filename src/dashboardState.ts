@@ -302,10 +302,10 @@ function readNotes(value: unknown): Note[] {
     const note = item as Partial<Note>
     if (typeof note.id !== 'string') return []
     const now = new Date().toISOString()
-    const drawing = Array.isArray(note.drawing) ? note.drawing.slice(0, 300).flatMap((candidate): NoteDrawingStroke[] => {
+    const drawing = Array.isArray(note.drawing) ? note.drawing.flatMap((candidate): NoteDrawingStroke[] => {
       if (!candidate || typeof candidate !== 'object') return []
       const stroke = candidate as Partial<NoteDrawingStroke>
-      const points = Array.isArray(stroke.points) ? stroke.points.slice(0, 2000).flatMap((candidatePoint): NoteDrawingPoint[] => {
+      const points = Array.isArray(stroke.points) ? stroke.points.flatMap((candidatePoint): NoteDrawingPoint[] => {
         if (!candidatePoint || typeof candidatePoint !== 'object') return []
         const point = candidatePoint as Partial<NoteDrawingPoint>
         if (typeof point.x !== 'number' || !Number.isFinite(point.x) || typeof point.y !== 'number' || !Number.isFinite(point.y)) return []
