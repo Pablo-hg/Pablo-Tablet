@@ -7,6 +7,7 @@ import { NOTIFICATION_SETTINGS_CHANGED_EVENT } from '../notificationPermissions'
 
 export function useDeviceEffects(state: DashboardState, nightModeActive: boolean, ready = true) {
   useEffect(() => {
+    if (!ready) return
     const activeSettings = effectiveDeviceSettings(state.preferences, nightModeActive)
     const { autoBrightness, brightness, alarmVolume, mediaVolume, autoRotate, keepScreenAwake, screenTimeoutSeconds } = activeSettings
     const timeout = window.setTimeout(() => {
@@ -14,7 +15,7 @@ export function useDeviceEffects(state: DashboardState, nightModeActive: boolean
         .catch((error) => console.warn('No se pudieron aplicar los ajustes del dispositivo.', error))
     }, 80)
     return () => window.clearTimeout(timeout)
-  }, [state.preferences, nightModeActive])
+  }, [state.preferences, nightModeActive, ready])
 
   useEffect(() => {
     if (!ready) return
@@ -51,9 +52,11 @@ export function useDeviceEffects(state: DashboardState, nightModeActive: boolean
     const onVisible = () => {
       if (document.visibilityState === 'visible') syncAll()
     }
+    const calendarRefresh = window.setInterval(() => void syncCalendarEventNotifications(state.calendarEvents), 60 * 60_000)
     window.addEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, syncAll)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
+      window.clearInterval(calendarRefresh)
       window.removeEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, syncAll)
       document.removeEventListener('visibilitychange', onVisible)
     }

@@ -31,7 +31,7 @@ export function calendarOccurrenceStart(event: CalendarEvent, index: number) {
   return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`
 }
 
-function calendarOccurrenceIndexNear(event: CalendarEvent, date: string) {
+export function calendarOccurrenceIndexNear(event: CalendarEvent, date: string) {
   if (event.recurrence === 'none') return 0
   const dayDifference = dateKeyToDayNumber(date) - dateKeyToDayNumber(event.date)
   if (event.recurrence === 'daily') return Math.max(0, dayDifference)

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { DASHBOARD_PAGES, DASHBOARD_THEMES, loadDashboardState } from '../dashboardState'
+import { DASHBOARD_PAGES, DASHBOARD_THEMES, loadDashboardState, saveDashboardState } from '../dashboardState'
 
 describe('migraciones del estado', () => {
   beforeEach(() => window.localStorage.clear())
@@ -44,6 +44,26 @@ describe('migraciones del estado', () => {
     expect(state.preferences.themeId).toBe('original')
     expect(state.preferences.autoRotate).toBe(true)
     expect(state.preferences.showUpcomingCalendarHolidays).toBe(true)
+  })
+
+  it('conserva todos los trazos y puntos válidos al guardar y reabrir un dibujo grande', () => {
+    const drawing = Array.from({ length: 301 }, (_, index) => ({
+      color: '#7fa2ff', width: 3,
+      points: Array.from({ length: index === 300 ? 2001 : 2 }, (_, point) => ({ x: point % 1000, y: point % 600 })),
+    }))
+    const state = loadDashboardState(JSON.stringify({ notes: [{ id: 'large-drawing', type: 'drawing', drawing }] }))
+    expect(state.notes[0].drawing).toHaveLength(301)
+    expect(state.notes[0].drawing[300].points).toHaveLength(2001)
+    expect(state.notes[0].drawing).toEqual(drawing)
+    saveDashboardState(state)
+    expect(loadDashboardState().notes[0].drawing).toEqual(drawing)
+  })
+
+  it('descarta puntos inválidos sin recortar el resto de un dibujo', () => {
+    const state = loadDashboardState(JSON.stringify({ notes: [{ id: 'drawing', type: 'drawing', drawing: [
+      { color: '#7fa2ff', width: 3, points: [null, { x: 'invalid', y: 1 }, { x: 20, y: 30 }] },
+    ] }] }))
+    expect(state.notes[0].drawing[0].points).toEqual([{ x: 20, y: 30 }])
   })
 
   it('conserva la preferencia para bloquear la rotación', () => {

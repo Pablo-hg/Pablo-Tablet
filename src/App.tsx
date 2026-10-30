@@ -82,6 +82,7 @@ import { DEFAULT_ALARM_SOUND, getDeviceAlarmSounds, previewAlarmSound, stopAlarm
 import { snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
 import { arrangeWidgets, DASHBOARD_COLUMNS, DASHBOARD_ROWS, DEFAULT_WIDGETS, placeWidgets, resizeWidgets, type DashboardOrientation, type DashboardWidgetId, type PlacedWidget, type WidgetPosition } from './widgetLayout'
 import { playInteractionSound } from './deviceSettings'
+import { shouldPlayInteractionSoundOnClick } from './interactionSoundEvents'
 import { deleteGalleryPhotoFile, galleryPhotoSource, pickGalleryPhotos } from './gallery'
 import { compactCalendarOutbox, createCalendarOutboxEntry } from './calendarSync/repository'
 import { applyCalendarSync } from './calendarSync/repository'
@@ -98,6 +99,7 @@ import { NotesWidget } from './components/NotesWidget'
 import { parseNoteList, type NoteListItem } from './noteList'
 import { useDashboardPersistence } from './hooks/useDashboardPersistence'
 import { useDeviceEffects } from './hooks/useDeviceEffects'
+import { useNotesKeyboardViewport } from './hooks/useNotesKeyboardViewport'
 import { useWeatherForecasts } from './hooks/useWeatherForecasts'
 import { AppNavigation, type AppScreen } from './app/AppNavigation'
 import { AppShell } from './app/AppShell'
@@ -963,8 +965,9 @@ function App() {
       suppressClick.current = false
       return
     }
-    const target = event.target as HTMLElement
-    if (dashboardState.preferences.interactionSoundsEnabled && target.closest('button, select') && !target.closest('.settings-range-row')) {
+    // Los selectores nativos de Android ya reproducen su propio sonido al elegir.
+    // No añadir otro clic manual al abrir/cerrar su menú.
+    if (dashboardState.preferences.interactionSoundsEnabled && shouldPlayInteractionSoundOnClick(event.target)) {
       void playInteractionSound(activeMediaVolume)
     }
   }
@@ -1014,6 +1017,14 @@ function App() {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     setInteractionLocked(false)
     moveToNavigationPage(activeNavigationIndex + (deltaX < 0 ? 1 : -1))
+  }
+
+  if (!dashboardReady) {
+    return <main className="tablet-shell" data-theme={activeThemeId} aria-busy="true">
+      <section className="tablet-content" aria-label="Pablo Tablet">
+        <p role="status">{tx('Recuperando los datos guardados…')}</p>
+      </section>
+    </main>
   }
 
   return (
@@ -2666,6 +2677,7 @@ function NotesPage({
 }) {
   const [showArchived, setShowArchived] = useState(false)
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false)
+  const notesPageRef = useNotesKeyboardViewport()
   const visibleNotes = useMemo(
     () => notes.filter((note) => !note.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt)),
     [notes],
@@ -2689,15 +2701,15 @@ function NotesPage({
   </div> : null
 
   return (
-    <div className="fullscreen-page notes-page page-enter">
+    <div ref={notesPageRef} className="fullscreen-page notes-page page-enter">
       <PageHeader pageLabel="Notas" />
       <section className="notes-workspace" aria-label={tx('Notas locales')}>
         <aside className="notes-sidebar">
-          <div className="notes-sidebar-header"><div><h1>{tx(showArchived ? 'Archivo' : 'Mis notas')}</h1><p>{showArchived ? tx('{{count}} archivadas', { count: archivedNotes.length }) : tx('{{count}} guardadas en esta tablet', { count: visibleNotes.length })}</p></div>{!showArchived ? <button type="button" className="icon-button" onClick={() => setIsCreateMenuOpen((open) => !open)} aria-label={tx('Crear una nota')}><Plus size={20} /></button> : null}</div>
+          <div className="notes-sidebar-header"><div><h1>{tx(showArchived ? 'Archivo' : 'Mis notas')}</h1><p>{showArchived ? tx('{{count}} archivadas', { count: archivedNotes.length }) : tx('{{count}} guardadas en esta tablet', { count: visibleNotes.length })}</p></div>{!showArchived ? <button type="button" className="icon-button" onClick={() => setIsCreateMenuOpen((open) => !open)} aria-haspopup="true" aria-expanded={isCreateMenuOpen} aria-label={tx('Crear una nota')}><Plus size={20} /></button> : null}</div>
           {createMenu}
           <div className="note-filter" role="tablist" aria-label={tx('Filtrar notas')}><button type="button" className={!showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(false); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={!showArchived}>{tx('Activas')}</button><button type="button" className={showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(true); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={showArchived}>{tx('Archivo')}</button></div>
           <div className="note-list">
-            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => setSelectedId(note.id)}><span className="note-list-color" /><span><strong>{note.title || tx('Sin título')}</strong><small>{note.type === 'drawing' ? tx(note.drawing.length ? 'Dibujo guardado' : 'Lienzo vacío') : note.type === 'list' ? tx('{{checked}}/{{count}} marcados', { checked: parseNoteList(note.content).filter((item) => item.checked).length, count: parseNoteList(note.content).length }) : (note.content || tx('Texto'))}</small></span><span className="note-list-meta">{note.type === 'drawing' ? <Pencil size={14} aria-label={tx('Dibujo')} /> : note.type === 'list' ? <ListTodo size={14} aria-label={tx('Lista')} /> : <FileText size={14} aria-label={tx('Texto')} />}{note.pinned ? <Pin size={14} /> : null}</span></button>)}
+            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => { setSelectedId(note.id); setIsCreateMenuOpen(false) }}><span className="note-list-color" /><span><strong>{note.title || tx('Sin título')}</strong><small>{note.type === 'drawing' ? tx(note.drawing.length ? 'Dibujo guardado' : 'Lienzo vacío') : note.type === 'list' ? tx('{{checked}}/{{count}} marcados', { checked: parseNoteList(note.content).filter((item) => item.checked).length, count: parseNoteList(note.content).length }) : (note.content || tx('Texto'))}</small></span><span className="note-list-meta">{note.type === 'drawing' ? <Pencil size={14} aria-label={tx('Dibujo')} /> : note.type === 'list' ? <ListTodo size={14} aria-label={tx('Lista')} /> : <FileText size={14} aria-label={tx('Texto')} />}{note.pinned ? <Pin size={14} /> : null}</span></button>)}
             {notesForView.length === 0 ? <div className="notes-empty"><FileText size={24} /><p>{tx(showArchived ? 'No hay notas archivadas.' : 'Aún no hay notas.')}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>{tx('Crear la primera')}</button> : null}</div> : null}
           </div>
         </aside>
