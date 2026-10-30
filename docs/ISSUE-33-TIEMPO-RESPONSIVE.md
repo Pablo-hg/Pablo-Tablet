@@ -68,3 +68,12 @@ Para la matriz de temas e idiomas, usar `qa-weather-mode stress` y lotes de 0 a 
 ## Publicación y comprobación física
 
 Este parche no cambia los artefactos ya publicados de la 0.4.8. Quedan pendientes su integración/publicación en otra versión y la comprobación física en la Teclast T65 mediante el flujo visible de actualización. La conexión ADB disponible no estaba autorizada; no se ha instalado ningún APK ni se han cambiado ajustes del dispositivo.
+
+
+## Integración posterior en dev: PR #78
+
+Para resolver el PR se incorpora `dev` a esta rama mediante un merge, sin reescribir el historial. Se conserva la versión nueva de `WeatherPage.css`, la limpieza de listeners de notificaciones de `dev` y todas sus funciones ya existentes. También se conservan las protecciones de idioma y purga de fotos de `main` hasta recuperar los datos Android, junto con sus tres pruebas adicionales de arranque y conservación de datos.
+
+Las traducciones meteorológicas y los iconos nativos que Git había duplicado al combinar ambos historiales se deduplican. Las pruebas y la implementación de recordatorios, temporizadores, tonos y widgets mantienen el contenido de `dev`.
+
+La exclusión de otras funciones de la #30 descrita arriba corresponde al parche original preparado sobre `main`. Tras este merge, la rama es una integración hacia `dev`; no debe reutilizarse como selección aislada para una release hacia `main`. Esta integración no publica una nueva versión ni valida físicamente la tablet.

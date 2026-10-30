@@ -36,6 +36,7 @@ describe('migraciones del estado', () => {
     expect(state.notes[0].color).toBe('violet')
     expect(state.alarms[0].weekdays).toEqual([1])
     expect(state.timers[0].remainingSeconds).toBe(300)
+    expect(state.timers[0]).toMatchObject({ soundName: 'Sonido predeterminado', soundUri: null })
     expect(state.widgets).toHaveLength(5)
     expect(state.widgets.find((widget) => widget.id === 'assistant')?.visible).toBe(false)
     expect(state.widgets.find((widget) => widget.id === 'clock')?.layouts.landscape).toEqual({ x: 2, y: 0, width: 2, height: 1 })
@@ -67,6 +68,16 @@ describe('migraciones del estado', () => {
 
   it('conserva la preferencia para bloquear la rotación', () => {
     expect(loadDashboardState(JSON.stringify({ preferences: { autoRotate: false } })).preferences.autoRotate).toBe(false)
+  })
+
+  it('conserva el sonido del temporizador al guardar y volver a abrir la aplicación', () => {
+    const state = loadDashboardState(JSON.stringify({ timers: [{
+      id: 't1', label: 'Horno', durationSeconds: 300, remainingSeconds: 180,
+      endsAt: '2099-01-01T10:03:00.000Z', soundName: 'Campanas', soundUri: 'content://sounds/7',
+    }] }))
+    expect(loadDashboardState(JSON.stringify(state)).timers[0]).toMatchObject({
+      soundName: 'Campanas', soundUri: 'content://sounds/7', remainingSeconds: 180, endsAt: '2099-01-01T10:03:00.000Z',
+    })
   })
 
   it('conserva idiomas compatibles y usa español ante valores desconocidos', () => {

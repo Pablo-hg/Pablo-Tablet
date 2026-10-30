@@ -16,10 +16,9 @@ import {
   Clock3,
   Cloud,
   CloudLightning,
+  CloudMoon,
   CloudRain,
   CloudSun,
-  CloudMoon,
-  Moon,
   Compass,
   Droplets,
   EyeOff,
@@ -31,6 +30,7 @@ import {
   ListTodo,
   MapPin,
   Minus,
+  Moon,
   Pause,
   Pencil,
   Play,
@@ -90,10 +90,13 @@ import { calendarRelay } from './calendarSync/relayClient'
 import { readCalendarConnectionToken, removeCalendarConnectionToken, writeCalendarConnectionToken } from './calendarSync/secretVault'
 import { CalendarConnectionsPanel } from './calendarSync/CalendarConnectionsPanel'
 import type { CalendarAccount, SyncedCalendar } from './calendarSync/contracts'
-import { isWeatherHourDay, searchWeatherLocations, weatherDescription, type WeatherForecast, type WeatherLocation } from './weather'
+import { searchWeatherLocations, weatherDescription, isWeatherHourDay, type WeatherForecast, type WeatherLocation } from './weather'
 import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, nextCalendarOccurrence, offsetDateKey, toLocalDateKey } from './calendarRecurrence'
 import { formatCountdown, pauseTimer, resetTimer, startTimer, timerHasFinished, timerRemainingSeconds } from './timerLogic'
 import { isNightModeActive } from './nightMode'
+import { ClockWidgetAlarms } from './components/ClockWidgetAlarms'
+import { NotesWidget } from './components/NotesWidget'
+import { parseNoteList, type NoteListItem } from './noteList'
 import { useDashboardPersistence } from './hooks/useDashboardPersistence'
 import { useDeviceEffects } from './hooks/useDeviceEffects'
 import { useNotesKeyboardViewport } from './hooks/useNotesKeyboardViewport'
@@ -107,11 +110,14 @@ import { nativeCalendarEventsForYears } from './nativeCalendarDates'
 import { activeLocale, setAppLanguage, tx } from './i18n'
 import { setNativeAppLanguage } from './nativeLocale'
 import './App.css'
-import './pages/WeatherPage.css'
 import './themes.css'
+import './pages/WeatherPage.css'
+import './components/DashboardWidgetDetails.css'
+import './components/NotesWidget.css'
 
 type SimulatedAlert = { title: string; body: string }
 type RingingAlert = { kind: 'alarm' | 'timer' | 'calendar'; sourceId: string; title: string; subtitle: string; soundUri: string | null }
+type TimerPatch = Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt' | 'soundName' | 'soundUri'>>
 type CalendarEventPatch = Partial<Pick<CalendarEvent, 'type' | 'recurrence' | 'completed' | 'title' | 'date' | 'endDate' | 'startTime' | 'endTime' | 'allDay' | 'location' | 'notes' | 'color' | 'reminders'>>
 type NotePatch = Partial<Pick<Note, 'title' | 'content' | 'drawing' | 'color' | 'pinned' | 'reminderAt'>>
 type WidgetResizeDirection = 'left' | 'right' | 'top' | 'bottom'
@@ -227,7 +233,12 @@ function App() {
     setScreensaverVisible(false)
     setRingingAlert(alert)
     setScreen('home')
-    setActivePageId(alert.kind === 'calendar' ? 'calendar' : 'clock')
+    const destination = alert.kind === 'calendar' ? 'calendar' : 'clock'
+    setDashboardState((current) => current.preferences.enabledPageIds.includes(destination) ? current : {
+      ...current,
+      preferences: { ...current.preferences, enabledPageIds: [...current.preferences.enabledPageIds, destination] },
+    })
+    setActivePageId(destination)
     setInteractionLocked(true)
     if (alert.kind !== 'calendar') {
       void previewAlarmSound(alert.soundUri, true).catch((error) => console.warn('No se pudo iniciar el sonido de aviso.', error))
@@ -249,7 +260,7 @@ function App() {
     const timeout = window.setTimeout(() => {
       setDashboardState((current) => ({ ...current, timers: current.timers.map((timer) => finished.some((item) => item.id === timer.id) ? { ...timer, remainingSeconds: 0, endsAt: null } : timer) }))
       const timer = finished[0]
-      startRinging({ kind: 'timer', sourceId: timer.id, title: timer.label || 'Temporizador', subtitle: 'El temporizador ha terminado.', soundUri: null })
+      startRinging({ kind: 'timer', sourceId: timer.id, title: timer.label || 'Temporizador', subtitle: 'El temporizador ha terminado.', soundUri: timer.soundUri })
     }, 0)
     return () => window.clearTimeout(timeout)
   }, [dashboardState.timers, now, startRinging, dashboardReady])
@@ -277,6 +288,11 @@ function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || !dashboardReady) return
     const removers: (() => void)[] = []
+    let disposed = false
+    const registerListener = (listener: { remove: () => Promise<void> }) => {
+      if (disposed) void listener.remove()
+      else removers.push(() => { void listener.remove() })
+    }
 
     const showNotificationAlert = (notification: { id: number; title?: string; body?: string; extra?: Record<string, unknown> }) => {
       const kind = notification.extra?.kind
@@ -284,6 +300,7 @@ function App() {
         const alarmId = notification.extra?.alarmId
         if (typeof alarmId !== 'string') return false
         const alarm = dashboardStateRef.current.alarms.find((item) => item.id === alarmId)
+        if (!alarm?.enabled) return false
         void LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: notification.id, title: notification.title || '', body: notification.body || '' }] })
         startRinging({ kind: 'alarm', sourceId: alarmId, title: alarm?.label || notification.title || 'Alarma', subtitle: notification.body || `Alarma programada para las ${alarm?.time ?? ''}.`, soundUri: alarm?.soundUri ?? null })
         return true
@@ -292,14 +309,16 @@ function App() {
         const timerId = notification.extra?.timerId
         if (typeof timerId !== 'string') return false
         const timer = dashboardStateRef.current.timers.find((item) => item.id === timerId)
+        if (!timer) return false
         void LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: notification.id, title: notification.title || '', body: notification.body || '' }] })
-        startRinging({ kind: 'timer', sourceId: timerId, title: timer?.label || notification.title || 'Temporizador', subtitle: 'El temporizador ha terminado.', soundUri: null })
+        startRinging({ kind: 'timer', sourceId: timerId, title: timer?.label || notification.title || 'Temporizador', subtitle: 'El temporizador ha terminado.', soundUri: timer?.soundUri ?? null })
         return true
       }
       if (kind === 'calendar') {
         const calendarEventId = notification.extra?.calendarEventId
         if (typeof calendarEventId !== 'string') return false
         const calendarEvent = dashboardStateRef.current.calendarEvents.find((item) => item.id === calendarEventId)
+        if (!calendarEvent || (calendarEvent.type === 'task' && calendarEvent.completed)) return false
         void LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: notification.id, title: notification.title || '', body: notification.body || '' }] })
         startRinging({
           kind: 'calendar',
@@ -336,13 +355,13 @@ function App() {
       setActivePageId('notes')
       setScreen('home')
       registerInteraction()
-    }).then((listener) => { removers.push(() => listener.remove()) })
+    }).then(registerListener)
 
     void LocalNotifications.addListener('localNotificationReceived', (notification) => {
       showNotificationAlert(notification)
-    }).then((listener) => { removers.push(() => listener.remove()) })
+    }).then(registerListener)
 
-    return () => removers.forEach((remove) => remove())
+    return () => { disposed = true; removers.forEach((remove) => remove()) }
   }, [registerInteraction, startRinging, dashboardReady])
 
   useEffect(() => {
@@ -773,11 +792,11 @@ function App() {
   }
 
   const createTimer = () => {
-    const timer: Timer = { id: createLocalId(), label: 'Temporizador', durationSeconds: 300, remainingSeconds: 300, endsAt: null, createdAt: new Date().toISOString() }
+    const timer: Timer = { id: createLocalId(), label: 'Temporizador', durationSeconds: 300, remainingSeconds: 300, endsAt: null, soundName: DEFAULT_ALARM_SOUND.name, soundUri: null, createdAt: new Date().toISOString() }
     setDashboardState((current) => ({ ...current, timers: [...current.timers, timer] }))
     return timer.id
   }
-  const updateTimer = (timerId: string, patch: Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt'>>) => setDashboardState((current) => ({ ...current, timers: current.timers.map((timer) => timer.id === timerId ? { ...timer, ...patch } : timer) }))
+  const updateTimer = (timerId: string, patch: TimerPatch) => setDashboardState((current) => ({ ...current, timers: current.timers.map((timer) => timer.id === timerId ? { ...timer, ...patch } : timer) }))
   const deleteTimer = (timerId: string) => setDashboardState((current) => ({ ...current, timers: current.timers.filter((timer) => timer.id !== timerId) }))
 
   const toggleStopwatch = () => setDashboardState((current) => {
@@ -1247,7 +1266,7 @@ function DashboardPage({
   onUpdateAlarm: (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled' | 'weekdays' | 'soundName' | 'soundUri'>>) => void
   onDeleteAlarm: (alarmId: string) => void
   onCreateTimer: () => string
-  onUpdateTimer: (timerId: string, patch: Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt'>>) => void
+  onUpdateTimer: (timerId: string, patch: TimerPatch) => void
   onDeleteTimer: (timerId: string) => void
   onToggleStopwatch: () => void
   onResetStopwatch: () => void
@@ -1265,7 +1284,7 @@ function DashboardPage({
   if (page.id === 'gallery') return <GalleryPage photos={galleryPhotos} onAddPhotos={onAddGalleryPhotos} onMoveToTrash={onMoveGalleryPhotoToTrash} onMoveSelectionToTrash={onMoveGalleryPhotosToTrash} onRestore={onRestoreGalleryPhoto} onPermanentlyDelete={onPermanentlyDeleteGalleryPhoto} onEditingChange={onEditingChange} />
   if (page.id === 'weather') return <WeatherPage locations={weatherLocations} homeLocationId={homeWeatherLocationId} selectedLocationId={selectedWeatherLocationId} forecasts={weatherForecasts} loading={weatherLoading} errors={weatherErrors} onAddLocation={onAddWeatherLocation} onRemoveLocation={onRemoveWeatherLocation} onSetHomeLocation={onSetHomeWeatherLocation} onSelectLocation={onSelectWeatherLocation} onRefresh={onRefreshWeather} onEditingChange={onEditingChange} />
   if (page.id === 'notes') return <NotesPage notes={notes} onCreateNote={onCreateNote} onUpdateNote={onUpdateNote} onArchiveNote={onArchiveNote} onRestoreNote={onRestoreNote} onDeleteNote={onDeleteNote} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} />
-  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} calendarEvents={calendarEvents} calendars={externalCalendars} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
+  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} alarms={alarms} calendarEvents={calendarEvents} calendars={externalCalendars} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
 }
 
 function GalleryScreensaver({ photo, now, time, date, calendarEvents, calendars, onDismiss }: { photo: GalleryPhoto | undefined; now: Date; time: string; date: string; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; onDismiss: () => void }) {
@@ -1470,7 +1489,7 @@ function resizeWidgetFromEdge(initial: WidgetPosition, direction: WidgetResizeDi
   return { ...initial, height: initial.height + delta }
 }
 
-function GridDashboard({ now, time, date, widgets, notes, calendarEvents, calendars, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; showUpcomingCalendarHolidays: boolean; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: (date?: string) => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
+function GridDashboard({ now, time, date, widgets, notes, alarms, calendarEvents, calendars, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; alarms: Alarm[]; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; showUpcomingCalendarHolidays: boolean; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: (date?: string) => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
   const orientation = useDashboardOrientation()
   const [isEditing, setIsEditing] = useState(false)
   const [selectedWidgetId, setSelectedWidgetId] = useState<DashboardWidgetId | null>(null)
@@ -1701,7 +1720,7 @@ function GridDashboard({ now, time, date, widgets, notes, calendarEvents, calend
       {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>{tx('Arrastra para mover · arrastra los bordes para ajustar')}</span><button type="button" onClick={finishEditing}><Check size={17} />{tx('Listo')}</button></div> : null}
       <div ref={gridRef} className={`dashboard-grid is-${orientation}`}>
         {displayedWidgets.length > 0
-          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} upcomingHolidays={upcomingHolidays} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
+          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} alarms={alarms} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} upcomingHolidays={upcomingHolidays} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
           : <DashboardEmptyState time={time} date={date} />}
       </div>
     </div>
@@ -1758,7 +1777,7 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
   </div>
 }
 
-function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, upcomingEvents, upcomingHolidays, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
+function DashboardWidgetCard({ widget, now, time, date, notes, alarms, calendarEvents, upcomingEvents, upcomingHolidays, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
   widget: PlacedWidget
   now: Date
   time: string
@@ -1766,6 +1785,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
   notes: Note[]
   calendarEvents: CalendarEvent[]
   upcomingEvents: CalendarEvent[]
+  alarms: Alarm[]
   upcomingHolidays: CalendarEvent[]
   showUpcomingCalendarHolidays: boolean
   homeWeatherLocation: WeatherLocation | null
@@ -1804,10 +1824,11 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     <ChevronRight size={18} />
   </button></DashboardWidgetFrame>
 
-  if (widget.id === 'clock') return <DashboardWidgetFrame {...frameProps}><article className="clock-card responsive-clock-widget widget-card">
+  if (widget.id === 'clock') return <DashboardWidgetFrame {...frameProps}><article className={`clock-card responsive-clock-widget widget-card ${alarms.some(alarm => alarm.enabled) ? 'has-alarms' : ''}`}>
     <div className="widget-label"><span>{tx('Ahora')}</span></div>
     <time className="time">{time}{area > 1 ? <small>:{String(now.getSeconds()).padStart(2, '0')}</small> : null}</time>
     <p className="date">{date}</p>
+    <ClockWidgetAlarms alarms={alarms} now={now} />
     {widget.layout.height >= 2 && area >= 4 ? <div className="clock-details"><span><SunMedium size={20} />{tx('Que tengas un día estupendo')}</span><strong>{new Intl.DateTimeFormat(activeLocale(), { weekday: 'long' }).format(now)}</strong></div> : null}
     {widget.layout.height >= 2 && area >= 6 ? <div className="clock-day-progress"><span style={{ width: `${Math.round(((now.getHours() * 60 + now.getMinutes()) / 1440) * 100)}%` }} /></div> : null}
   </article></DashboardWidgetFrame>
@@ -1820,28 +1841,15 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     const weatherHours = homeWeatherForecast.hourly
     const forecast = homeWeatherForecast.daily
     return <DashboardWidgetFrame {...frameProps}><button type="button" className="weather-card responsive-weather-widget widget-card interactive-card" onClick={() => onActivate(onOpenWeather)}>
-      <div className="weather-current"><div className="weather-icon"><WeatherIcon code={homeWeatherForecast.current.weatherCode} size={area >= 4 ? 46 : 36} /></div><div><p className="temperature">{Math.round(homeWeatherForecast.current.temperature)}°</p><p className="weather-copy">{weatherDescription(homeWeatherForecast.current.weatherCode)}</p><span><Home size={13} />{homeWeatherLocation.name}</span></div></div>
+      <div className="weather-current"><div className="weather-icon"><WeatherIcon code={homeWeatherForecast.current.weatherCode} isDay={homeWeatherForecast.current.isDay} size={area >= 4 ? 46 : 36} /></div><div><p className="temperature">{Math.round(homeWeatherForecast.current.temperature)}°</p><p className="weather-copy">{weatherDescription(homeWeatherForecast.current.weatherCode)}</p><span><Home size={13} />{homeWeatherLocation.name}</span></div></div>
       <div className="weather-stats"><span><Droplets size={17} /><small>{tx('Humedad')}</small><strong>{Math.round(homeWeatherForecast.current.humidity)}%</strong></span><span><Wind size={17} /><small>{tx('Viento')}</small><strong>{Math.round(homeWeatherForecast.current.windSpeed)} km/h</strong></span><span><Sunrise size={17} /><small>{tx('Amanecer')}</small><strong>{formatWeatherHour(homeWeatherForecast.daily[0]?.sunrise ?? '')}</strong></span><span><Sunset size={17} /><small>{tx('Anochecer')}</small><strong>{formatWeatherHour(homeWeatherForecast.daily[0]?.sunset ?? '')}</strong></span></div>
-      {(hourCount[sizeKey] ?? 0) > 0 ? <div className="weather-hours"><p>{tx('Próximas horas')}</p>{weatherHours.slice(0, hourCount[sizeKey]).map((hour, index) => <span key={hour.time}><small>{index === 0 ? tx('Ahora') : formatWeatherHour(hour.time)}</small><WeatherIcon code={hour.weatherCode} size={20} /><strong>{Math.round(hour.temperature)}°</strong></span>)}</div> : null}
+      {(hourCount[sizeKey] ?? 0) > 0 ? <div className="weather-hours"><p>{tx('Próximas horas')}</p>{weatherHours.slice(0, hourCount[sizeKey]).map((hour) => <span key={hour.time}><small>{formatWeatherHour(hour.time)}</small><WeatherIcon code={hour.weatherCode} isDay={isWeatherHourDay(hour, homeWeatherForecast)} size={20} /><strong>{Math.round(hour.temperature)}°</strong></span>)}</div> : null}
       {(forecastCount[sizeKey] ?? 0) > 0 ? <div className="weather-forecast"><p>{tx('Próximos días')}</p>{forecast.slice(0, forecastCount[sizeKey]).map((day, index) => <span key={day.date}><b>{index === 0 ? tx('Hoy') : formatWeatherDay(day.date, true)}</b><WeatherIcon code={day.weatherCode} size={18} /><strong>{Math.round(day.temperatureMax)}°</strong><small>{Math.round(day.temperatureMin)}°</small></span>)}</div> : null}
     </button></DashboardWidgetFrame>
   }
 
   if (widget.id === 'notes') {
-    const noteCount: Record<string, number> = { '1x1': 1, '1x2': 3, '1x3': 4, '1x4': 5, '2x1': 3, '2x2': 4, '2x3': 6, '2x4': 8, '3x1': 4, '3x2': 6, '3x3': 8, '3x4': 10, '4x1': 4, '4x2': 8, '4x3': 10, '4x4': 12 }
-    const pinnedNotes = notes.filter((note) => note.pinned)
-    const visibleNotes = [...(pinnedNotes.length > 0 ? pinnedNotes : notes)]
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .slice(0, noteCount[sizeKey] ?? 1)
-    const featuredNote = visibleNotes[0]
-    return <DashboardWidgetFrame {...frameProps}><button type="button" className={`note-card responsive-note-widget widget-card interactive-card ${featuredNote ? `note-${featuredNote.color}` : ''}`} onClick={() => onActivate(() => onOpenNotes(featuredNote?.id))}>
-    <div className="widget-heading">
-      <div className="heading-icon coral"><Check size={18} /></div>
-      <div><p className="widget-title">{tx('Notas')}</p><p className="widget-subtitle">{notes.length ? tx('{{count}} notas guardadas en esta tablet', { count: notes.length }) : tx('Sin notas todavía')}</p></div>
-    </div>
-    {visibleNotes.length > 0 ? <div className="note-preview-list">{visibleNotes.map((note, index) => <span key={note.id} className={`note-preview note-${note.color} ${note.type === 'drawing' && note.pinned ? 'has-drawing-preview' : ''}`}><i /><span><strong>{note.title || tx('Sin título')}</strong>{note.type === 'drawing' && note.pinned ? <NoteDrawingPreview drawing={note.drawing} /> : <small>{note.type === 'drawing' ? tx('Dibujo') : note.type === 'list' ? tx('{{checked}}/{{count}} marcados', { checked: parseNoteList(note.content).filter((item) => item.checked).length, count: parseNoteList(note.content).length }) : (note.content || tx('Texto'))}</small>}</span>{index === 0 && note.pinned && note.type === 'drawing' ? <Pin className="note-preview-pin" size={14} /> : null}</span>)}</div> : <p className="note-content is-placeholder">{tx('Toca aquí para crear una nota de texto, una lista o un dibujo.')}</p>}
-    <div className="note-footer"><span>{featuredNote ? tx(featuredNote.pinned ? 'Fijada' : 'Editada') : tx('Sin contenido')}</span><ChevronRight size={17} /></div>
-    </button></DashboardWidgetFrame>
+    return <DashboardWidgetFrame {...frameProps}><NotesWidget notes={notes} onOpenNote={noteId => onActivate(() => onOpenNotes(noteId))} renderDrawing={drawing => <NoteDrawingPreview drawing={drawing} />} /></DashboardWidgetFrame>
   }
 
   const firstWeekday = (new Date(now.getFullYear(), now.getMonth(), 1).getDay() + 6) % 7
@@ -1861,14 +1869,14 @@ function DashboardWidgetCard({ widget, now, time, date, notes, calendarEvents, u
     })
     return { key, day: value.getDate(), muted: value.getMonth() !== now.getMonth(), events }
   })
-  const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 0, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 0, '3x2': 3, '3x3': 5, '3x4': 6, '4x1': 0, '4x2': 4, '4x3': 6, '4x4': 6 }
+  const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 1, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 2, '3x2': 3, '3x3': 5, '3x4': 6, '4x1': 2, '4x2': 4, '4x3': 6, '4x4': 6 }
   const showHolidaySection = showUpcomingCalendarHolidays && area >= 6 && upcomingHolidays.length > 0
   const visibleAgendaCount = showHolidaySection ? Math.max(1, (agendaCount[sizeKey] ?? 0) - 1) : agendaCount[sizeKey] ?? 0
   const calendarSubtitle = visibleDayCount === 7
     ? tx('Esta semana')
     : showWholeMonth
     ? new Intl.DateTimeFormat(activeLocale(), { month: 'long', year: 'numeric' }).format(now)
-    : tx('{{count}} días desde hoy', { count: visibleDayCount })
+    : tx('{{count}} semanas', { count: visibleDayCount / 7 })
 
   return <DashboardWidgetFrame {...frameProps}><article className="agenda-card calendar-widget responsive-calendar-widget widget-card">
     <button type="button" className="calendar-widget-header calendar-widget-open" onPointerDown={(event) => event.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar())}>
@@ -2472,7 +2480,7 @@ function ClockPage({
   onUpdateAlarm: (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled' | 'weekdays' | 'soundName' | 'soundUri'>>) => void
   onDeleteAlarm: (alarmId: string) => void
   onCreateTimer: () => string
-  onUpdateTimer: (timerId: string, patch: Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt'>>) => void
+  onUpdateTimer: (timerId: string, patch: TimerPatch) => void
   onDeleteTimer: (timerId: string) => void
   onToggleStopwatch: () => void
   onResetStopwatch: () => void
@@ -2499,6 +2507,11 @@ function ClockPage({
   const closeAlarmEditor = () => {
     void stopAlarmSoundPreview()
     setEditingAlarmId(null)
+  }
+
+  const closeTimerEditor = () => {
+    void stopAlarmSoundPreview()
+    setEditingTimerId(null)
   }
 
   const createAndEditAlarm = () => setEditingAlarmId(onCreateAlarm())
@@ -2532,7 +2545,7 @@ function ClockPage({
         </div>
       </div>
       {editingAlarm ? <AlarmEditor alarm={editingAlarm} sounds={alarmSounds} onUpdate={onUpdateAlarm} onDelete={() => { onDeleteAlarm(editingAlarm.id); closeAlarmEditor() }} onClose={closeAlarmEditor} onPreviewNotification={onPreviewNotification} /> : null}
-      {editingTimer ? <TimerEditor timer={editingTimer} onUpdate={onUpdateTimer} onDelete={() => { onDeleteTimer(editingTimer.id); setEditingTimerId(null) }} onClose={() => setEditingTimerId(null)} /> : null}
+      {editingTimer ? <TimerEditor timer={editingTimer} sounds={alarmSounds} onUpdate={onUpdateTimer} onDelete={() => { onDeleteTimer(editingTimer.id); closeTimerEditor() }} onClose={closeTimerEditor} onPreviewNotification={onPreviewNotification} /> : null}
     </div>
   )
 }
@@ -2594,7 +2607,15 @@ function AlarmEditor({ alarm, sounds, onUpdate, onDelete, onClose, onPreviewNoti
   </div>
 }
 
-function TimerEditor({ timer, onUpdate, onDelete, onClose }: { timer: Timer; onUpdate: (timerId: string, patch: Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt'>>) => void; onDelete: () => void; onClose: () => void }) {
+function TimerEditor({ timer, sounds, onUpdate, onDelete, onClose, onPreviewNotification }: { timer: Timer; sounds: DeviceAlarmSound[]; onUpdate: (timerId: string, patch: TimerPatch) => void; onDelete: () => void; onClose: () => void; onPreviewNotification: (title: string, body: string) => void }) {
+  const previewSound = async () => {
+    try {
+      const playedNatively = await previewAlarmSound(timer.soundUri)
+      if (!playedNatively) onPreviewNotification(timer.label || tx('Temporizador'), tx('Sonido: {{name}}', { name: timer.soundName }))
+    } catch (error) {
+      console.warn('No se pudo reproducir el sonido del temporizador.', error)
+    }
+  }
   const setMinutes = (minutes: number) => {
     const safeMinutes = Math.max(1, Math.min(1440, Math.round(minutes || 1)))
     const seconds = safeMinutes * 60
@@ -2606,6 +2627,7 @@ function TimerEditor({ timer, onUpdate, onDelete, onClose }: { timer: Timer; onU
       <label className="timer-name-field"><span>{tx('Nombre')}</span><input value={timer.label} maxLength={60} onChange={(event) => onUpdate(timer.id, { label: event.target.value })} /></label>
       <fieldset className="timer-presets"><legend>{tx('Duración rápida')}</legend><div>{[1, 5, 10, 15].map((minutes) => <button key={minutes} type="button" className={timer.durationSeconds === minutes * 60 ? 'is-selected' : ''} onClick={() => setMinutes(minutes)}>{minutes} {tx('min')}</button>)}</div></fieldset>
       <label className="custom-duration"><span>{tx('Otra duración')}</span><span><input type="number" inputMode="numeric" min="1" max="1440" value={Math.max(1, Math.round(timer.durationSeconds / 60))} onChange={(event) => setMinutes(Number(event.target.value))} /> {tx('minutos')}</span></label>
+      <div className="alarm-sound-field"><label><span>{tx('Sonido')}</span><select value={timer.soundUri ?? ''} onChange={(event) => { const sound = sounds.find((item) => item.uri === event.target.value) ?? DEFAULT_ALARM_SOUND; void stopAlarmSoundPreview(); onUpdate(timer.id, { soundName: sound.name, soundUri: sound.uri || null }) }}>{sounds.map((sound) => <option key={sound.uri || 'default'} value={sound.uri}>{sound.name === 'Sonido predeterminado' ? tx('Sonido predeterminado') : sound.name}</option>)}</select></label><button type="button" className="sound-preview" onClick={previewSound}><Volume2 size={18} />{tx('Probar')}</button></div>
       <div className="alarm-editor-footer"><button type="button" className="text-action danger alarm-delete" onClick={onDelete}><Trash2 size={16} />{tx('Eliminar')}</button><button type="button" className="alarm-done" onClick={onClose}>{tx('Hecho')}</button></div>
     </section>
   </div>
@@ -2813,16 +2835,6 @@ function NoteDrawingCanvas({ drawing, readOnly, onChange, onEditingChange }: { d
       {[...strokes, ...(activeStroke ? [activeStroke] : [])].map((stroke, index) => <path key={`${index}-${stroke.points.length}`} d={drawingPath(stroke.points)} fill="none" stroke={stroke.color} strokeWidth={stroke.width} strokeLinecap="round" strokeLinejoin="round" />)}
     </svg>
   </div>
-}
-
-type NoteListItem = { checked: boolean; text: string }
-
-function parseNoteList(content: string): NoteListItem[] {
-  if (!content.trim()) return []
-  return content.split('\n').map((line) => {
-    const match = line.match(/^- \[([ xX])\]\s?(.*)$/)
-    return match ? { checked: match[1].toLowerCase() === 'x', text: match[2] } : { checked: false, text: line }
-  })
 }
 
 function serializeNoteList(items: NoteListItem[]) {

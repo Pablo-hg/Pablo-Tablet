@@ -106,7 +106,8 @@ public class AlarmSoundsPlugin extends Plugin {
         }
 
         NotificationManager notificationManager = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.deleteNotificationChannel(channelId);
+        // Sound is immutable once Android creates a channel. The web layer uses
+        // a channel id per sound, preserving Android's per-channel user settings.
         NotificationChannel channel = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription(AppLocale.text(getContext(), R.string.alarm_channel_description));
         boolean silent = Boolean.TRUE.equals(call.getBoolean("silent", false));
