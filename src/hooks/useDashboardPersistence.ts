@@ -16,54 +16,43 @@ export function useDashboardPersistence({ state, stateRef, setState }: Dashboard
 
   useEffect(() => {
     if (!usesNativeAppStorage()) return
-
     let cancelled = false
-    const hydrateState = async () => {
+    let reading = false
+    const refreshStorage = async () => {
+      if (reading) return
+      reading = true
       try {
         const stored = await readAppStorageRecord(DASHBOARD_STORAGE_KEY)
-        const nextState = stored.value ? loadDashboardState(stored.value) : stateRef.current
-        if (!stored.value) {
-          const written = await writeAppStorage(DASHBOARD_STORAGE_KEY, JSON.stringify(nextState))
-          lastStoredUpdatedAt.current = written.updatedAt
-        } else {
-          lastStoredUpdatedAt.current = stored.updatedAt
-        }
-        if (!cancelled) {
+        if (cancelled) return
+        if (!persistenceReady.current) {
+          const nextState = stored.value ? loadDashboardState(stored.value) : stateRef.current
+          const updatedAt = stored.value
+            ? stored.updatedAt
+            : (await writeAppStorage(DASHBOARD_STORAGE_KEY, JSON.stringify(nextState))).updatedAt
+          if (cancelled) return
+          lastStoredUpdatedAt.current = updatedAt
+          applyingRemoteState.current = Boolean(stored.value)
           persistenceReady.current = true
           stateRef.current = nextState
           setState(nextState)
           setReady(true)
+          return
         }
-      } catch (error) {
-        console.warn('No se pudo abrir el almacenamiento privado de Pablo Tablet.', error)
-      }
-    }
-    void hydrateState()
-    return () => { cancelled = true }
-  }, [setState, stateRef])
-
-  useEffect(() => {
-    if (!usesNativeAppStorage()) return
-    let cancelled = false
-    const refreshFromMobile = async () => {
-      try {
-        const stored = await readAppStorageRecord(DASHBOARD_STORAGE_KEY)
-        if (cancelled || !stored.value || stored.updatedAt === null || stored.updatedAt === lastStoredUpdatedAt.current) return
+        if (!stored.value || stored.updatedAt === null || stored.updatedAt === lastStoredUpdatedAt.current) return
         lastStoredUpdatedAt.current = stored.updatedAt
-        if (!persistenceReady.current) {
-          persistenceReady.current = true
-          setReady(true)
-        }
         if (JSON.stringify(stateRef.current) === stored.value) return
         const nextState = loadDashboardState(stored.value)
         applyingRemoteState.current = true
         stateRef.current = nextState
         setState(nextState)
       } catch (error) {
-        console.warn('No se pudo sincronizar un cambio recibido desde el móvil.', error)
+        console.warn('No se pudo recuperar o sincronizar el almacenamiento privado de Pablo Tablet.', error)
+      } finally {
+        reading = false
       }
     }
-    const interval = window.setInterval(() => void refreshFromMobile(), 1_000)
+    void refreshStorage()
+    const interval = window.setInterval(() => void refreshStorage(), 1_000)
     return () => { cancelled = true; window.clearInterval(interval) }
   }, [setState, stateRef])
 

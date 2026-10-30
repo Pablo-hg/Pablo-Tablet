@@ -1019,6 +1019,14 @@ function App() {
     moveToNavigationPage(activeNavigationIndex + (deltaX < 0 ? 1 : -1))
   }
 
+  if (!dashboardReady) {
+    return <main className="tablet-shell" data-theme={activeThemeId} aria-busy="true">
+      <section className="tablet-content" aria-label="Pablo Tablet">
+        <p role="status">{tx('Recuperando los datos guardados…')}</p>
+      </section>
+    </main>
+  }
+
   return (
     <AppShell
       themeId={activeThemeId}
