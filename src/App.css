@@ -1348,6 +1348,25 @@
 .page-indicators--minimal.is-position-left button.is-active::after { bottom: 50%; height: 24px; right: -4px; transform: translateY(50%); width: 3px; }
 .page-indicators--minimal.is-position-right button.is-active::after { bottom: 50%; height: 24px; left: -4px; transform: translateY(50%); width: 3px; }
 
+
+/* #33: evitar que el texto nuevo herede la transición de color del icono.
+   El color de la etiqueta es el del estado activo desde el primer fotograma;
+   solo animamos su aparición, conservando los colores de cada tema. */
+.page-indicators.show-labels:is(.page-indicators--dock, .page-indicators--segmented, .page-indicators--minimal) button.is-active > span {
+  color: var(--ui-action-text);
+  animation: page-nav-active-label-enter .2s ease-out both;
+}
+.page-indicators.show-labels.page-indicators--minimal button.is-active > span {
+  color: var(--ui-text);
+}
+@keyframes page-nav-active-label-enter {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-indicators.show-labels button.is-active > span { animation: none; }
+}
+
 /* Los temas se cargan después de App.css. Estas reglas conservan la composición
    propia de cada boceto sin perder los colores activos del tema elegido. */
 .tablet-shell[data-theme].page-nav-style-dock .page-indicators--dock { background: color-mix(in srgb, var(--ui-panel-solid) 32%, transparent); }
