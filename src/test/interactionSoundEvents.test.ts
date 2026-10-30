@@ -29,6 +29,6 @@ describe('sonidos táctiles de los controles', () => {
   it('ignora los campos de texto y eventos sin un elemento del DOM', () => {
     expect(shouldPlayInteractionSoundOnClick(document.createElement('input'))).toBe(false)
     expect(shouldPlayInteractionSoundOnClick(null)).toBe(false)
-    expect(shouldPlayInteractionSoundOnClick(new Event('click'))).toBe(false)
+    expect(shouldPlayInteractionSoundOnClick(new EventTarget())).toBe(false)
   })
 })
