@@ -80,6 +80,7 @@ import { DEFAULT_ALARM_SOUND, getDeviceAlarmSounds, previewAlarmSound, stopAlarm
 import { snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
 import { arrangeWidgets, DASHBOARD_COLUMNS, DASHBOARD_ROWS, DEFAULT_WIDGETS, placeWidgets, resizeWidgets, type DashboardOrientation, type DashboardWidgetId, type PlacedWidget, type WidgetPosition } from './widgetLayout'
 import { playInteractionSound } from './deviceSettings'
+import { shouldPlayInteractionSoundOnClick } from './interactionSoundEvents'
 import { deleteGalleryPhotoFile, galleryPhotoSource, pickGalleryPhotos } from './gallery'
 import { compactCalendarOutbox, createCalendarOutboxEntry } from './calendarSync/repository'
 import { applyCalendarSync } from './calendarSync/repository'
@@ -93,6 +94,7 @@ import { formatCountdown, pauseTimer, resetTimer, startTimer, timerHasFinished, 
 import { isNightModeActive } from './nightMode'
 import { useDashboardPersistence } from './hooks/useDashboardPersistence'
 import { useDeviceEffects } from './hooks/useDeviceEffects'
+import { useNotesKeyboardViewport } from './hooks/useNotesKeyboardViewport'
 import { useWeatherForecasts } from './hooks/useWeatherForecasts'
 import { AppNavigation, type AppScreen } from './app/AppNavigation'
 import { AppShell } from './app/AppShell'
@@ -144,7 +146,7 @@ function App() {
   const deliveredSimulationIds = useRef(new Set<string>())
   const calendarSyncInFlight = useRef(new Set<string>())
   const dashboardStateRef = useRef(dashboardState)
-  useDashboardPersistence({ state: dashboardState, stateRef: dashboardStateRef, setState: setDashboardState })
+  const dashboardReady = useDashboardPersistence({ state: dashboardState, stateRef: dashboardStateRef, setState: setDashboardState })
 
   const enabledPages = useMemo(
     () => DASHBOARD_PAGES.filter((page) => dashboardState.preferences.enabledPageIds.includes(page.id)),
@@ -176,16 +178,17 @@ function App() {
   const selectedWeatherLocation = dashboardState.weatherLocations.find((location) => location.id === dashboardState.selectedWeatherLocationId) ?? homeWeatherLocation
   const { forecasts: weatherForecasts, loading: weatherLoading, errors: weatherErrors, refresh: refreshWeather } = useWeatherForecasts(homeWeatherLocation, selectedWeatherLocation)
   const nightModeActive = isNightModeActive(now, dashboardState.preferences)
-  useDeviceEffects(dashboardState, nightModeActive)
+  useDeviceEffects(dashboardState, nightModeActive, dashboardReady)
   const activeThemeId = nightModeActive && dashboardState.preferences.themeId === 'original'
     ? 'amoled'
     : dashboardState.preferences.themeId
   const activeMediaVolume = nightModeActive ? dashboardState.preferences.nightMediaVolume : dashboardState.preferences.mediaVolume
 
   useEffect(() => {
+    if (!dashboardReady) return
     void setAppLanguage(dashboardState.preferences.language)
     void setNativeAppLanguage(dashboardState.preferences.language).catch((error) => console.warn('No se pudo aplicar el idioma en Android.', error))
-  }, [dashboardState.preferences.language])
+  }, [dashboardState.preferences.language, dashboardReady])
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 1_000)
@@ -193,6 +196,7 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!dashboardReady) return
     const purgeExpiredGalleryPhotos = () => {
       const expirationTime = Date.now() - 30 * 24 * 60 * 60 * 1_000
       const expired = dashboardStateRef.current.galleryPhotos.filter((photo) => photo.deletedAt && new Date(photo.deletedAt).getTime() <= expirationTime)
@@ -205,7 +209,7 @@ function App() {
     purgeExpiredGalleryPhotos()
     const interval = window.setInterval(purgeExpiredGalleryPhotos, 6 * 60 * 60 * 1_000)
     return () => window.clearInterval(interval)
-  }, [])
+  }, [dashboardReady])
 
   const registerInteraction = useCallback(() => {
     setInteractionVersion((version) => version + 1)
@@ -236,6 +240,7 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!dashboardReady) return
     const finished = dashboardState.timers.filter((timer) => timerHasFinished(timer, now))
     if (finished.length === 0) return
     const timeout = window.setTimeout(() => {
@@ -244,9 +249,10 @@ function App() {
       startRinging({ kind: 'timer', sourceId: timer.id, title: timer.label || 'Temporizador', subtitle: 'El temporizador ha terminado.', soundUri: null })
     }, 0)
     return () => window.clearTimeout(timeout)
-  }, [dashboardState.timers, now, startRinging])
+  }, [dashboardState.timers, now, startRinging, dashboardReady])
 
   useEffect(() => {
+    if (!dashboardReady) return
     const cutoff = now.getTime() - 35_000
     if (!Capacitor.isNativePlatform()) {
       const dueNote = dashboardState.notes.find((note) => !note.archived && note.reminderAt && new Date(note.reminderAt).getTime() <= now.getTime() && new Date(note.reminderAt).getTime() > cutoff && !deliveredSimulationIds.current.has(`note:${note.id}:${note.reminderAt}`))
@@ -263,10 +269,10 @@ function App() {
       deliveredSimulationIds.current.add(`alarm:${dueAlarm.id}:${now.toDateString()}`)
       startRinging({ kind: 'alarm', sourceId: dueAlarm.id, title: dueAlarm.label || 'Alarma', subtitle: `Sonando a las ${dueAlarm.time}`, soundUri: dueAlarm.soundUri })
     }
-  }, [dashboardState.alarms, dashboardState.notes, now, showSimulatedAlert, startRinging, timeFormatter])
+  }, [dashboardState.alarms, dashboardState.notes, now, showSimulatedAlert, startRinging, timeFormatter, dashboardReady])
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return
+    if (!Capacitor.isNativePlatform() || !dashboardReady) return
     const removers: (() => void)[] = []
 
     const showNotificationAlert = (notification: { id: number; title?: string; body?: string; extra?: Record<string, unknown> }) => {
@@ -334,7 +340,7 @@ function App() {
     }).then((listener) => { removers.push(() => listener.remove()) })
 
     return () => removers.forEach((remove) => remove())
-  }, [registerInteraction, startRinging])
+  }, [registerInteraction, startRinging, dashboardReady])
 
   useEffect(() => {
     const preferences = dashboardState.preferences
@@ -939,8 +945,9 @@ function App() {
       suppressClick.current = false
       return
     }
-    const target = event.target as HTMLElement
-    if (dashboardState.preferences.interactionSoundsEnabled && target.closest('button, select') && !target.closest('.settings-range-row')) {
+    // Los selectores nativos de Android ya reproducen su propio sonido al elegir.
+    // No añadir otro clic manual al abrir/cerrar su menú.
+    if (dashboardState.preferences.interactionSoundsEnabled && shouldPlayInteractionSoundOnClick(event.target)) {
       void playInteractionSound(activeMediaVolume)
     }
   }
@@ -990,6 +997,14 @@ function App() {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     setInteractionLocked(false)
     moveToNavigationPage(activeNavigationIndex + (deltaX < 0 ? 1 : -1))
+  }
+
+  if (!dashboardReady) {
+    return <main className="tablet-shell" data-theme={activeThemeId} aria-busy="true">
+      <section className="tablet-content" aria-label="Pablo Tablet">
+        <p role="status">{tx('Recuperando los datos guardados…')}</p>
+      </section>
+    </main>
   }
 
   return (
@@ -2612,6 +2627,7 @@ function NotesPage({
 }) {
   const [showArchived, setShowArchived] = useState(false)
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false)
+  const notesPageRef = useNotesKeyboardViewport()
   const visibleNotes = useMemo(
     () => notes.filter((note) => !note.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt)),
     [notes],
@@ -2635,15 +2651,15 @@ function NotesPage({
   </div> : null
 
   return (
-    <div className="fullscreen-page notes-page page-enter">
+    <div ref={notesPageRef} className="fullscreen-page notes-page page-enter">
       <PageHeader pageLabel="Notas" />
       <section className="notes-workspace" aria-label={tx('Notas locales')}>
         <aside className="notes-sidebar">
-          <div className="notes-sidebar-header"><div><h1>{tx(showArchived ? 'Archivo' : 'Mis notas')}</h1><p>{showArchived ? tx('{{count}} archivadas', { count: archivedNotes.length }) : tx('{{count}} guardadas en esta tablet', { count: visibleNotes.length })}</p></div>{!showArchived ? <button type="button" className="icon-button" onClick={() => setIsCreateMenuOpen((open) => !open)} aria-label={tx('Crear una nota')}><Plus size={20} /></button> : null}</div>
+          <div className="notes-sidebar-header"><div><h1>{tx(showArchived ? 'Archivo' : 'Mis notas')}</h1><p>{showArchived ? tx('{{count}} archivadas', { count: archivedNotes.length }) : tx('{{count}} guardadas en esta tablet', { count: visibleNotes.length })}</p></div>{!showArchived ? <button type="button" className="icon-button" onClick={() => setIsCreateMenuOpen((open) => !open)} aria-haspopup="true" aria-expanded={isCreateMenuOpen} aria-label={tx('Crear una nota')}><Plus size={20} /></button> : null}</div>
           {createMenu}
           <div className="note-filter" role="tablist" aria-label={tx('Filtrar notas')}><button type="button" className={!showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(false); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={!showArchived}>{tx('Activas')}</button><button type="button" className={showArchived ? 'is-active' : ''} onClick={() => { setShowArchived(true); setSelectedId(null); setIsCreateMenuOpen(false) }} role="tab" aria-selected={showArchived}>{tx('Archivo')}</button></div>
           <div className="note-list">
-            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => setSelectedId(note.id)}><span className="note-list-color" /><span><strong>{note.title || tx('Sin título')}</strong><small>{note.type === 'drawing' ? tx(note.drawing.length ? 'Dibujo guardado' : 'Lienzo vacío') : note.type === 'list' ? tx('{{checked}}/{{count}} marcados', { checked: parseNoteList(note.content).filter((item) => item.checked).length, count: parseNoteList(note.content).length }) : (note.content || tx('Texto'))}</small></span><span className="note-list-meta">{note.type === 'drawing' ? <Pencil size={14} aria-label={tx('Dibujo')} /> : note.type === 'list' ? <ListTodo size={14} aria-label={tx('Lista')} /> : <FileText size={14} aria-label={tx('Texto')} />}{note.pinned ? <Pin size={14} /> : null}</span></button>)}
+            {notesForView.map((note) => <button key={note.id} type="button" className={`note-list-item note-${note.color} ${selectedNote?.id === note.id ? 'is-selected' : ''}`} onClick={() => { setSelectedId(note.id); setIsCreateMenuOpen(false) }}><span className="note-list-color" /><span><strong>{note.title || tx('Sin título')}</strong><small>{note.type === 'drawing' ? tx(note.drawing.length ? 'Dibujo guardado' : 'Lienzo vacío') : note.type === 'list' ? tx('{{checked}}/{{count}} marcados', { checked: parseNoteList(note.content).filter((item) => item.checked).length, count: parseNoteList(note.content).length }) : (note.content || tx('Texto'))}</small></span><span className="note-list-meta">{note.type === 'drawing' ? <Pencil size={14} aria-label={tx('Dibujo')} /> : note.type === 'list' ? <ListTodo size={14} aria-label={tx('Lista')} /> : <FileText size={14} aria-label={tx('Texto')} />}{note.pinned ? <Pin size={14} /> : null}</span></button>)}
             {notesForView.length === 0 ? <div className="notes-empty"><FileText size={24} /><p>{tx(showArchived ? 'No hay notas archivadas.' : 'Aún no hay notas.')}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>{tx('Crear la primera')}</button> : null}</div> : null}
           </div>
         </aside>

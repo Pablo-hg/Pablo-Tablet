@@ -1,4 +1,5 @@
 const english = {
+  'Recuperando los datos guardados…': 'Recovering saved data…',
   'Móvil Android': 'Android phone',
   'Tablet Android': 'Android tablet',
   'iPhone': 'iPhone',

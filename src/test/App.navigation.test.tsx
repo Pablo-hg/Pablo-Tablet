@@ -365,6 +365,25 @@ describe('navegación y flujos principales', () => {
     })
   })
 
+  it('mantiene el menú de tipos de nota sin reemplazar el listado', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ir a Notas' }))
+    const create = screen.getByRole('button', { name: 'Crear una nota' })
+    expect(create).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(create)
+    expect(create).toHaveAttribute('aria-expanded', 'true')
+    const menu = screen.getByRole('group', { name: 'Elegir formato de nota' })
+    expect(menu).toBeInTheDocument()
+    expect(menu.querySelectorAll('button')).toHaveLength(3)
+    expect(screen.getByRole('tab', { name: 'Activas' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /^Texto.*Ideas y apuntes libres/ }))
+    expect(create).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('group', { name: 'Elegir formato de nota' })).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Contenido de la nota' })).toBeInTheDocument()
+  })
+
   it('crea, reordena y marca elementos en una nota de tipo Lista', async () => {
     const user = userEvent.setup()
     render(<App />)

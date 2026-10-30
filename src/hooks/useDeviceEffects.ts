@@ -5,8 +5,9 @@ import { effectiveDeviceSettings } from '../nightMode'
 import { syncAlarmNotifications, syncCalendarEventNotifications, syncReminderNotifications, syncTimerNotifications } from '../reminderNotifications'
 import { NOTIFICATION_SETTINGS_CHANGED_EVENT } from '../notificationPermissions'
 
-export function useDeviceEffects(state: DashboardState, nightModeActive: boolean) {
+export function useDeviceEffects(state: DashboardState, nightModeActive: boolean, ready = true) {
   useEffect(() => {
+    if (!ready) return
     const activeSettings = effectiveDeviceSettings(state.preferences, nightModeActive)
     const { autoBrightness, brightness, alarmVolume, mediaVolume, autoRotate, keepScreenAwake, screenTimeoutSeconds } = activeSettings
     const timeout = window.setTimeout(() => {
@@ -14,29 +15,34 @@ export function useDeviceEffects(state: DashboardState, nightModeActive: boolean
         .catch((error) => console.warn('No se pudieron aplicar los ajustes del dispositivo.', error))
     }, 80)
     return () => window.clearTimeout(timeout)
-  }, [state.preferences, nightModeActive])
+  }, [state.preferences, nightModeActive, ready])
 
   useEffect(() => {
+    if (!ready) return
     const timeout = window.setTimeout(() => void syncReminderNotifications(state.notes), 600)
     return () => window.clearTimeout(timeout)
-  }, [state.notes])
+  }, [state.notes, ready])
 
   useEffect(() => {
+    if (!ready) return
     const timeout = window.setTimeout(() => void syncCalendarEventNotifications(state.calendarEvents), 600)
     return () => window.clearTimeout(timeout)
-  }, [state.calendarEvents])
+  }, [state.calendarEvents, ready])
 
   useEffect(() => {
+    if (!ready) return
     const timeout = window.setTimeout(() => void syncAlarmNotifications(state.alarms), 600)
     return () => window.clearTimeout(timeout)
-  }, [state.alarms])
+  }, [state.alarms, ready])
 
   useEffect(() => {
+    if (!ready) return
     const timeout = window.setTimeout(() => void syncTimerNotifications(state.timers), 600)
     return () => window.clearTimeout(timeout)
-  }, [state.timers])
+  }, [state.timers, ready])
 
   useEffect(() => {
+    if (!ready) return
     const syncAll = () => {
       void syncReminderNotifications(state.notes)
       void syncCalendarEventNotifications(state.calendarEvents)
@@ -46,11 +52,13 @@ export function useDeviceEffects(state: DashboardState, nightModeActive: boolean
     const onVisible = () => {
       if (document.visibilityState === 'visible') syncAll()
     }
+    const calendarRefresh = window.setInterval(() => void syncCalendarEventNotifications(state.calendarEvents), 60 * 60_000)
     window.addEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, syncAll)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
+      window.clearInterval(calendarRefresh)
       window.removeEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, syncAll)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [state.alarms, state.calendarEvents, state.notes, state.timers])
+  }, [state.alarms, state.calendarEvents, state.notes, state.timers, ready])
 }
