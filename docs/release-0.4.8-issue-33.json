@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "repository": "Pablo-hg/Pablo-Tablet",
+  "date": "2026-10-30",
+  "proposedVersion": "0.4.8",
+  "branch": "release/0.4.8",
+  "worktree": "C:\\Users\\Pablo\\Desktop\\Pablo-Tablet-automatizacion\\.worktrees\\release-0.4.8",
+  "baseMain": "a848560d3a70df497109f8e34534d28f2be12711",
+  "sourceDev": "5c7d828fee5447add7ec84c6e8d0f89abb2aee79",
+  "sourcePullRequest": 76,
+  "issues": [
+    33
+  ],
+  "validatedCodeHead": "f545b54401114b9f0d5fa87ab3461f30cfc12c4a",
+  "commits": [
+    {
+      "source": "8f781d151c1682c5cabe84ea49e7d2aef577d446",
+      "integrated": "df7e47934e51fa1e521917236f643b83125406ee",
+      "subject": "fix(notes): mantener visible el editor al abrir el teclado en horizontal"
+    },
+    {
+      "source": "33c56f51f4e1c322c8cf32ac89f5f200c42ec4ef",
+      "integrated": "6ed9c01e35f94634f504629f9e5830e4451667f5",
+      "subject": "fix(navigation): evitar destello de color al cambiar de etiqueta activa"
+    },
+    {
+      "source": "a913d9d80a29adf983eff0e4ecf2ba64c21afb9d",
+      "integrated": "db97338e5f35f335c8ac7bdf52539d8555adc8a8",
+      "subject": "fix(notes): separar listado y editor en vertical sin desplazar el menú de creación"
+    },
+    {
+      "source": "1db33a4ccbcb1c48c74b6a1accf9b0170e3e27c7",
+      "integrated": "c2642c61c1c333d10900db7d0dc344a0b0ae6620",
+      "subject": "fix(audio): evitar doble sonido al elegir opciones en desplegables nativos"
+    },
+    {
+      "source": "a8a9a2fe135da1bd4914cfcd3ac980b2533cd351",
+      "integrated": "e0f2ffea1484e51eec19b1af502c94d72de06b98",
+      "subject": "fix(notes): conservar todos los trazos de los dibujos al recargar"
+    },
+    {
+      "source": "95752ee3be84267cf7f2ecd304fd2fe4d91da21e",
+      "integrated": "5c184000ff8daa2c29a3cb09165d0234209239dc",
+      "subject": "fix(storage): proteger la edicion hasta recuperar los datos nativos"
+    },
+    {
+      "source": "63fb8902cbe3749a48efc48d6b516d30f55b422c",
+      "integrated": "27b697823344c451032e142e18c58a2a95c93fc4",
+      "subject": "fix(calendar): renovar avisos futuros de series antiguas"
+    },
+    {
+      "source": "401efd474a836367669aab4747346b007a211ac9",
+      "integrated": "e3b538ca0e761315d5c5249e0108a749f089c041",
+      "subject": "test(audio): usar un objetivo valido en la prueba de clic"
+    }
+  ],
+  "integrationCommit": "f545b54401114b9f0d5fa87ab3461f30cfc12c4a",
+  "requiredDependency": "Persistence readiness only: return ready, gate UI and startup effects until native data is recovered; no complete #30 commit.",
+  "excludedPathsUnchangedFromMain": [
+    "package.json",
+    "package-lock.json",
+    "scripts/patch-local-notifications.mjs",
+    "android/app/src/main/java",
+    "src/alarmSounds.ts",
+    "src/weather.ts",
+    "src/assistant/executor.ts",
+    "src/pages/WeatherPage.css",
+    "src/components/ClockWidgetAlarms.tsx",
+    "src/components/NotesWidget.tsx",
+    "src/components/NotesWidget.css",
+    "src/components/DashboardWidgetDetails.css",
+    "src/noteList.ts",
+    "src/test/TimerSound.test.tsx",
+    "src/test/NotesWidget.test.tsx",
+    "android/app/src/test/java/com/pablohorcajada/tablet/RecurringNotificationTest.java",
+    ".github/workflows",
+    "android/app/build.gradle",
+    "android/variables.gradle"
+  ],
+  "validation": {
+    "webTests": 170,
+    "androidJvmTests": 38,
+    "lint": "passed",
+    "build": "passed",
+    "capacitorSync": "passed",
+    "androidLint": "passed",
+    "assembleDebug": "passed"
+  },
+  "hardwareValidation": "pending",
+  "publicationAuthorized": false,
+  "automationResumeSupported": false
+}
