@@ -33,7 +33,7 @@ const DASHBOARD_VISIBILITY_SETTINGS: DashboardVisibilitySetting[] = [
   { label: 'Reloj', pageId: 'clock', widgetId: 'clock', widgetDetail: 'Hora y fecha en el panel de inicio.' },
   { label: 'Tiempo', pageId: 'weather', widgetId: 'weather', widgetDetail: 'Previsión de la ubicación marcada como Casa.' },
   { label: 'Notas', pageId: 'notes', widgetId: 'notes', widgetDetail: 'Acceso a la nota destacada.' },
-  { label: 'Asistente', pageId: 'assistant', widgetId: 'assistant', widgetDetail: 'Acceso directo al asistente local.' },
+  { label: 'Asistente', pageId: 'assistant', widgetId: 'assistant', widgetDetail: 'Botón flotante disponible en las pantallas cuando el asistente está activo.' },
   { label: 'Galería', pageId: 'gallery' },
 ]
 
@@ -118,7 +118,7 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
               {setting.widgetId ? (
                 <SettingToggle
                   icon={dashboardIcon(setting.widgetId)}
-                  title={tx('Widget {{name}}', { name: tx(setting.label) })}
+                  title={setting.widgetId === 'assistant' ? tx('Acceso flotante al asistente') : tx('Widget {{name}}', { name: tx(setting.label) })}
                   detail={setting.widgetDetail ? tx(setting.widgetDetail) : ''}
                   checked={widgets.find((current) => current.id === setting.widgetId)?.visible ?? false}
                   onChange={(visible) => onWidgetVisibilityChange(setting.widgetId!, visible)}

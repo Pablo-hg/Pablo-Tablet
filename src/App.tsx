@@ -136,6 +136,8 @@ function App() {
   const [calendarInitialDate, setCalendarInitialDate] = useState<string | null>(null)
   const [interactionVersion, setInteractionVersion] = useState(0)
   const [interactionLocked, setInteractionLocked] = useState(false)
+  const [assistantPopupOpen, setAssistantPopupOpen] = useState(false)
+  const [assistantPopupInitialized, setAssistantPopupInitialized] = useState(false)
   const [simulatedAlert, setSimulatedAlert] = useState<SimulatedAlert | null>(null)
   const [ringingAlert, setRingingAlert] = useState<RingingAlert | null>(null)
   const [snoozeMinutes, setSnoozeMinutes] = useState(5)
@@ -393,6 +395,7 @@ function App() {
   const moveToPage = useCallback((nextIndex: number) => {
     if (enabledPages.length === 0) return
     const wrappedIndex = (nextIndex + enabledPages.length) % enabledPages.length
+    if (enabledPages[wrappedIndex].id === 'assistant') setAssistantPopupOpen(false)
     setInteractionLocked(false)
     setActivePageId(enabledPages[wrappedIndex].id)
     registerInteraction()
@@ -401,6 +404,7 @@ function App() {
   const moveToNavigationPage = useCallback((nextIndex: number) => {
     const navigationPageCount = enabledPages.length + 1
     const wrappedIndex = (nextIndex + navigationPageCount) % navigationPageCount
+    if (enabledPages[wrappedIndex]?.id === 'assistant') setAssistantPopupOpen(false)
     setInteractionLocked(false)
     if (wrappedIndex === enabledPages.length) {
       setScreen('settings')
@@ -849,6 +853,7 @@ function App() {
           .filter((id) => dashboardState.preferences.enabledPageIds.includes(id) || id === 'assistant'),
       })
     }
+    setScreen('home')
     setActivePageId('assistant')
     registerInteraction()
   }
@@ -868,6 +873,7 @@ function App() {
   const setWidgetVisible = (widgetId: DashboardWidgetId, visible: boolean) => {
     setDashboardState((current) => {
       let widgets = current.widgets.map((widget) => widget.id === widgetId ? { ...widget, visible } : widget)
+      if (widgetId === 'assistant') return { ...current, widgets }
       if (!visible) return { ...current, widgets }
 
       for (const orientation of ['landscape', 'portrait'] as const) {
@@ -1106,13 +1112,35 @@ function App() {
             preferences={dashboardState.preferences}
             widgets={dashboardState.widgets}
             onBack={() => goTo('home')}
-            onPreferencesChange={updatePreferences}
+            onPreferencesChange={(patch) => { if (patch.assistantEnabled === false) setAssistantPopupOpen(false); updatePreferences(patch) }}
             onTogglePage={togglePage}
-            onWidgetVisibilityChange={setWidgetVisible}
+            onWidgetVisibilityChange={(widgetId, visible) => { if (widgetId === 'assistant' && !visible) setAssistantPopupOpen(false); setWidgetVisible(widgetId, visible) }}
             nightModeActive={nightModeActive}
           />
         )}
       </section>
+
+      {dashboardState.preferences.assistantEnabled && dashboardState.widgets.some((widget) => widget.id === 'assistant' && widget.visible) && !(screen === 'home' && activePage?.id === 'assistant') ? (
+        <button type="button" className="assistant-floating-button" aria-label={tx(assistantPopupOpen ? 'Cerrar asistente' : 'Abrir asistente')} aria-expanded={assistantPopupOpen} onClick={() => { setAssistantPopupInitialized(true); setAssistantPopupOpen((open) => !open) }} data-swipe-block>
+          <Sparkles size={24} aria-hidden="true" />
+        </button>
+      ) : null}
+
+      {assistantPopupInitialized ? (
+        <section className={`assistant-popup ${assistantPopupOpen ? 'is-open' : 'is-closed'}`} role="dialog" aria-label={tx('Asistente')} aria-hidden={!assistantPopupOpen} inert={!assistantPopupOpen} data-swipe-block onKeyDown={(event) => { if (event.key === 'Escape') setAssistantPopupOpen(false) }}>
+          <button type="button" className="assistant-popup-close" aria-label={tx('Cerrar asistente')} onClick={() => setAssistantPopupOpen(false)}><X size={20} /></button>
+          <AssistantPage
+            enabled={dashboardState.preferences.assistantEnabled}
+            voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
+            readAloud={dashboardState.preferences.assistantReadAloud}
+            visible={assistantPopupOpen}
+            now={now}
+            onExecute={executeAssistant}
+            onOpenPage={(pageId) => { setAssistantPopupOpen(false); setScreen('home'); openDashboardPage(pageId) }}
+            onEditingChange={setInteractionLocked}
+          />
+        </section>
+      ) : null}
 
       {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>{tx('Simulación web de aviso local')}</small></div><button type="button" onClick={() => setSimulatedAlert(null)} aria-label={tx('Cerrar aviso')}><X size={18} /></button></div> : null}
       {ringingAlert ? <RingingAlertOverlay alert={ringingAlert} snoozeMinutes={snoozeMinutes} onSnoozeMinutesChange={setSnoozeMinutes} onSnooze={snoozeRingingAlert} onStop={stopRinging} /> : null}
@@ -1126,6 +1154,7 @@ function App() {
         pageNavigationPosition={dashboardState.preferences.pageNavigationPosition}
         showPageNavigationLabels={dashboardState.preferences.showPageNavigationLabels}
         onMoveToPage={(index) => {
+          setAssistantPopupOpen(false)
           if (screen === 'settings') {
             setScreen('home')
           }

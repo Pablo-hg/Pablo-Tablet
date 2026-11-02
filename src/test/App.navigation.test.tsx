@@ -252,13 +252,15 @@ describe('navegación y flujos principales', () => {
 
   it('permite activar widgets y páginas de forma independiente', async () => {
     const user = userEvent.setup()
+    const scrollTo = HTMLElement.prototype.scrollTo
+    HTMLElement.prototype.scrollTo = vi.fn()
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
 
     const calendarWidget = screen.getByRole('switch', { name: /Widget Calendario/ })
     const calendarPage = screen.getByRole('switch', { name: /Página Calendario/ })
-    const assistantWidget = screen.getByRole('switch', { name: /Widget Asistente/ })
+    const assistantWidget = screen.getByRole('switch', { name: /Acceso flotante al asistente/ })
     expect(calendarWidget.closest('.dashboard-visibility-row')).toBe(calendarPage.closest('.dashboard-visibility-row'))
     expect(calendarWidget).toHaveAttribute('aria-checked', 'true')
     expect(calendarPage).toHaveAttribute('aria-checked', 'true')
@@ -272,8 +274,26 @@ describe('navegación y flujos principales', () => {
 
     await user.click(screen.getByRole('button', { name: 'Volver al inicio' }))
     expect(document.querySelector('.calendar-widget')).not.toBeInTheDocument()
-    expect(document.querySelector('.assistant-widget')).toBeInTheDocument()
+    expect(document.querySelector('[data-widget-id="assistant"]')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Abrir asistente' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Ir a Calendario' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+    await user.click(screen.getByRole('button', { name: 'Abrir asistente' }))
+    expect(screen.getByRole('dialog', { name: 'Asistente' })).toBeVisible()
+    expect(document.querySelector('.tablet-content')).toHaveClass('is-calendar')
+    expect(screen.getByRole('textbox', { name: 'Escribe o dicta una petición' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: '¿Qué tengo hoy?' }))
+    await screen.findByText(/Hoy tienes/)
+    await user.click(screen.getByRole('dialog', { name: 'Asistente' }).querySelector('.assistant-popup-close')!)
+    expect(screen.queryByRole('dialog', { name: 'Asistente' })).not.toBeInTheDocument()
+    expect(document.querySelector('.tablet-content')).toHaveClass('is-calendar')
+    await user.click(screen.getByRole('button', { name: 'Abrir asistente' }))
+    expect(screen.getByText(/Hoy tienes/)).toBeVisible()
+    expect(screen.getByText(/1\/30 peticiones/)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
+    await user.click(screen.getByRole('switch', { name: /Activar Asistente/ }))
+    expect(screen.queryByRole('button', { name: 'Abrir asistente' })).not.toBeInTheDocument()
+    HTMLElement.prototype.scrollTo = scrollTo
   })
 
   it('permite elegir el diseño, los nombres y la posición del paginador', async () => {

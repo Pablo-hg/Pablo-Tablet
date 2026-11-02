@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Bot, Check, Edit3, LoaderCircle, Mic, MicOff, Send, Square, Volume2, X } from 'lucide-react'
 import type { AssistantCommand, ValidatedAssistantPlan } from '../assistant/contracts'
 import { assistantCommandSummary, type AssistantExecutionResult } from '../assistant/executor'
@@ -20,6 +20,7 @@ export interface AssistantPageProps {
   onExecute: (command: AssistantCommand) => Promise<AssistantExecutionResult>
   onOpenPage: (pageId: DashboardPageId) => void
   onEditingChange: (isEditing: boolean) => void
+  visible?: boolean
 }
 
 const provider = new LocalAssistantProvider()
@@ -33,7 +34,8 @@ const newMessage = (role: AssistantMessage['role'], text: string, openPage?: Das
   openPage,
 })
 
-export function AssistantPage({ enabled, voiceEnabled, readAloud, now, onExecute, onOpenPage, onEditingChange }: AssistantPageProps) {
+export function AssistantPage({ enabled, voiceEnabled, readAloud, now, onExecute, onOpenPage, onEditingChange, visible = true }: AssistantPageProps) {
+  const inputId = useId()
   const [messages, setMessages] = useState<AssistantMessage[]>([
     newMessage('assistant', tx('Hola, Pablo. Puedo consultar tu día, el tiempo, la agenda y tus notas, o preparar una nota, alarma o temporizador.')),
   ])
@@ -46,9 +48,14 @@ export function AssistantPage({ enabled, voiceEnabled, readAloud, now, onExecute
   const logRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    onEditingChange(processing || listening || pending !== null)
+    onEditingChange(visible && (processing || listening || pending !== null))
     return () => onEditingChange(false)
-  }, [listening, onEditingChange, pending, processing])
+  }, [listening, onEditingChange, pending, processing, visible])
+
+  useEffect(() => {
+    if (!visible && listening) abortRef.current?.abort()
+    if (!visible) void stopAssistantSpeech().catch(() => undefined)
+  }, [visible, listening])
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
@@ -56,8 +63,8 @@ export function AssistantPage({ enabled, voiceEnabled, readAloud, now, onExecute
 
   useEffect(() => () => {
     abortRef.current?.abort()
-    void stopAssistantSpeechRecognition()
-    void stopAssistantSpeech()
+    void stopAssistantSpeechRecognition().catch(() => undefined)
+    void stopAssistantSpeech().catch(() => undefined)
   }, [])
 
   const addAssistantResponse = async (result: AssistantExecutionResult) => {
@@ -199,9 +206,9 @@ export function AssistantPage({ enabled, voiceEnabled, readAloud, now, onExecute
     </div> : null}
 
     <form className="assistant-composer" data-swipe-block onSubmit={onSubmit}>
-      <label htmlFor="assistant-input">{tx('Escribe o dicta una petición')}</label>
+      <label htmlFor={inputId}>{tx('Escribe o dicta una petición')}</label>
       <div>
-        <textarea id="assistant-input" value={input} onChange={(event) => setInput(event.target.value)} placeholder={tx('Ej.: Temporizador de 20 minutos')} rows={2} disabled={!enabled || processing || pending !== null} />
+        <textarea id={inputId} value={input} onChange={(event) => setInput(event.target.value)} placeholder={tx('Ej.: Temporizador de 20 minutos')} rows={2} disabled={!enabled || processing || pending !== null} />
         {voiceEnabled ? <button type="button" className={listening ? 'is-listening' : ''} onClick={() => void toggleListening()} aria-label={listening ? tx('Detener dictado') : tx('Iniciar dictado')}>{listening ? <MicOff size={21} /> : <Mic size={21} />}</button> : null}
         <button type="submit" className="assistant-send" disabled={!input.trim() || !enabled || processing || pending !== null} aria-label={tx('Enviar petición')}><Send size={21} /></button>
       </div>

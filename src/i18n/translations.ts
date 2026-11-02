@@ -1,4 +1,8 @@
 const english = {
+  'Abrir asistente': 'Open assistant',
+  'Cerrar asistente': 'Close assistant',
+  'Acceso flotante al asistente': 'Floating assistant shortcut',
+  'Botón flotante disponible en las pantallas cuando el asistente está activo.': 'Floating button available on screens when the assistant is enabled.',
   'Recuperando los datos guardados…': 'Recovering saved data…',
   'Móvil Android': 'Android phone',
   'Tablet Android': 'Android tablet',
