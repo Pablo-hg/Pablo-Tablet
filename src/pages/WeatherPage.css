@@ -46,6 +46,7 @@
 .weather-page .weather-temperature-trend { color: var(--ui-highlight); flex: 1 0 60px; height: 60px; min-height: 26px; overflow: visible; width: 100%; }
 .weather-temperature-trend circle { fill: currentColor; }
 .weather-trend-guide { stroke: var(--ui-border); stroke-dasharray: 3 5; }
+.weather-trend-hour-guide { stroke: var(--ui-border-strong); stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
 .weather-trend-area { fill: currentColor; opacity: .1; }
 .weather-trend-line { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 .weather-page .hourly-forecast { border: 0; display: grid; flex: 0 0 auto; gap: 6px; grid-auto-flow: row; grid-template-columns: repeat(12, minmax(0, 1fr)); margin: 0; overflow: visible; padding: 0; }

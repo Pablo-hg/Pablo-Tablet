@@ -2310,6 +2310,7 @@ function WeatherTemperatureTrend({ hours }: { hours: WeatherForecast['hourly'] }
   const line = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
   return <svg className="weather-temperature-trend" viewBox="0 0 600 100" preserveAspectRatio="none" role="img" aria-label={tx('Evolución de la temperatura')}>
     {[25, 50, 75].map((y) => <line key={y} x1="0" y1={y} x2="600" y2={y} className="weather-trend-guide" />)}
+    {points.map((point, index) => <line key={hours[index].time} x1={point.x} y1="0" x2={point.x} y2="100" className="weather-trend-hour-guide" />)}
     <path d={`${line} L 592 100 L 8 100 Z`} className="weather-trend-area" />
     <path d={line} className="weather-trend-line" />
     {points.map((point, index) => <circle key={hours[index].time} cx={point.x} cy={point.y} r="3.5" />)}
