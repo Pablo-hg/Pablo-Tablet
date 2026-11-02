@@ -1120,6 +1120,7 @@ function App() {
 
       <AppNavigation
         screen={screen}
+        themeId={activeThemeId}
         enabledPages={enabledPages}
         activePageIndex={activePageIndex}
         pageNavigationStyle={dashboardState.preferences.pageNavigationStyle}
@@ -2310,6 +2311,7 @@ function WeatherTemperatureTrend({ hours }: { hours: WeatherForecast['hourly'] }
   const line = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
   return <svg className="weather-temperature-trend" viewBox="0 0 600 100" preserveAspectRatio="none" role="img" aria-label={tx('Evolución de la temperatura')}>
     {[25, 50, 75].map((y) => <line key={y} x1="0" y1={y} x2="600" y2={y} className="weather-trend-guide" />)}
+    {points.map((point, index) => <line key={hours[index].time} x1={point.x} y1="0" x2={point.x} y2="100" className="weather-trend-hour-guide" />)}
     <path d={`${line} L 592 100 L 8 100 Z`} className="weather-trend-area" />
     <path d={line} className="weather-trend-line" />
     {points.map((point, index) => <circle key={hours[index].time} cx={point.x} cy={point.y} r="3.5" />)}
@@ -2435,7 +2437,7 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
         </div>
         <section className="weather-forecast-panel">
           <div className="forecast-heading"><span>{tx('Próximos días')}</span><small>{tx('Máx. / mín.')}</small></div>
-          <div className="daily-forecast">
+          <div className="daily-forecast" data-swipe-block>
             {forecast.daily.map((day, index) => <div key={day.date} className="daily-forecast-row"><span className="daily-icon"><WeatherIcon code={day.weatherCode} size={25} /></span><span className="daily-copy"><strong>{index === 0 ? tx('Hoy') : formatWeatherDay(day.date)}</strong><small>{weatherDescription(day.weatherCode)} · {tx('{{value}}% lluvia', { value: Math.round(day.precipitationProbability) })}</small></span><strong>{Math.round(day.temperatureMax)}° / {Math.round(day.temperatureMin)}°</strong></div>)}
           </div>
           <p className="weather-source-note">{tx('Datos meteorológicos de Open‑Meteo · Actualizado a las {{time}}', { time: new Intl.DateTimeFormat(activeLocale(), { hour: '2-digit', minute: '2-digit' }).format(new Date(forecast.fetchedAt)) })}</p>
