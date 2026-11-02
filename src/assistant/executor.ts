@@ -118,6 +118,8 @@ export function executeAssistantCommand(
         durationSeconds: command.args.durationSeconds,
         remainingSeconds: command.args.durationSeconds,
         endsAt,
+        soundName: DEFAULT_ALARM_SOUND.name,
+        soundUri: null,
         createdAt: now.toISOString(),
       }
       const minutes = Math.round(command.args.durationSeconds / 60)

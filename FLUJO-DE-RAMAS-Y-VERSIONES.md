@@ -9,13 +9,14 @@ La última versión publicada e instalada es `0.2.1`. Integrar código no cambia
 | Rama   | Función                                          | Qué puede entrar                                                  |
 | ------ | ------------------------------------------------ | ----------------------------------------------------------------- |
 | `main` | Estado estable y publicado del producto          | Pull requests desde `release/*` y hotfixes excepcionales          |
-| `dev`  | Integración y validación de la siguiente versión | Pull requests procedentes de `feature/*` y `fix/*`                |
+| `dev`  | Integración y validación de la siguiente versión | Pull requests procedentes de `feat/*`, `fix/*` y `feature/*` anteriores |
 
 No se desarrolla directamente sobre `main` ni sobre `dev`.
 
 ## Ramas temporales
 
-- `feature/<issue>-<descripcion>`: funcionalidad nueva. Parte de `dev`.
+- `feat/<issue>-<descripcion>`: funcionalidad nueva. Parte de `dev`.
+- `feature/<issue>-<descripcion>`: prefijo anterior de funcionalidades, admitido por compatibilidad. Las ramas nuevas usan `feat/*` o `fix/*`, nunca `codex/*`.
 - `fix/<issue>-<descripcion>`: corrección normal. Parte de `dev`.
 - `release/<version>`: selección de cambios ya probados que se publicará. Parte de `main`.
 - `hotfix/<issue>-<descripcion>`: corrección urgente de una versión ya publicada. Parte de `main` y, después de publicarse, también se incorpora a `dev`.
@@ -24,7 +25,7 @@ No se desarrolla directamente sobre `main` ni sobre `dev`.
 
 | Tipo | Formato obligatorio | Rama base | Ejemplo válido |
 | --- | --- | --- | --- |
-| Funcionalidad | `feature/<numero-issue>-<descripcion>` | `dev` | `feature/12-copias-seguridad` |
+| Funcionalidad | `feat/<numero-issue>-<descripcion>` | `dev` | `feat/12-copias-seguridad` |
 | Corrección normal | `fix/<numero-issue>-<descripcion>` | `dev` | `fix/18-reconexion-movil` |
 | Publicación | `release/<major>.<minor>.<patch>` | `main` | `release/0.1.1` |
 | Corrección urgente | `hotfix/<numero-issue>-<descripcion>` | `main` | `hotfix/24-arranque-tablet` |
@@ -34,7 +35,7 @@ Reglas obligatorias:
 
 - utilizar siempre minúsculas;
 - crear primero el Issue si el trabajo manual todavía no tiene uno; no se inventa el número, no se usa `0` y no se omite;
-- escribir el número decimal del Issue sin `#` en `feature/*`, `fix/*` y `hotfix/*`;
+- escribir el número decimal del Issue sin `#` en `feat/*`, `feature/*`, `fix/*` y `hotfix/*`;
 - utilizar una descripción corta en español, sin tildes ni `ñ` y separada con guiones;
 - no utilizar espacios, guiones bajos, mayúsculas ni caracteres especiales;
 - utilizar entre dos y seis palabras descriptivas después del número cuando sea posible;
@@ -45,7 +46,7 @@ Reglas obligatorias:
 Ejemplos correctos:
 
 ```text
-feature/12-copias-seguridad
+feat/12-copias-seguridad
 fix/18-reconexion-movil
 release/0.1.1
 hotfix/24-arranque-tablet
@@ -55,8 +56,8 @@ automation/feedback-24
 Ejemplos incorrectos:
 
 ```text
-feature/copias-seguridad       # falta el número del Issue
-feature/#12-copias             # no se escribe el símbolo #
+feat/copias-seguridad          # falta el número del Issue
+feat/#12-copias                # no se escribe el símbolo #
 Fix/18_Reconexión_Móvil        # mayúsculas, guiones bajos y caracteres no ASCII
 release/v0.1.1                 # la v pertenece al tag, no a la rama
 hotfix/24                      # falta una descripción
@@ -69,7 +70,7 @@ Las ramas de funcionalidad y corrección normal se crean desde el último `dev` 
 ```powershell
 git switch dev
 git pull --ff-only origin dev
-git switch -c feature/12-copias-seguridad
+git switch -c feat/12-copias-seguridad
 ```
 
 Para una corrección se sustituye únicamente el último comando:
@@ -98,7 +99,7 @@ Después de crear una rama manual se publica por primera vez con:
 git push -u origin <nombre-exacto-de-la-rama>
 ```
 
-En `feature/*`, `fix/*` y `hotfix/*`, el número del Issue debe aparecer en el nombre de la rama y en el pull request. Una rama `release/*` agrupa una versión y enumera todos sus Issues en el cuerpo del PR.
+En `feat/*`, `feature/*`, `fix/*` y `hotfix/*`, el número del Issue debe aparecer en el nombre de la rama y en el pull request. Una rama `release/*` agrupa una versión y enumera todos sus Issues en el cuerpo del PR.
 
 ## Flujo normal de un ticket
 
@@ -110,7 +111,7 @@ Issue
   └─ En desarrollo
         │
         ▼
-feature/* o fix/*
+feat/* o fix/*
         │  pull request + CI
         ▼
        dev ───────────── otros cambios todavía en pruebas
@@ -138,7 +139,7 @@ GitHub Actions → APK firmado → GitHub Release
 1. Revisar el Issue y asignarlo.
 2. Mantener `feedback-movil` y sustituir el estado anterior por `en-desarrollo`.
 3. Actualizar `dev` desde su remoto.
-4. Crear desde `dev` una rama `feature/*` o `fix/*`.
+4. Crear desde `dev` una rama `feat/*` o `fix/*`.
 
 ### 2. Desarrollo e integración
 
@@ -257,7 +258,7 @@ El hotfix mantiene las mismas validaciones, firma y regla de etiquetado. Despué
 
 Ninguna automatización debe seleccionar por sí sola qué cambios de `dev` se publican, crear o fusionar el PR de publicación, elegir el número de versión o crear el tag. Esos pasos requieren una decisión expresa. La automatización comienza validando el PR y, después de enviar el tag, construye y publica la Release.
 
-El workflow rechaza expresamente los PR directos de `dev`, `feature/*` o `fix/*` hacia `main`. Esto evita publicar por accidente otros cambios que sigan en pruebas dentro de `dev`.
+El workflow rechaza expresamente los PR directos de `dev`, `feat/*`, `feature/*` o `fix/*` hacia `main`. Esto evita publicar por accidente otros cambios que sigan en pruebas dentro de `dev`.
 
 Para que `feedback-to-markdown.yml` pueda abrir el PR, en **Settings > Actions > General > Workflow permissions** debe estar activa la opción **Allow GitHub Actions to create and approve pull requests**. No hay que guardar un token personal para este paso: el workflow utiliza el `GITHUB_TOKEN` temporal de la propia ejecución.
 

@@ -1,0 +1,71 @@
+.clock-widget-alarms { display: none; min-width: 0; }
+.clock-widget-alarms h2 { color: var(--ui-text-muted); font-size: .7rem; font-weight: 650; margin: 0 0 8px; }
+.clock-widget-alarms ul { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.clock-widget-alarms li { align-items: center; background: var(--ui-control); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-control, 12px); display: flex; gap: 10px; min-width: 0; padding: 6px 9px; }
+.clock-widget-alarms li > time { color: var(--ui-action); flex: 0 0 auto; font-size: 1.2rem; font-variant-numeric: tabular-nums; font-weight: 600; }
+.clock-widget-alarms li > span { display: grid; gap: 2px; min-width: 0; }
+.clock-widget-alarms strong { color: var(--ui-text); font-size: .7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clock-widget-alarms small { color: var(--ui-text-muted); font-size: .6rem; line-height: 1.2; }
+.clock-widget-alarms li:nth-child(n + 3) { display: none; }
+
+@container dashboard-widget (min-width: 200px) and (min-height: 300px) {
+  .responsive-clock-widget.has-alarms { gap: 0; justify-content: flex-start; }
+  .responsive-clock-widget.has-alarms .widget-label { margin-bottom: 8px; }
+  .responsive-clock-widget.has-alarms .time { font-size: clamp(2.8rem, 18cqw, 5rem); line-height: 1; margin: 0; }
+  .responsive-clock-widget.has-alarms .date { font-size: .75rem; line-height: 1.3; margin: 6px 0 0; }
+  .responsive-clock-widget.has-alarms :is(.clock-details, .clock-day-progress) { display: none; }
+  .responsive-clock-widget .clock-widget-alarms { display: block; margin-top: auto; padding-top: 12px; }
+}
+
+@container dashboard-widget (min-width: 200px) and (min-height: 450px) {
+  .clock-widget-alarms li:nth-child(3) { display: flex; }
+}
+@container dashboard-widget (min-width: 200px) and (min-height: 600px) {
+  .clock-widget-alarms li:nth-child(4) { display: flex; }
+}
+
+@container dashboard-widget (min-width: 650px) and (min-height: 140px) and (max-height: 299px) {
+  .responsive-clock-widget.has-alarms { column-gap: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; padding: 12px 18px; }
+  .responsive-clock-widget.has-alarms .widget-label { grid-column: 1; grid-row: 1; margin: 0; }
+  .responsive-clock-widget.has-alarms .time { font-size: clamp(2.8rem, 9cqw, 5rem); grid-column: 1; grid-row: 2; line-height: 1; margin: 0; }
+  .responsive-clock-widget.has-alarms .date { font-size: .7rem; grid-column: 1; grid-row: 3; line-height: 1.2; margin: 0; }
+  .responsive-clock-widget.has-alarms :is(.clock-details, .clock-day-progress) { display: none; }
+  .responsive-clock-widget .clock-widget-alarms { display: block; grid-column: 2; grid-row: 1 / -1; margin: 0; padding: 0; }
+  .clock-widget-alarms li { padding: 4px 8px; }
+}
+
+@container dashboard-widget (min-width: 650px) and (min-height: 300px) {
+  .responsive-clock-widget.has-alarms { align-content: center; column-gap: clamp(20px, 3cqw, 40px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto auto; padding: clamp(18px, 3cqw, 32px); row-gap: 10px; }
+  .responsive-clock-widget.has-alarms .widget-label { grid-column: 1; grid-row: 1; margin: 0; }
+  .responsive-clock-widget.has-alarms .time { font-size: clamp(3.5rem, 11cqw, 8.5rem); grid-column: 1; grid-row: 2; }
+  .responsive-clock-widget.has-alarms .date { grid-column: 1; grid-row: 3; margin: 0; }
+  .responsive-clock-widget .clock-widget-alarms { align-self: center; grid-column: 2; grid-row: 1 / -1; margin: 0; padding: 0; }
+  .clock-widget-alarms li:nth-child(n + 3) { display: flex; }
+  .clock-widget-alarms li > time { font-size: 1.4rem; }
+  .clock-widget-alarms strong { font-size: .78rem; }
+  .clock-widget-alarms small { font-size: .66rem; }
+}
+
+.widget-size-1x2 .responsive-calendar-widget .calendar-widget-body { gap: 10px; grid-template-rows: minmax(100px, 1fr) auto; margin-top: 10px; }
+.widget-size-1x2 .calendar-widget-month-grid > button { align-items: center; gap: 2px; justify-content: center; padding: 3px 1px; }
+.widget-size-1x2 .calendar-widget-month-grid > button > strong { font-size: .75rem; line-height: 1.2; }
+.widget-size-1x2 .calendar-widget-month-grid small { background: var(--ui-action); border: 0; border-radius: 50%; color: transparent; display: block; flex: 0 0 4px; font-size: 0; height: 4px; margin: 0; padding: 0; width: 4px; }
+.widget-size-1x2 .calendar-widget-agenda { gap: 5px; padding-top: 8px; }
+.widget-size-1x2 .calendar-widget-upcoming { gap: 5px; }
+.widget-size-1x2 .calendar-event-line b { font-size: .7rem; }
+.widget-size-1x2 .calendar-event-line b > span:last-child { -webkit-line-clamp: 1; }
+
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .responsive-calendar-widget { padding: 8px 12px; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-widget-header .heading-icon { height: 26px; width: 26px; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-widget-body { display: grid; gap: 12px; grid-template-columns: minmax(0, 1.5fr) minmax(120px, 1fr); margin-top: 6px; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-widget-month { box-sizing: border-box; padding: 6px; width: auto; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-widget-agenda { border-color: var(--ui-border); display: grid; gap: 4px; padding-left: 10px; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-widget-upcoming { gap: 4px; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-widget-upcoming > p { font-size: .55rem; letter-spacing: .03em; margin: 0; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-event-line { border-radius: 8px; gap: 6px; padding: 4px 6px; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-event-line b { font-size: .62rem; gap: 4px; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-event-line b > span:last-child { -webkit-line-clamp: 1; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-event-line time { font-size: .55rem; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-event-copy { gap: 2px; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-widget-month-grid > button { align-items: center; gap: 4px; justify-content: center; padding: 2px; }
+.dashboard-widget-shell:is(.widget-size-2x1, .widget-size-3x1, .widget-size-4x1) .calendar-widget-month-grid small { background: var(--ui-action); border: 0; border-radius: 50%; color: transparent; display: block; flex: 0 0 4px; font-size: 0; height: 4px; margin: 0; padding: 0; width: 4px; }
