@@ -34,7 +34,8 @@ describe('administración móvil', () => {
     const view = await openMobilePanel()
     fireEvent.click(view.getByRole('button', { name: 'Añadir a pantalla de inicio' }))
     expect(document.querySelector('#install-help')).not.toHaveClass('hidden')
-    expect(document.querySelector('#install-help')).toHaveTextContent(/menú del navegador|Chrome o Brave|Safari/)
+    expect(document.querySelector('#install-help')).toHaveTextContent(/menú del navegador|Compartir/)
+    expect(document.querySelector('#install-help')).not.toHaveTextContent(/Chrome|Brave/)
   })
 
   it('solo invoca el diálogo de instalación tras pulsar el botón y permite cancelar', async () => {

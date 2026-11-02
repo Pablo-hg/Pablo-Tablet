@@ -276,7 +276,9 @@ export function AppUpdateSettings() {
         <span className="settings-icon"><Smartphone size={20} /></span>
         <span className="settings-copy">
           <strong>{update?.updateAvailable ? tx('Nueva versión {{version}}', { version: update.latestVersionName }) : 'Pablo Tablet'}</strong>
-          <small>{supported ? versionLabel : tx('Disponible al abrir la aplicación en Android.')}</small>
+          <small>{supported ? versionLabel : import.meta.env.DEV && __DEVELOPMENT_BASE_VERSION__
+            ? tx('Versión base del proyecto: {{version}}', { version: __DEVELOPMENT_BASE_VERSION__ })
+            : tx('Disponible al abrir la aplicación en Android.')}</small>
           {update?.updateAvailable && update.releaseName ? <small>{update.releaseName}{formatBytes(update.assetSize) ? ` · ${formatBytes(update.assetSize)}` : ''}</small> : null}
         </span>
         {update && !update.updateAvailable ? <CheckCircle2 className="app-update-ok" size={22} aria-label={tx('Aplicación actualizada')} /> : null}

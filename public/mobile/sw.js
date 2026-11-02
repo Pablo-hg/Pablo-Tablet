@@ -1,5 +1,5 @@
-const CACHE = 'pablo-tablet-mobile-v13'
-const SHELL = ['/', '/index.html', '/styles.css?v=12', '/app.js?v=13', '/calendarTiming.js', '/manifest.webmanifest', '/icon.svg']
+const CACHE = 'pablo-tablet-mobile-v14'
+const SHELL = ['/', '/index.html', '/styles.css?v=12', '/app.js?v=14', '/calendarTiming.js', '/manifest.webmanifest', '/icon.svg']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))

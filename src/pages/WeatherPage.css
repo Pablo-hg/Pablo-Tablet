@@ -73,7 +73,7 @@
   .weather-page .weather-location-toolbar { align-items: stretch; flex-wrap: wrap; }
   .weather-page .weather-saved-locations, .weather-page .weather-location-selector, .weather-page .weather-location-search { flex: 1 1 100%; max-width: 100%; }
 }
-@container weather-current (max-width: 34rem) {
+@container weather-current (max-width: 24rem) {
   .weather-page .weather-current-main { grid-template-columns: auto minmax(0, 1fr); }
   .weather-page .weather-today-range { border-left: 0; border-top: 1px solid var(--ui-border); grid-column: 1 / -1; padding: 10px 0 0; }
   .weather-page .weather-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -93,6 +93,45 @@
 @container weather-hours (max-width: 28rem) { .weather-page .hourly-forecast { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @container weather-hours (max-width: 18rem) { .weather-page .hourly-forecast { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container weather-hours (max-width: 10rem) { .weather-page .hourly-forecast { grid-template-columns: minmax(0, 1fr); } }
+
+@media (orientation: portrait) {
+  .weather-page .weather-layout { display: flex; flex: 0 0 auto; flex-direction: column; }
+  .weather-page .weather-primary-column, .weather-page .weather-hours-panel, .weather-page .weather-forecast-panel { flex: 0 0 auto; }
+  .weather-page .weather-temperature-trend { flex: 0 0 80px; height: 80px; }
+  .weather-page .hourly-forecast { flex: 0 0 auto; grid-auto-rows: minmax(112px, auto); }
+  .weather-page .hourly-forecast > div { box-sizing: border-box; justify-content: center; min-height: 112px; }
+  .weather-page .hourly-forecast > div > svg { flex: 0 0 auto; }
+}
+
+@media (orientation: landscape) {
+  .tablet-shell .tablet-content.is-weather { overflow-y: hidden; }
+  .weather-page { height: 100%; min-height: 0; overflow: hidden; }
+  .weather-page .weather-layout { display: grid; flex: 1 1 0; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
+  .weather-page .weather-primary-column { min-height: 0; }
+  .weather-page :is(.weather-hours-panel, .weather-forecast-panel) { min-height: 0; }
+  .weather-page .weather-hours-panel { flex: 1 1 0; }
+  .weather-page .weather-temperature-trend { flex: 0 0 clamp(60px, 8vh, 96px); height: clamp(60px, 8vh, 96px); }
+  .weather-page .daily-forecast { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--ui-border-strong) transparent; scrollbar-width: thin; touch-action: pan-y; }
+  .weather-page .daily-forecast-row { flex: 1 0 auto; }
+  .weather-page .hourly-forecast { flex: 1 1 0; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); min-height: 0; }
+  .weather-page .hourly-forecast > div { justify-content: center; min-height: 0; }
+  @container weather-hours (min-width: 48rem) {
+    .weather-page .hourly-forecast { grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
+  }
+}
+
+@media (min-height: 851px) and (max-height: 1100px) and (orientation: landscape) {
+  .weather-page :is(.weather-current-panel, .weather-hours-panel, .weather-forecast-panel) { padding: 16px 20px; }
+  .weather-page .weather-current-main { margin: 8px 0; }
+  .weather-page .weather-current-icon { height: 72px; width: 72px; }
+  .weather-page .weather-current-main .weather-current-copy > strong { font-size: 4rem; }
+  .weather-page .weather-current-copy p { margin: 4px 0; }
+  .weather-page .weather-stats > div { padding: 7px; }
+  .weather-page .hourly-forecast { grid-template-rows: repeat(2, minmax(80px, 1fr)); }
+  @container weather-hours (min-width: 48rem) {
+    .weather-page .hourly-forecast { grid-template-rows: minmax(100px, 1fr); }
+  }
+}
 
 @media (max-height: 850px) and (orientation: landscape) {
   .tablet-shell.page-nav-position-bottom .tablet-content.is-weather { padding-top: 18px; }
@@ -115,7 +154,8 @@
   .weather-page .weather-stats strong { font-size: .85rem; }
   .weather-page .weather-stats :is(span, strong) { line-height: 1.2; }
   .weather-page .weather-hours-panel { gap: 6px; }
-  .weather-page .weather-temperature-trend { flex-basis: 26px; height: 26px; }
+  .weather-page .weather-temperature-trend { flex: 0 0 44px; height: 44px; min-height: 44px; }
+  .weather-page .weather-inline-error { line-height: 1.2; margin-top: 6px; padding: 5px 8px; }
   .weather-page .hourly-forecast { gap: 4px; }
   .weather-page .hourly-forecast > div { gap: 2px; padding: 3px; }
   .weather-page .hourly-forecast span { font-size: .7rem; }
@@ -130,6 +170,20 @@
   .weather-page .daily-copy small { font-size: .75rem; line-height: 1.3; }
   .weather-page .forecast-heading { line-height: 1.2; padding-bottom: 8px; }
   .weather-page .weather-source-note { font-size: .72rem; padding-top: 10px; }
+}
+
+@media (orientation: landscape) {
+  @container weather-current (min-width: 19rem) and (max-width: 24rem) {
+    .weather-page .weather-current-main { gap: 8px; grid-template-columns: auto minmax(0, 1fr) auto; }
+    .weather-page .weather-current-icon { height: 44px; width: 44px; }
+    .weather-page .weather-today-range { border-left: 1px solid var(--ui-border); border-top: 0; gap: 6px 10px; grid-column: auto; padding: 0 0 0 8px; }
+    .weather-page .weather-today-range dt { font-size: .6rem; }
+    .weather-page .weather-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .weather-page .weather-stats > div { gap: 4px; padding-inline: 4px; }
+    .weather-page .weather-stats > div > svg { height: 15px; width: 15px; }
+    .weather-page .weather-stats > div > span { font-size: .6rem; }
+    .weather-page .weather-stats strong { font-size: .72rem; }
+  }
 }
 
 /* Negative temperatures must fit even in narrow, large-text monospace themes. */

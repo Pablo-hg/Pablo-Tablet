@@ -67,7 +67,7 @@ const SIMULATED_ASSET_SIZE = 3_463_652
 
 function simulatedStartingVersion() {
   if (typeof window === 'undefined' || !import.meta.env.DEV || Capacitor.getPlatform() !== 'web') return null
-  return new URLSearchParams(window.location.search).get('simulate-update') ?? SIMULATED_LATEST_VERSION
+  return new URLSearchParams(window.location.search).get('simulate-update')
 }
 
 function simulatedInstalledVersion() {

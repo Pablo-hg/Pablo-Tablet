@@ -167,6 +167,7 @@
 .weather-page .weather-search-results > button strong { font-size: .9rem; }
 .weather-page .weather-search-results > button small, .weather-page .weather-search-results > p { font-size: .76rem; }
 .is-spinning { animation: weather-spin .85s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .mobile-refresh-icon.is-spinning { animation: none; } }
 @keyframes weather-spin { to { transform: rotate(360deg); } }
 .focus-clock { align-items: center; display: flex; flex: 1; flex-direction: column; justify-content: center; padding-bottom: 7vh; text-align: center; }
 .focus-clock-kicker { color: #9dadcb; font-size: .78rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
@@ -655,6 +656,7 @@
 .notes-meta { color: #9eacc5; display: flex; font-size: .76rem; justify-content: space-between; }
 
 .settings-page { box-sizing: border-box; max-height: none; overflow: visible; padding: 20px 20px calc(110px + env(safe-area-inset-bottom, 0px)); }
+.tablet-shell .settings-page { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 .settings-section { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 26px; margin-bottom: 20px; padding: clamp(18px, 3vw, 28px); }
 .settings-compact-grid { display: grid; }
 .section-heading { align-items: center; color: #bcd0ff; display: flex; justify-content: space-between; margin-bottom: 16px; }
@@ -1287,7 +1289,7 @@
 
 .page-indicators { border: 0; box-shadow: var(--ui-shadow); box-sizing: border-box; display: flex; height: auto; inset: auto; isolation: isolate; padding: 5px; position: fixed; transition: background .22s ease, transform .22s ease; width: auto; z-index: 2; -webkit-backdrop-filter: blur(24px) saturate(145%); backdrop-filter: blur(24px) saturate(145%); }
 .page-indicators button { border-radius: var(--ui-radius-control, 14px); gap: 7px; height: 42px; min-width: 42px; padding: 0 11px; position: relative; width: auto; z-index: 1; }
-.page-indicator-glider { background: var(--ui-action); border: var(--ui-outline-width, 1px) solid var(--ui-action); border-radius: var(--ui-radius-control, 14px); box-shadow: 0 7px 18px color-mix(in srgb, var(--ui-action) 28%, transparent); opacity: 0; pointer-events: none; position: absolute; z-index: 0; }.page-indicators.has-page-indicator .page-indicator-glider { opacity: 1; }.page-indicators.is-adjacent-transition .page-indicator-glider { transition: left .3s cubic-bezier(.2,.8,.2,1), top .3s cubic-bezier(.2,.8,.2,1), width .3s cubic-bezier(.2,.8,.2,1), height .3s cubic-bezier(.2,.8,.2,1); }.page-indicators.is-direct-transition .page-indicator-glider { transition: none; }.tablet-shell[data-theme] .page-indicators.has-page-indicator button.is-active { background: transparent !important; border-color: transparent !important; }.page-indicators--labels .page-indicator-glider { background: var(--ui-action-soft); border-color: transparent; box-shadow: none; }.page-indicators--minimal .page-indicator-glider { background: var(--ui-action); border: 0; border-radius: 99px; box-shadow: none; }.page-indicators--minimal button.is-active::after { display: none; }
+.page-indicator-glider { background: var(--ui-action); border: var(--ui-outline-width, 1px) solid var(--ui-action); border-radius: var(--ui-radius-control, 14px); box-sizing: border-box; box-shadow: 0 7px 18px color-mix(in srgb, var(--ui-action) 28%, transparent); opacity: 0; pointer-events: none; position: absolute; z-index: 0; }.page-indicators.has-page-indicator .page-indicator-glider { opacity: 1; }.page-indicators.is-adjacent-transition .page-indicator-glider { transition: left .3s cubic-bezier(.2,.8,.2,1), top .3s cubic-bezier(.2,.8,.2,1), width .3s cubic-bezier(.2,.8,.2,1), height .3s cubic-bezier(.2,.8,.2,1); }.page-indicators.is-direct-transition .page-indicator-glider { transition: none; }.tablet-shell[data-theme] .page-indicators.has-page-indicator button.is-active { background: transparent !important; border-color: transparent !important; }.page-indicators--labels .page-indicator-glider { background: var(--ui-action-soft); border-color: transparent; box-shadow: none; }.page-indicators--minimal .page-indicator-glider { background: var(--ui-action); border: 0; border-radius: 99px; box-shadow: none; }.page-indicators--minimal button.is-active::after { display: none; }
 .page-indicators button svg { flex: 0 0 auto; height: 17px; width: 17px; }
 .page-indicators button span { display: none; font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .page-indicators button.is-active { width: auto; }

@@ -1120,6 +1120,7 @@ function App() {
 
       <AppNavigation
         screen={screen}
+        themeId={activeThemeId}
         enabledPages={enabledPages}
         activePageIndex={activePageIndex}
         pageNavigationStyle={dashboardState.preferences.pageNavigationStyle}
@@ -2436,7 +2437,7 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
         </div>
         <section className="weather-forecast-panel">
           <div className="forecast-heading"><span>{tx('Próximos días')}</span><small>{tx('Máx. / mín.')}</small></div>
-          <div className="daily-forecast">
+          <div className="daily-forecast" data-swipe-block>
             {forecast.daily.map((day, index) => <div key={day.date} className="daily-forecast-row"><span className="daily-icon"><WeatherIcon code={day.weatherCode} size={25} /></span><span className="daily-copy"><strong>{index === 0 ? tx('Hoy') : formatWeatherDay(day.date)}</strong><small>{weatherDescription(day.weatherCode)} · {tx('{{value}}% lluvia', { value: Math.round(day.precipitationProbability) })}</small></span><strong>{Math.round(day.temperatureMax)}° / {Math.round(day.temperatureMin)}°</strong></div>)}
           </div>
           <p className="weather-source-note">{tx('Datos meteorológicos de Open‑Meteo · Actualizado a las {{time}}', { time: new Intl.DateTimeFormat(activeLocale(), { hour: '2-digit', minute: '2-digit' }).format(new Date(forecast.fetchedAt)) })}</p>
