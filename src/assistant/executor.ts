@@ -3,13 +3,16 @@ import { DEFAULT_ALARM_SOUND } from '../alarmSounds'
 import { calendarOccurrenceForDate, eventForOccurrence, toLocalDateKey } from '../calendarRecurrence'
 import type { AlarmWeekday, DashboardPageId, DashboardState, Note } from '../dashboardState'
 import { weatherDescription, type WeatherForecast, type WeatherLocation } from '../weather'
-import { activeLocale, tx } from '../i18n'
+import type { TOptions } from 'i18next'
+import { activeLocale, tx as appTx, txFor, type SupportedLanguage } from '../i18n'
+import type { TranslationKey } from '../i18n/translations'
 
 export interface AssistantExecutionEnvironment {
   now: Date
   homeWeatherLocation: WeatherLocation | null
   homeWeatherForecast: WeatherForecast | null
   createId: () => string
+  language?: SupportedLanguage
 }
 
 export interface AssistantExecutionResult {
@@ -20,9 +23,23 @@ export interface AssistantExecutionResult {
 
 const unchanged = (state: DashboardState, response: string, openPage?: DashboardPageId): AssistantExecutionResult => ({ state, response, openPage })
 
-const formatDateTime = (value: string) => new Intl.DateTimeFormat(activeLocale(), { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+const formatDateTime = (value: string, language?: SupportedLanguage) => new Intl.DateTimeFormat(activeLocale(language), { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+const translateFor = (language?: SupportedLanguage) => (key: TranslationKey, options?: TOptions) => language ? txFor(language, key, options) : appTx(key, options)
 
-function helpForTopic(topic: string) {
+function formatTimerDuration(totalSeconds: number, language?: SupportedLanguage) {
+  const tx = translateFor(language)
+  const hours = Math.floor(totalSeconds / 3_600)
+  const minutes = Math.floor((totalSeconds % 3_600) / 60)
+  const seconds = totalSeconds % 60
+  const parts: string[] = []
+  if (hours) parts.push(tx(hours === 1 ? '{{count}} hora' : '{{count}} horas', { count: hours }))
+  if (minutes) parts.push(tx(minutes === 1 ? '{{count}} minuto' : '{{count}} minutos', { count: minutes }))
+  if (seconds) parts.push(tx(seconds === 1 ? '{{count}} segundo' : '{{count}} segundos', { count: seconds }))
+  return new Intl.ListFormat(activeLocale(language), { style: 'long', type: 'conjunction' }).format(parts)
+}
+
+function helpForTopic(topic: string, language?: SupportedLanguage) {
+  const tx = translateFor(language)
   const normalized = topic.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   if (normalized.includes('brillo') || normalized.includes('brightness')) return tx('Abre Ajustes y, en Pantalla y sonido, desactiva Brillo automático si quieres mover el control manual.')
   if (normalized.includes('nota') || normalized.includes('note')) return tx('Abre Notas y pulsa Nueva nota. También puedes pedirme «Guarda una nota: …» y confirmar la tarjeta.')
@@ -38,6 +55,8 @@ export function executeAssistantCommand(
   environment: AssistantExecutionEnvironment,
 ): AssistantExecutionResult {
   const { now, homeWeatherForecast, homeWeatherLocation, createId } = environment
+  const language = environment.language
+  const tx = translateFor(language)
 
   switch (command.type) {
     case 'get_daily_summary': {
@@ -47,7 +66,7 @@ export function executeAssistantCommand(
       }).filter((event) => !event.completed)
       const alarms = state.alarms.filter((alarm) => alarm.enabled).length
       const weather = homeWeatherForecast
-        ? `${Math.round(homeWeatherForecast.current.temperature)}°, ${weatherDescription(homeWeatherForecast.current.weatherCode).toLowerCase()} en ${homeWeatherLocation?.name ?? 'Casa'}`
+        ? tx('{{temperature}}°, {{description}} en {{location}}', { temperature: Math.round(homeWeatherForecast.current.temperature), description: weatherDescription(homeWeatherForecast.current.weatherCode, language).toLowerCase(), location: homeWeatherLocation?.name ?? 'Casa' })
         : tx('sin previsión disponible')
       const eventSummary = events.length ? tx(events.length === 1 ? '{{count}} elemento en la agenda' : '{{count}} elementos en la agenda', { count: events.length }) : tx('ningún elemento en la agenda')
       const alarmSummary = tx(alarms === 1 ? '{{count}} alarma activa' : '{{count}} alarmas activas', { count: alarms })
@@ -58,10 +77,10 @@ export function executeAssistantCommand(
       const forecast = command.args.period === 'tomorrow' ? homeWeatherForecast.daily[1] : homeWeatherForecast.daily[0]
       if (!forecast) return unchanged(state, tx('La previsión solicitada todavía no está disponible.'), 'weather')
       if (command.args.period === 'now') {
-        return unchanged(state, tx('Ahora hay {{temperature}}° y {{description}} en {{location}}.', { temperature: Math.round(homeWeatherForecast.current.temperature), description: weatherDescription(homeWeatherForecast.current.weatherCode).toLowerCase(), location: homeWeatherLocation.name }), 'weather')
+        return unchanged(state, tx('Ahora hay {{temperature}}° y {{description}} en {{location}}.', { temperature: Math.round(homeWeatherForecast.current.temperature), description: weatherDescription(homeWeatherForecast.current.weatherCode, language).toLowerCase(), location: homeWeatherLocation.name }), 'weather')
       }
       const label = command.args.period === 'tomorrow' ? tx('Mañana') : tx('Hoy')
-      return unchanged(state, tx('{{day}} en {{location}}: {{description}}, máxima de {{maximum}}° y mínima de {{minimum}}°.', { day: label, location: homeWeatherLocation.name, description: weatherDescription(forecast.weatherCode).toLowerCase(), maximum: Math.round(forecast.temperatureMax), minimum: Math.round(forecast.temperatureMin) }), 'weather')
+      return unchanged(state, tx('{{day}} en {{location}}: {{description}}, máxima de {{maximum}}° y mínima de {{minimum}}°.', { day: label, location: homeWeatherLocation.name, description: weatherDescription(forecast.weatherCode, language).toLowerCase(), maximum: Math.round(forecast.temperatureMax), minimum: Math.round(forecast.temperatureMin) }), 'weather')
     }
     case 'get_calendar': {
       const from = command.args.from.slice(0, 10)
@@ -76,7 +95,7 @@ export function executeAssistantCommand(
       return unchanged(state, tx('Notas recientes: {{notes}}.', { notes: notes.map((note) => note.title || note.content.slice(0, 50) || tx('Sin título')).join('; ') }), 'notes')
     }
     case 'get_local_help':
-      return unchanged(state, helpForTopic(command.args.topic))
+      return unchanged(state, helpForTopic(command.args.topic, language))
     case 'create_note': {
       const timestamp = now.toISOString()
       const note: Note = {
@@ -120,20 +139,20 @@ export function executeAssistantCommand(
         endsAt,
         createdAt: now.toISOString(),
       }
-      const minutes = Math.round(command.args.durationSeconds / 60)
-      return { state: { ...state, timers: [...state.timers, timer] }, response: tx(minutes === 1 ? 'Temporizador iniciado durante {{count}} minuto.' : 'Temporizador iniciado durante {{count}} minutos.', { count: minutes }), openPage: 'clock' }
+      return { state: { ...state, timers: [...state.timers, timer] }, response: tx('Temporizador iniciado durante {{duration}}.', { duration: formatTimerDuration(command.args.durationSeconds, language) }), openPage: 'clock' }
     }
   }
 }
 
-export function assistantCommandSummary(command: AssistantCommand) {
+export function assistantCommandSummary(command: AssistantCommand, language?: SupportedLanguage) {
+  const tx = translateFor(language)
   switch (command.type) {
     case 'create_note':
-      return { title: tx('Crear nota'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Contenido: {{value}}', { value: command.args.content }), command.args.reminderAt ? tx('Aviso: {{value}}', { value: formatDateTime(command.args.reminderAt) }) : tx('Sin aviso')] }
+      return { title: tx('Crear nota'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Contenido: {{value}}', { value: command.args.content }), command.args.reminderAt ? tx('Aviso: {{value}}', { value: formatDateTime(command.args.reminderAt, language) }) : tx('Sin aviso')] }
     case 'create_alarm':
-      return { title: tx('Crear alarma diaria'), details: [tx('Hora: {{value}}', { value: formatDateTime(command.args.at).split(', ').at(-1) ?? command.args.at }), tx('Etiqueta: {{value}}', { value: command.args.label })] }
+      return { title: tx('Crear alarma diaria'), details: [tx('Hora: {{value}}', { value: formatDateTime(command.args.at, language).split(', ').at(-1) ?? command.args.at }), tx('Etiqueta: {{value}}', { value: command.args.label })] }
     case 'start_timer':
-      return { title: tx('Iniciar temporizador'), details: [tx('Duración: {{value}} min', { value: Math.round(command.args.durationSeconds / 60) }), tx('Etiqueta: {{value}}', { value: command.args.label })] }
+      return { title: tx('Iniciar temporizador'), details: [tx('Duración: {{value}}', { value: formatTimerDuration(command.args.durationSeconds, language) }), tx('Etiqueta: {{value}}', { value: command.args.label })] }
     default:
       return { title: tx('Consulta'), details: [] }
   }

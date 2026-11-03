@@ -1211,17 +1211,30 @@
 .assistant-page { gap: 12px; }
 .assistant-floating-button { align-items: center; background: var(--ui-action); border: 1px solid var(--ui-border); border-radius: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--ui-shadow); color: var(--ui-action-text, #fff); cursor: pointer; display: flex; height: 52px; justify-content: center; position: fixed; right: calc(12px + env(safe-area-inset-right, 0px)); width: 52px; z-index: 5; }
 .assistant-floating-button:focus-visible { outline: 3px solid var(--ui-text); outline-offset: 3px; }
+.assistant-floating-button.is-listening { animation: lumi-listening 1s ease-in-out infinite alternate; }
+@keyframes lumi-listening { from { transform: scale(1.08); box-shadow: 0 0 0 4px var(--ui-action-soft); } to { transform: scale(1.2); box-shadow: 0 0 0 12px var(--ui-action-soft); } }
+@media (prefers-reduced-motion: reduce) { .assistant-floating-button.is-listening { animation: none; transform: scale(1.12); } }
 .page-nav-position-right .assistant-floating-button { right: calc(var(--page-nav-edge-size) + 12px + env(safe-area-inset-right, 0px)); }
 .assistant-popup { background: linear-gradient(var(--ui-panel-solid), var(--ui-panel-solid)), var(--ui-canvas); border: 1px solid var(--ui-border); border-radius: 24px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--ui-shadow); box-sizing: border-box; height: min(600px, calc(100svh - 100px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); padding: 18px; position: fixed; right: calc(12px + env(safe-area-inset-right, 0px)); width: min(440px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))); z-index: 6; opacity: 0; transform: translateY(14px) scale(.97); transform-origin: bottom right; visibility: hidden; pointer-events: none; transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s; }
 .assistant-popup.is-open { opacity: 1; transform: translateY(0) scale(1); visibility: visible; pointer-events: auto; transition: opacity .2s ease, transform .2s ease, visibility 0s; }
 @starting-style { .assistant-popup.is-open { opacity: 0; transform: translateY(14px) scale(.97); } }
 @media (prefers-reduced-motion: reduce) { .assistant-popup, .assistant-popup.is-open { transition: none; } }
 .assistant-popup-close { align-items: center; background: var(--ui-control); border: 1px solid var(--ui-border); border-radius: 12px; color: var(--ui-text); cursor: pointer; display: flex; height: 44px; justify-content: center; position: absolute; right: 14px; top: 14px; width: 44px; z-index: 1; }
-.assistant-popup .assistant-page { height: 100%; }
+.assistant-popup .assistant-page { box-sizing: border-box; height: 100%; padding-top: 46px; }
 .assistant-popup .dashboard-header { padding-right: 48px; }
 .assistant-popup .assistant-suggestions { flex-wrap: wrap; overflow-x: visible; }
 .assistant-popup .assistant-suggestions button { flex: 0 1 auto; }
 .page-nav-position-right .assistant-popup { right: calc(var(--page-nav-edge-size) + 12px + env(safe-area-inset-right, 0px)); }
+.lumi-voice-indicator { align-items: center; display: flex; flex: 0 0 auto; flex-direction: column; gap: 4px; }
+.lumi-voice-indicator > span { align-items: center; background: var(--ui-action-soft); border: 1px solid var(--ui-border); border-radius: 50%; display: flex; gap: 4px; height: 60px; justify-content: center; width: 60px; }
+.assistant-popup .has-pending .lumi-voice-indicator > span { height: 40px; width: 40px; }
+.lumi-voice-indicator i { background: var(--ui-action); border-radius: 99px; height: 6px; width: 4px; }
+.lumi-voice-indicator small { color: var(--ui-text-muted); font-size: .7rem; font-weight: 700; }
+.lumi-voice-indicator:is(.is-listening, .is-speaking) i { animation: lumi-voice-wave .75s ease-in-out infinite alternate; }
+.lumi-voice-indicator i:nth-child(2), .lumi-voice-indicator i:nth-child(4) { animation-delay: -.35s; }
+.lumi-voice-indicator i:nth-child(3) { animation-delay: -.55s; }
+@keyframes lumi-voice-wave { from { height: 6px; } to { height: 28px; } }
+@media (prefers-reduced-motion: reduce) { .lumi-voice-indicator i { animation: none !important; } }
 .assistant-page .page-header { flex: 0 0 auto; }
 .assistant-status { align-items: center; color: var(--ui-text-muted); display: flex; flex: 0 0 auto; font-size: .76rem; justify-content: space-between; padding: 0 4px; }
 .assistant-status > span { align-items: center; display: inline-flex; font-weight: 700; gap: 7px; }
@@ -1237,8 +1250,9 @@
 .assistant-message footer button, .assistant-message.is-processing button { align-items: center; background: var(--ui-control); border: 1px solid var(--ui-border); border-radius: 999px; color: var(--ui-text-muted); cursor: pointer; display: inline-flex; font: inherit; font-size: .7rem; gap: 5px; padding: 6px 9px; }
 .assistant-avatar { align-items: center; background: var(--ui-action-soft); border: 1px solid var(--ui-border); border-radius: 12px; color: var(--ui-action); display: flex; flex: 0 0 auto; height: 34px; justify-content: center; width: 34px; }
 .assistant-message.is-processing p { align-items: center; display: flex; gap: 8px; }
-.assistant-confirmation { align-self: center; background: var(--ui-panel); border: 2px solid var(--ui-action); border-radius: 24px; box-shadow: 0 20px 50px rgba(3,12,31,.32); box-sizing: border-box; max-width: 680px; padding: 18px; width: min(92%, 680px); }
+.assistant-confirmation { align-self: center; background: var(--ui-panel); border: 2px solid var(--ui-action); border-radius: 24px; box-shadow: 0 20px 50px rgba(3,12,31,.32); box-sizing: border-box; flex: 0 0 auto; max-width: 680px; overflow-wrap: anywhere; padding: 18px; width: min(100%, 680px); }
 .assistant-confirmation header { align-items: center; display: flex; gap: 12px; }
+.assistant-confirmation header > div { min-width: 0; }
 .assistant-confirmation header > span { align-items: center; background: var(--ui-action-soft); border-radius: 12px; color: var(--ui-action); display: flex; height: 40px; justify-content: center; width: 40px; }
 .assistant-confirmation header small { color: var(--ui-text-muted); font-size: .68rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .assistant-confirmation h2 { font-size: 1.12rem; margin: 2px 0 0; }

@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { Capacitor } from '@capacitor/core'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { useTranslation } from 'react-i18next'
@@ -101,7 +102,7 @@ import { useWeatherForecasts } from './hooks/useWeatherForecasts'
 import { AppNavigation, type AppScreen } from './app/AppNavigation'
 import { AppShell } from './app/AppShell'
 import { SettingsPage } from './pages/SettingsPage'
-import { AssistantPage } from './pages/AssistantPage'
+import { AssistantPage, type AssistantPageHandle } from './pages/AssistantPage'
 import { PageHeader } from './components/PageHeader'
 import { nativeCalendarEventsForYears } from './nativeCalendarDates'
 import { activeLocale, setAppLanguage, tx } from './i18n'
@@ -138,6 +139,8 @@ function App() {
   const [interactionLocked, setInteractionLocked] = useState(false)
   const [assistantPopupOpen, setAssistantPopupOpen] = useState(false)
   const [assistantPopupInitialized, setAssistantPopupInitialized] = useState(false)
+  const [assistantVoiceMode, setAssistantVoiceMode] = useState(false)
+  const assistantPageRef = useRef<AssistantPageHandle>(null)
   const [simulatedAlert, setSimulatedAlert] = useState<SimulatedAlert | null>(null)
   const [ringingAlert, setRingingAlert] = useState<RingingAlert | null>(null)
   const [snoozeMinutes, setSnoozeMinutes] = useState(5)
@@ -906,6 +909,7 @@ function App() {
       homeWeatherLocation: homeLocation,
       homeWeatherForecast: homeLocation ? weatherForecasts[homeLocation.id] ?? null : null,
       createId: createLocalId,
+      language: current.preferences.assistantLanguage,
     })
     if (result.state !== current) {
       dashboardStateRef.current = result.state
@@ -1038,6 +1042,8 @@ function App() {
             enabled={dashboardState.preferences.assistantEnabled}
             voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
             readAloud={dashboardState.preferences.assistantReadAloud}
+            speechVoice={dashboardState.preferences.assistantVoices[dashboardState.preferences.assistantLanguage]}
+            assistantLanguage={dashboardState.preferences.assistantLanguage}
             now={now}
             onExecute={executeAssistant}
             onOpenPage={openDashboardPage}
@@ -1121,22 +1127,34 @@ function App() {
       </section>
 
       {dashboardState.preferences.assistantEnabled && dashboardState.widgets.some((widget) => widget.id === 'assistant' && widget.visible) && !(screen === 'home' && activePage?.id === 'assistant') ? (
-        <button type="button" className="assistant-floating-button" aria-label={tx(assistantPopupOpen ? 'Cerrar asistente' : 'Abrir asistente')} aria-expanded={assistantPopupOpen} onClick={() => { setAssistantPopupInitialized(true); setAssistantPopupOpen((open) => !open) }} data-swipe-block>
+        <button type="button" className={`assistant-floating-button ${assistantVoiceMode && !assistantPopupOpen ? 'is-listening' : ''}`} aria-label={tx(assistantPopupOpen ? 'Cerrar asistente' : assistantVoiceMode ? 'Abrir asistente' : dashboardState.preferences.assistantVoiceEnabled ? 'Hablar con Lumi' : 'Abrir asistente')} aria-expanded={assistantPopupOpen} onClick={() => {
+          if (!assistantPopupInitialized) flushSync(() => setAssistantPopupInitialized(true))
+          if (assistantPopupOpen) { setAssistantVoiceMode(false); setAssistantPopupOpen(false); return }
+          if (assistantVoiceMode || !dashboardState.preferences.assistantVoiceEnabled) { setAssistantVoiceMode(false); setAssistantPopupOpen(true); return }
+          assistantPageRef.current?.startListening()
+        }} data-swipe-block>
           <Sparkles size={24} aria-hidden="true" />
         </button>
       ) : null}
 
       {assistantPopupInitialized ? (
-        <section className={`assistant-popup ${assistantPopupOpen ? 'is-open' : 'is-closed'}`} role="dialog" aria-label={tx('Asistente')} aria-hidden={!assistantPopupOpen} inert={!assistantPopupOpen} data-swipe-block onKeyDown={(event) => { if (event.key === 'Escape') setAssistantPopupOpen(false) }}>
-          <button type="button" className="assistant-popup-close" aria-label={tx('Cerrar asistente')} onClick={() => setAssistantPopupOpen(false)}><X size={20} /></button>
+        <section className={`assistant-popup ${assistantPopupOpen ? 'is-open' : 'is-closed'}`} role="dialog" aria-label={tx('Asistente')} aria-hidden={!assistantPopupOpen} inert={!assistantPopupOpen} data-swipe-block onKeyDown={(event) => { if (event.key === 'Escape') { setAssistantVoiceMode(false); setAssistantPopupOpen(false) } }}>
+          <button type="button" className="assistant-popup-close" aria-label={tx('Cerrar asistente')} onClick={() => { setAssistantVoiceMode(false); setAssistantPopupOpen(false) }}><X size={20} /></button>
           <AssistantPage
+            ref={assistantPageRef}
             enabled={dashboardState.preferences.assistantEnabled}
             voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
             readAloud={dashboardState.preferences.assistantReadAloud}
+            speechVoice={dashboardState.preferences.assistantVoices[dashboardState.preferences.assistantLanguage]}
+            assistantLanguage={dashboardState.preferences.assistantLanguage}
             visible={assistantPopupOpen}
+            compact
+            voiceMode={assistantVoiceMode}
+            onVoiceModeStart={() => { setAssistantVoiceMode(true); setAssistantPopupOpen(true) }}
+            onVoiceResponseReady={() => setAssistantPopupOpen(true)}
             now={now}
             onExecute={executeAssistant}
-            onOpenPage={(pageId) => { setAssistantPopupOpen(false); setScreen('home'); openDashboardPage(pageId) }}
+            onOpenPage={(pageId) => { setAssistantVoiceMode(false); setAssistantPopupOpen(false); setScreen('home'); openDashboardPage(pageId) }}
             onEditingChange={setInteractionLocked}
           />
         </section>
@@ -1154,6 +1172,7 @@ function App() {
         pageNavigationPosition={dashboardState.preferences.pageNavigationPosition}
         showPageNavigationLabels={dashboardState.preferences.showPageNavigationLabels}
         onMoveToPage={(index) => {
+          setAssistantVoiceMode(false)
           setAssistantPopupOpen(false)
           if (screen === 'settings') {
             setScreen('home')

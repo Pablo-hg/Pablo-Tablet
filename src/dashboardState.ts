@@ -12,6 +12,8 @@ export type PageNavigationStyle = 'dock' | 'labels' | 'segmented' | 'minimal'
 
 export type PageNavigationPosition = 'bottom' | 'top' | 'left' | 'right'
 
+export type AssistantVoiceProfile = 'es_female' | 'es_male' | 'en_female' | 'en_male'
+
 export interface DashboardThemeDefinition {
   id: DashboardThemeId
   label: string
@@ -53,6 +55,11 @@ export interface DashboardPreferences {
   assistantEnabled: boolean
   assistantVoiceEnabled: boolean
   assistantReadAloud: boolean
+  assistantSpeechVoice: string
+  assistantVoiceProfile: AssistantVoiceProfile
+  assistantVoiceAssignments: Record<AssistantVoiceProfile, string>
+  assistantLanguage: SupportedLanguage
+  assistantVoices: Record<SupportedLanguage, string>
 }
 
 export type NoteColor = 'coral' | 'violet' | 'mint' | 'sun'
@@ -243,6 +250,11 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
     assistantEnabled: true,
     assistantVoiceEnabled: true,
     assistantReadAloud: false,
+    assistantSpeechVoice: '',
+    assistantVoiceProfile: 'es_female',
+    assistantVoiceAssignments: { es_female: '', es_male: '', en_female: '', en_male: '' },
+    assistantLanguage: 'es',
+    assistantVoices: { es: '', en: '' },
   },
 }
 
@@ -724,6 +736,19 @@ export function loadDashboardState(serializedState?: string): DashboardState {
         assistantReadAloud: typeof parsedPreferences.assistantReadAloud === 'boolean'
           ? parsedPreferences.assistantReadAloud
           : DEFAULT_DASHBOARD_STATE.preferences.assistantReadAloud,
+        assistantSpeechVoice: typeof parsedPreferences.assistantSpeechVoice === 'string' ? parsedPreferences.assistantSpeechVoice : '',
+        assistantVoiceProfile: ['es_female', 'es_male', 'en_female', 'en_male'].includes(String(parsedPreferences.assistantVoiceProfile)) ? parsedPreferences.assistantVoiceProfile as AssistantVoiceProfile : 'es_female',
+        assistantVoiceAssignments: {
+          es_female: typeof parsedPreferences.assistantVoiceAssignments?.es_female === 'string' ? parsedPreferences.assistantVoiceAssignments.es_female : typeof parsedPreferences.assistantSpeechVoice === 'string' ? parsedPreferences.assistantSpeechVoice : '',
+          es_male: typeof parsedPreferences.assistantVoiceAssignments?.es_male === 'string' ? parsedPreferences.assistantVoiceAssignments.es_male : '',
+          en_female: typeof parsedPreferences.assistantVoiceAssignments?.en_female === 'string' ? parsedPreferences.assistantVoiceAssignments.en_female : '',
+          en_male: typeof parsedPreferences.assistantVoiceAssignments?.en_male === 'string' ? parsedPreferences.assistantVoiceAssignments.en_male : '',
+        },
+        assistantLanguage: parsedPreferences.assistantLanguage === 'en' || (!parsedPreferences.assistantLanguage && parsedPreferences.assistantVoiceProfile?.startsWith('en_')) ? 'en' : 'es',
+        assistantVoices: {
+          es: typeof parsedPreferences.assistantVoices?.es === 'string' ? parsedPreferences.assistantVoices.es : (parsedPreferences.assistantVoiceProfile === 'es_male' ? parsedPreferences.assistantVoiceAssignments?.es_male : parsedPreferences.assistantVoiceAssignments?.es_female) || parsedPreferences.assistantVoiceAssignments?.es_male || parsedPreferences.assistantSpeechVoice || '',
+          en: typeof parsedPreferences.assistantVoices?.en === 'string' ? parsedPreferences.assistantVoices.en : (parsedPreferences.assistantVoiceProfile === 'en_male' ? parsedPreferences.assistantVoiceAssignments?.en_male : parsedPreferences.assistantVoiceAssignments?.en_female) || parsedPreferences.assistantVoiceAssignments?.en_male || '',
+        },
         enabledPageIds: enabledPageIds.includes('dashboard')
           ? enabledPageIds
           : ['dashboard', ...enabledPageIds],
