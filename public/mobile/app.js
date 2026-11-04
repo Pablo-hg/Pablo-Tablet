@@ -38,7 +38,7 @@ const mobileEnglish = {
   'Añadir a pantalla de inicio': 'Add to home screen',
   'Instalar Pablo Tablet': 'Install Pablo Tablet',
   'Necesitas seguir en la misma Wi-Fi que la tablet. Si cambia su dirección IP, utiliza la nueva dirección que aparece en Ajustes.': 'Stay on the same Wi-Fi as the tablet. If its IP address changes, use the new address shown in Settings.',
-  'En Chrome o Brave, abre el menú ⋮ y elige «Añadir a pantalla de inicio» o «Instalar aplicación», si aparece. El navegador crea el acceso directo; esta web no puede hacerlo automáticamente.': 'In Chrome or Brave, open the ⋮ menu and choose “Add to home screen” or “Install app”, if available. Your browser creates the shortcut; this website cannot do it automatically.',
+  'Abre el menú ⋮ del navegador y pulsa «Añadir a pantalla de inicio» o «Instalar aplicación». Después confirma para crear el acceso directo.': 'Open the browser’s ⋮ menu and tap “Add to home screen” or “Install app”. Then confirm to create the shortcut.',
   'En Safari, pulsa Compartir y elige «Añadir a pantalla de inicio». Si no aparece, abre esta dirección en Safari.': 'In Safari, tap Share and choose “Add to Home Screen”. If unavailable, open this address in Safari.',
   'Abre el menú del navegador y busca «Instalar» o «Crear acceso directo».': 'Open your browser menu and look for “Install” or “Create shortcut”.',
   'Conectando…': 'Connecting…',
@@ -125,7 +125,7 @@ function updateInstallButton() {
 function showInstallHelp() {
   const help = document.querySelector('#install-help')
   const appleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  help.textContent = tr(appleMobile ? 'En Safari, pulsa Compartir y elige «Añadir a pantalla de inicio». Si no aparece, abre esta dirección en Safari.' : /Android/i.test(navigator.userAgent) ? 'En Chrome o Brave, abre el menú ⋮ y elige «Añadir a pantalla de inicio» o «Instalar aplicación», si aparece. El navegador crea el acceso directo; esta web no puede hacerlo automáticamente.' : 'Abre el menú del navegador y busca «Instalar» o «Crear acceso directo».')
+  help.textContent = tr(appleMobile ? 'En Safari, pulsa Compartir y elige «Añadir a pantalla de inicio». Si no aparece, abre esta dirección en Safari.' : /Android/i.test(navigator.userAgent) ? 'Abre el menú ⋮ del navegador y pulsa «Añadir a pantalla de inicio» o «Instalar aplicación». Después confirma para crear el acceso directo.' : 'Abre el menú del navegador y busca «Instalar» o «Crear acceso directo».')
   help.classList.remove('hidden')
 }
 
