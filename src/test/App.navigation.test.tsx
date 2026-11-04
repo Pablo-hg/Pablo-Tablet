@@ -264,6 +264,11 @@ describe('navegación y flujos principales', () => {
     const calendarWidget = screen.getByRole('switch', { name: /Widget Calendario/ })
     const calendarPage = screen.getByRole('switch', { name: /Página Calendario/ })
     const assistantWidget = screen.getByRole('switch', { name: /Acceso flotante al asistente/ })
+    // Este flujo prueba el chat de texto; la escucha al primer clic se cubre en assistantFirstClick.test.tsx.
+    const voiceInput = screen.getByRole('switch', { name: /Entrada por voz/ })
+    expect(voiceInput).toHaveAttribute('aria-checked', 'true')
+    await user.click(voiceInput)
+    expect(voiceInput).toHaveAttribute('aria-checked', 'false')
     expect(calendarWidget.closest('.dashboard-visibility-row')).toBe(calendarPage.closest('.dashboard-visibility-row'))
     expect(calendarWidget).toHaveAttribute('aria-checked', 'true')
     expect(calendarPage).toHaveAttribute('aria-checked', 'true')
