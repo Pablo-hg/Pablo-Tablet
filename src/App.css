@@ -518,7 +518,7 @@
 .calendar-connections :is(button, input):focus-visible, .calendar-pairing button:focus-visible { outline: 3px solid var(--ui-action); outline-offset: 3px; }
 .calendar-connection-error { align-items: start; color: var(--calendar-danger); display: flex; font-size: .72rem; gap: 6px; margin: 12px 2px 0; overflow-wrap: anywhere; }
 .calendar-connection-error svg { flex: 0 0 auto; }
-.calendar-pairing { align-items: center; background: var(--theme-overlay); display: flex; inset: 0; justify-content: center; padding: 16px; position: fixed; z-index: 120; }
+.calendar-pairing { --calendar-muted: color-mix(in srgb, var(--ui-text-muted) 80%, var(--ui-text)); align-items: center; background: var(--theme-overlay); display: flex; inset: 0; justify-content: center; padding: 16px; position: fixed; z-index: 120; }
 .calendar-pairing > section { align-items: center; background: var(--ui-panel-solid); border: var(--ui-outline-width) solid var(--ui-border-strong); border-radius: var(--ui-radius-panel); box-shadow: var(--ui-shadow); color: var(--ui-text); display: flex; flex-direction: column; max-height: 100%; max-width: 430px; overflow-y: auto; padding: 54px 24px 24px; position: relative; text-align: center; width: 100%; }
 .calendar-pairing > section > button { align-items: center; background: var(--ui-control); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-control); color: var(--ui-text); cursor: pointer; display: flex; height: 44px; justify-content: center; position: absolute; right: 10px; top: 10px; width: 44px; }
 .calendar-pairing h3 { margin: 9px 0 4px; }
