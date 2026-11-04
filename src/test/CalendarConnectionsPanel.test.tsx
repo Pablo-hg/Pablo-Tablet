@@ -38,9 +38,12 @@ describe('panel de cuentas del calendario', () => {
 
   it('abre el QR y permite cerrar la ventana sin desconectar cuentas', async () => {
     const handlers = callbacks()
-    render(<CalendarConnectionsPanel accounts={[account]} {...handlers} />)
+    const { container } = render(<div className="tablet-shell"><div style={{ overflow: 'hidden', transform: 'translateX(0)' }}><CalendarConnectionsPanel accounts={[account]} {...handlers} /></div></div>)
+    const shell = container.querySelector('.tablet-shell')
     fireEvent.click(screen.getByRole('button', { name: 'Conectar' }))
-    expect(await screen.findByRole('dialog', { name: 'Conectar Outlook' })).toBeVisible()
+    const dialog = await screen.findByRole('dialog', { name: 'Conectar Outlook' })
+    expect(dialog).toBeVisible()
+    expect(dialog.parentElement).toBe(shell)
     expect(await screen.findByRole('img', { name: 'Código QR de conexión' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

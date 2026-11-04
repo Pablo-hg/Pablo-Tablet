@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { checkForAppUpdate, releaseNotesForInstalledVersion, releaseNotesForUpdate, type AppUpdateInfo } from '../appUpdater'
+import { checkForAppUpdate, releaseNotesForInstalledVersion, releaseNotesForUpdate, webUpdateSimulationEnabled, type AppUpdateInfo } from '../appUpdater'
 
 afterEach(() => {
   window.history.replaceState({}, '', '/')
@@ -50,6 +50,13 @@ describe('novedades acumuladas del actualizador', () => {
 })
 
 describe('novedades de la versión instalada', () => {
+  it('solo activa la simulación cuando la URL la solicita', () => {
+    window.localStorage.setItem('pablo-tablet.simulated-installed-version', '0.4.4')
+    expect(webUpdateSimulationEnabled()).toBe(false)
+    window.history.replaceState({}, '', '/?simulate-update=0.4.2')
+    expect(webUpdateSimulationEnabled()).toBe(true)
+  })
+
   it('recupera solo las notas de la versión instalada desde el historial', () => {
     expect(releaseNotesForInstalledVersion(update(), '0.4.1')).toBe('Primera.')
   })
