@@ -183,9 +183,11 @@
     .weather-page .weather-stats > div > svg { height: 15px; width: 15px; }
     .weather-page .weather-stats > div > span { font-size: .6rem; }
     .weather-page .weather-stats strong { font-size: .72rem; }
-
+  }
+}
 
 /* On very short landscape screens, let all forecast panels grow and scroll. */
+@media (max-height: 600px) and (orientation: landscape) {
   .tablet-shell .tablet-content.is-weather { overflow-y: auto; }
   .weather-page { height: auto; min-height: 100%; overflow: visible; }
   .weather-page .weather-layout { display: flex; flex: 0 0 auto; flex-direction: column; min-height: min-content; }
