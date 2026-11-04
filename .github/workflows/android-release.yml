@@ -77,7 +77,8 @@ jobs:
           test -n "$FEEDBACK_RELAY_URL"
           test -n "$FEEDBACK_RELAY_KEY"
           VERSION_NAME="${GITHUB_REF_NAME#v}"
-          VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))
+          # Base superior para mantener versionCode ascendente tras v0.5.1.
+          VERSION_CODE=$((2000 + GITHUB_RUN_NUMBER))
           chmod +x android/gradlew
           cd android
           ./gradlew assembleRelease \
