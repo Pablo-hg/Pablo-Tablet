@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { BellRing, Bot, CalendarDays, Clock3, CloudSun, FileText, Home, Images, Languages, LogOut, Mic, Moon, Palette, RotateCw, Sparkles, SunMedium, Type, Volume2 } from 'lucide-react'
+import { getAssistantVoices, speakAssistantText } from '../assistant/voice'
 import { type DashboardPageId, type DashboardPreferences, type PageNavigationPosition, type PageNavigationStyle } from '../dashboardState'
 import type { DashboardWidget, DashboardWidgetId } from '../widgetLayout'
 import { playInteractionSound, previewDeviceVolume } from '../deviceSettings'
@@ -33,7 +35,7 @@ const DASHBOARD_VISIBILITY_SETTINGS: DashboardVisibilitySetting[] = [
   { label: 'Reloj', pageId: 'clock', widgetId: 'clock', widgetDetail: 'Hora y fecha en el panel de inicio.' },
   { label: 'Tiempo', pageId: 'weather', widgetId: 'weather', widgetDetail: 'Previsión de la ubicación marcada como Casa.' },
   { label: 'Notas', pageId: 'notes', widgetId: 'notes', widgetDetail: 'Acceso a la nota destacada.' },
-  { label: 'Asistente', pageId: 'assistant', widgetId: 'assistant', widgetDetail: 'Acceso directo al asistente local.' },
+  { label: 'Asistente', pageId: 'assistant', widgetId: 'assistant', widgetDetail: 'Botón flotante disponible en las pantallas cuando el asistente está activo.' },
   { label: 'Galería', pageId: 'gallery' },
 ]
 
@@ -118,7 +120,7 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
               {setting.widgetId ? (
                 <SettingToggle
                   icon={dashboardIcon(setting.widgetId)}
-                  title={tx('Widget {{name}}', { name: tx(setting.label) })}
+                  title={setting.widgetId === 'assistant' ? tx('Acceso flotante al asistente') : tx('Widget {{name}}', { name: tx(setting.label) })}
                   detail={setting.widgetDetail ? tx(setting.widgetDetail) : ''}
                   checked={widgets.find((current) => current.id === setting.widgetId)?.visible ?? false}
                   onChange={(visible) => onWidgetVisibilityChange(setting.widgetId!, visible)}
@@ -148,10 +150,11 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
       <section className="settings-section" data-swipe-block aria-labelledby="assistant-settings-title">
         <div className="section-heading"><div><p className="eyebrow">{tx('Privacidad')}</p><h2 id="assistant-settings-title">{tx('Asistente')}</h2></div><Bot size={22} /></div>
         <div className="page-toggle-list assistant-settings-list">
-          <SettingToggle icon={<Sparkles size={20} />} title={tx('Activar Asistente')} detail={tx('Procesamiento local seguro; no envía datos ni guarda la conversación.')} checked={preferences.assistantEnabled} onChange={(assistantEnabled) => onPreferencesChange({ assistantEnabled })} />
+          <SettingToggle icon={<Sparkles size={20} />} title={tx('Activar Asistente')} detail={tx('Las peticiones se procesan localmente y la conversación no se guarda. El dictado depende del servicio de voz del dispositivo o navegador.')} checked={preferences.assistantEnabled} onChange={(assistantEnabled) => onPreferencesChange({ assistantEnabled })} />
           <SettingToggle icon={<Mic size={20} />} title={tx('Entrada por voz')} detail={tx('El micrófono solo se activa al pulsar el botón.')} checked={preferences.assistantVoiceEnabled} disabled={!preferences.assistantEnabled} onChange={(assistantVoiceEnabled) => onPreferencesChange({ assistantVoiceEnabled })} />
           <SettingToggle icon={<Volume2 size={20} />} title={tx('Leer respuestas automáticamente')} detail={tx('También puedes leer cada respuesta manualmente.')} checked={preferences.assistantReadAloud} disabled={!preferences.assistantEnabled} onChange={(assistantReadAloud) => onPreferencesChange({ assistantReadAloud })} />
         </div>
+        <AssistantVoiceSettings language={preferences.assistantLanguage} voiceId={preferences.assistantVoices[preferences.assistantLanguage]} onLanguageChange={(assistantLanguage) => onPreferencesChange({ assistantLanguage })} onChange={(voiceId) => onPreferencesChange({ assistantVoices: { ...preferences.assistantVoices, [preferences.assistantLanguage]: voiceId } })} />
         <p className="settings-note assistant-privacy-note">{tx('Proveedor activo: local seguro · Límite: 30 peticiones por sesión · Historial: no guardado.')}</p>
       </section>
 
@@ -217,4 +220,31 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
       </div>
     </div>
   )
+}
+
+export function AssistantVoiceSettings({ language, voiceId, onLanguageChange, onChange }: { language: SupportedLanguage; voiceId: string; onLanguageChange: (language: SupportedLanguage) => void; onChange: (voiceId: string) => void }) {
+  const [voices, setVoices] = useState<Awaited<ReturnType<typeof getAssistantVoices>>>([])
+  const [previewError, setPreviewError] = useState(false)
+  useEffect(() => {
+    let active = true
+    const refresh = () => { void getAssistantVoices(language).then((available) => { if (active) setVoices(available) }).catch(() => { if (active) setVoices([]) }) }
+    refresh()
+    const synthesis = typeof window !== 'undefined' ? window.speechSynthesis : undefined
+    synthesis?.addEventListener('voiceschanged', refresh)
+    return () => { active = false; synthesis?.removeEventListener('voiceschanged', refresh) }
+  }, [language])
+  const available = voices.some((voice) => voice.voiceURI === voiceId)
+  return <div className="assistant-voice-settings">
+    <SettingsTextSelect label={tx('Idioma de Lumi')} detail={tx('El idioma de Lumi es independiente del idioma de la aplicación.')} value={language} options={[
+      { value: 'es', label: tx('Español') },
+      { value: 'en', label: tx('Inglés') },
+    ]} onChange={onLanguageChange} />
+    <SettingsTextSelect label={tx('Voz del asistente')} detail={tx('Elige y escucha una voz disponible para este idioma.')} value={voiceId} options={[
+      { value: '', label: tx('Voz predeterminada') },
+      ...(voiceId && !available ? [{ value: voiceId, label: tx('Voz guardada no disponible') }] : []),
+      ...voices.map((voice) => ({ value: voice.voiceURI, label: `${voice.name} (${voice.lang})${voice.voiceURI && voice.voiceURI !== voice.name ? ` · ${voice.voiceURI}` : ''}${voice.localService ? '' : ` · ${tx('requiere conexión')}`}` })),
+    ]} onChange={onChange} />
+    <button type="button" className="btn" onClick={() => { setPreviewError(false); void speakAssistantText(language === 'en' ? 'Hello, I am Lumi. This is how my voice sounds.' : 'Hola, soy Lumi. Así suena mi voz.', voiceId, language).catch(() => setPreviewError(true)) }}>{tx('Escuchar muestra')}</button>
+    {previewError ? <p role="alert">{tx('No se ha podido reproducir la muestra de voz.')}</p> : null}
+  </div>
 }

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
@@ -243,7 +243,8 @@ describe('navegación y flujos principales', () => {
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
-    await user.selectOptions(screen.getByRole('combobox', { name: /Idioma/ }), 'en')
+    const appLanguageSection = screen.getByRole('region', { name: 'Idioma' })
+    await user.selectOptions(within(appLanguageSection).getByRole('combobox'), 'en')
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeVisible())
     expect(screen.getByRole('button', { name: 'Back to home' })).toBeVisible()
@@ -254,13 +255,15 @@ describe('navegación y flujos principales', () => {
 
   it('permite activar widgets y páginas de forma independiente', async () => {
     const user = userEvent.setup()
+    const scrollTo = HTMLElement.prototype.scrollTo
+    HTMLElement.prototype.scrollTo = vi.fn()
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
 
     const calendarWidget = screen.getByRole('switch', { name: /Widget Calendario/ })
     const calendarPage = screen.getByRole('switch', { name: /Página Calendario/ })
-    const assistantWidget = screen.getByRole('switch', { name: /Widget Asistente/ })
+    const assistantWidget = screen.getByRole('switch', { name: /Acceso flotante al asistente/ })
     expect(calendarWidget.closest('.dashboard-visibility-row')).toBe(calendarPage.closest('.dashboard-visibility-row'))
     expect(calendarWidget).toHaveAttribute('aria-checked', 'true')
     expect(calendarPage).toHaveAttribute('aria-checked', 'true')
@@ -274,8 +277,26 @@ describe('navegación y flujos principales', () => {
 
     await user.click(screen.getByRole('button', { name: 'Volver al inicio' }))
     expect(document.querySelector('.calendar-widget')).not.toBeInTheDocument()
-    expect(document.querySelector('.assistant-widget')).toBeInTheDocument()
+    expect(document.querySelector('[data-widget-id="assistant"]')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^(Abrir asistente|Hablar con Lumi)$/ })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Ir a Calendario' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
+    await user.click(screen.getByRole('button', { name: /^(Abrir asistente|Hablar con Lumi)$/ }))
+    // El popup es compacto: las peticiones escritas y sugerencias están en la página completa.
+    const popup = screen.getByRole('dialog', { name: 'Asistente' })
+    expect(popup).toBeVisible()
+    expect(within(popup).getByText(/Hola, Pablo\./)).toBeVisible()
+    expect(document.querySelector('.tablet-content')).toHaveClass('is-calendar')
+    await user.click(screen.getByRole('button', { name: 'Cerrar asistente' }))
+    expect(screen.queryByRole('dialog', { name: 'Asistente' })).not.toBeInTheDocument()
+    expect(document.querySelector('.tablet-content')).toHaveClass('is-calendar')
+    await user.click(screen.getByRole('button', { name: /^(Abrir asistente|Hablar con Lumi)$/ }))
+    expect(screen.getByRole('dialog', { name: 'Asistente' })).toBeVisible()
+    expect(within(screen.getByRole('dialog', { name: 'Asistente' })).getByText(/Hola, Pablo\./)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
+    await user.click(screen.getByRole('switch', { name: /Activar Asistente/ }))
+    expect(screen.queryByRole('button', { name: /^(Abrir asistente|Hablar con Lumi)$/ })).not.toBeInTheDocument()
+    HTMLElement.prototype.scrollTo = scrollTo
   })
 
   it('permite elegir el diseño, los nombres y la posición del paginador', async () => {
@@ -442,7 +463,7 @@ describe('navegación y flujos principales', () => {
     state.galleryPhotos = [
       { id: 'foto-1', name: 'Primera.jpg', uri: 'file:///gallery/primera.jpg', createdAt: '2026-10-04T10:00:00.000Z', deletedAt: null },
       { id: 'foto-2', name: 'Segunda.jpg', uri: 'file:///gallery/segunda.jpg', createdAt: '2026-10-04T10:01:00.000Z', deletedAt: null },
-      { id: 'foto-3', name: 'Papelera.jpg', uri: 'file:///gallery/papelera.jpg', createdAt: '2026-10-04T10:02:00.000Z', deletedAt: '2026-10-04T10:03:00.000Z' },
+      { id: 'foto-3', name: 'Papelera.jpg', uri: 'file:///gallery/papelera.jpg', createdAt: '2026-10-04T10:02:00.000Z', deletedAt: new Date().toISOString() },
     ]
     window.localStorage.setItem('pablo-tablet.dashboard.v17', JSON.stringify(state))
     render(<App />)

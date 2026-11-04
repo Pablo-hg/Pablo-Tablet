@@ -1,5 +1,5 @@
 import { readAppStorage, usesNativeAppStorage, WEATHER_STORAGE_KEY, writeAppStorage } from './appStorage'
-import { tx } from './i18n'
+import { tx, txFor } from './i18n'
 
 export interface WeatherLocation {
   id: string
@@ -119,7 +119,7 @@ export async function searchWeatherLocations(query: string, signal?: AbortSignal
   })
 }
 
-export async function fetchWeatherForecast(location: WeatherLocation, signal?: AbortSignal): Promise<WeatherForecast> {
+export async function fetchWeatherForecast(location: WeatherLocation, signal?: AbortSignal, forecastDays = 7): Promise<WeatherForecast> {
   const url = new URL('https://api.open-meteo.com/v1/forecast')
   url.searchParams.set('latitude', String(location.latitude))
   url.searchParams.set('longitude', String(location.longitude))
@@ -127,7 +127,7 @@ export async function fetchWeatherForecast(location: WeatherLocation, signal?: A
   url.searchParams.set('hourly', 'temperature_2m,precipitation_probability,weather_code,is_day')
   url.searchParams.set('daily', 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset')
   url.searchParams.set('timezone', location.timezone || 'auto')
-  url.searchParams.set('forecast_days', '7')
+  url.searchParams.set('forecast_days', String(forecastDays))
 
   const response = await fetch(url, { signal })
   if (!response.ok) throw new Error(tx('No se pudo actualizar la previsión.'))
@@ -170,7 +170,7 @@ export async function fetchWeatherForecast(location: WeatherLocation, signal?: A
     })),
   }
 
-  void saveCachedWeatherForecast(forecast)
+  if (forecastDays === 7) void saveCachedWeatherForecast(forecast)
   return forecast
 }
 
@@ -224,17 +224,18 @@ async function saveCachedWeatherForecast(forecast: WeatherForecast) {
   }
 }
 
-export function weatherDescription(code: number) {
-  if (code === 0) return tx('Despejado')
-  if (code === 1) return tx('Mayormente despejado')
-  if (code === 2) return tx('Parcialmente nublado')
-  if (code === 3) return tx('Nublado')
-  if (code === 45 || code === 48) return tx('Niebla')
-  if (code >= 51 && code <= 57) return tx('Llovizna')
-  if (code >= 61 && code <= 67) return tx('Lluvia')
-  if (code >= 71 && code <= 77) return tx('Nieve')
-  if (code >= 80 && code <= 82) return tx('Chubascos')
-  if (code >= 85 && code <= 86) return tx('Chubascos de nieve')
-  if (code >= 95) return tx('Tormenta')
-  return tx('Tiempo variable')
+export function weatherDescription(code: number, language?: import('./i18n').SupportedLanguage) {
+  const translate = (key: import('./i18n/translations').TranslationKey) => language ? txFor(language, key) : tx(key)
+  if (code === 0) return translate('Despejado')
+  if (code === 1) return translate('Mayormente despejado')
+  if (code === 2) return translate('Parcialmente nublado')
+  if (code === 3) return translate('Nublado')
+  if (code === 45 || code === 48) return translate('Niebla')
+  if (code >= 51 && code <= 57) return translate('Llovizna')
+  if (code >= 61 && code <= 67) return translate('Lluvia')
+  if (code >= 71 && code <= 77) return translate('Nieve')
+  if (code >= 80 && code <= 82) return translate('Chubascos')
+  if (code >= 85 && code <= 86) return translate('Chubascos de nieve')
+  if (code >= 95) return translate('Tormenta')
+  return translate('Tiempo variable')
 }

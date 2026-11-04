@@ -35,6 +35,26 @@ describe('prototipo del asistente', () => {
     expect(execute).toHaveBeenCalledOnce()
   })
 
+  it('vuelve a validar el comando y exige confirmación aunque el plan indique lo contrario', async () => {
+    const plan = await planAssistantRequest(provider, request('Guarda una nota: comprar pilas'))
+    const execute = vi.fn()
+    await expect(executeAssistantPlan({ ...plan, requiresConfirmation: false }, { execute })).rejects.toThrow('confirmación explícita')
+    await expect(executeAssistantPlan({ ...plan, command: { type: 'create_note', args: { title: '', content: '', reminderAt: null } } }, { execute }, true)).rejects.toThrow(InvalidAssistantCommandError)
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('consume cada propuesta de escritura una sola vez incluso mientras se ejecuta', async () => {
+    const plan = await planAssistantRequest(provider, request('Guarda una nota: comprar pilas'))
+    let complete!: () => void
+    const execute = vi.fn(() => new Promise<void>((resolve) => { complete = resolve }))
+    const first = executeAssistantPlan(plan, { execute }, true)
+    await expect(executeAssistantPlan(plan, { execute }, true)).rejects.toThrow('ya se ha procesado')
+    expect(execute).toHaveBeenCalledOnce()
+    complete()
+    await first
+    await expect(executeAssistantPlan(plan, { execute }, true)).rejects.toThrow('ya se ha procesado')
+  })
+
   it('rechaza tipos, campos extra y valores fuera de límites', () => {
     expect(() => validateAssistantCommand({ type: 'delete_all', args: {} })).toThrow(InvalidAssistantCommandError)
     expect(() =>

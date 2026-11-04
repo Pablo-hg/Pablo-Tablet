@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { Capacitor } from '@capacitor/core'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { useTranslation } from 'react-i18next'
@@ -90,7 +91,7 @@ import { calendarRelay } from './calendarSync/relayClient'
 import { readCalendarConnectionToken, removeCalendarConnectionToken, writeCalendarConnectionToken } from './calendarSync/secretVault'
 import { CalendarConnectionsPanel } from './calendarSync/CalendarConnectionsPanel'
 import type { CalendarAccount, SyncedCalendar } from './calendarSync/contracts'
-import { searchWeatherLocations, weatherDescription, isWeatherHourDay, type WeatherForecast, type WeatherLocation } from './weather'
+import { fetchWeatherForecast, isWeatherHourDay, searchWeatherLocations, weatherDescription, type WeatherForecast, type WeatherLocation } from './weather'
 import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, nextCalendarOccurrence, offsetDateKey, toLocalDateKey } from './calendarRecurrence'
 import { formatCountdown, pauseTimer, resetTimer, startTimer, timerHasFinished, timerRemainingSeconds } from './timerLogic'
 import { isNightModeActive } from './nightMode'
@@ -104,7 +105,7 @@ import { useWeatherForecasts } from './hooks/useWeatherForecasts'
 import { AppNavigation, type AppScreen } from './app/AppNavigation'
 import { AppShell } from './app/AppShell'
 import { SettingsPage } from './pages/SettingsPage'
-import { AssistantPage } from './pages/AssistantPage'
+import { AssistantPage, type AssistantPageHandle } from './pages/AssistantPage'
 import { PageHeader } from './components/PageHeader'
 import { nativeCalendarEventsForYears } from './nativeCalendarDates'
 import { activeLocale, setAppLanguage, tx } from './i18n'
@@ -142,6 +143,10 @@ function App() {
   const [calendarInitialDate, setCalendarInitialDate] = useState<string | null>(null)
   const [interactionVersion, setInteractionVersion] = useState(0)
   const [interactionLocked, setInteractionLocked] = useState(false)
+  const [assistantPopupOpen, setAssistantPopupOpen] = useState(false)
+  const [assistantPopupInitialized, setAssistantPopupInitialized] = useState(false)
+  const [assistantVoiceMode, setAssistantVoiceMode] = useState(false)
+  const assistantPageRef = useRef<AssistantPageHandle>(null)
   const [simulatedAlert, setSimulatedAlert] = useState<SimulatedAlert | null>(null)
   const [ringingAlert, setRingingAlert] = useState<RingingAlert | null>(null)
   const [snoozeMinutes, setSnoozeMinutes] = useState(5)
@@ -412,6 +417,7 @@ function App() {
   const moveToPage = useCallback((nextIndex: number) => {
     if (enabledPages.length === 0) return
     const wrappedIndex = (nextIndex + enabledPages.length) % enabledPages.length
+    if (enabledPages[wrappedIndex].id === 'assistant') setAssistantPopupOpen(false)
     setInteractionLocked(false)
     setActivePageId(enabledPages[wrappedIndex].id)
     registerInteraction()
@@ -420,6 +426,7 @@ function App() {
   const moveToNavigationPage = useCallback((nextIndex: number) => {
     const navigationPageCount = enabledPages.length + 1
     const wrappedIndex = (nextIndex + navigationPageCount) % navigationPageCount
+    if (enabledPages[wrappedIndex]?.id === 'assistant') setAssistantPopupOpen(false)
     setInteractionLocked(false)
     if (wrappedIndex === enabledPages.length) {
       setScreen('settings')
@@ -868,6 +875,7 @@ function App() {
           .filter((id) => dashboardState.preferences.enabledPageIds.includes(id) || id === 'assistant'),
       })
     }
+    setScreen('home')
     setActivePageId('assistant')
     registerInteraction()
   }
@@ -887,6 +895,7 @@ function App() {
   const setWidgetVisible = (widgetId: DashboardWidgetId, visible: boolean) => {
     setDashboardState((current) => {
       let widgets = current.widgets.map((widget) => widget.id === widgetId ? { ...widget, visible } : widget)
+      if (widgetId === 'assistant') return { ...current, widgets }
       if (!visible) return { ...current, widgets }
 
       for (const orientation of ['landscape', 'portrait'] as const) {
@@ -914,11 +923,16 @@ function App() {
   const executeAssistant = async (command: AssistantCommand) => {
     const current = dashboardStateRef.current
     const homeLocation = current.weatherLocations.find((location) => location.id === current.homeWeatherLocationId) ?? current.weatherLocations[0] ?? null
+    let assistantForecast = homeLocation ? weatherForecasts[homeLocation.id] ?? null : null
+    if (command.type === 'get_weather' && command.args.period === 'next_week' && homeLocation) {
+      try { assistantForecast = await fetchWeatherForecast(homeLocation, undefined, 14) } catch { /* Existing data can still provide a partial forecast. */ }
+    }
     const result = executeAssistantCommand(current, command, {
       now: new Date(),
       homeWeatherLocation: homeLocation,
-      homeWeatherForecast: homeLocation ? weatherForecasts[homeLocation.id] ?? null : null,
+      homeWeatherForecast: assistantForecast,
       createId: createLocalId,
+      language: current.preferences.assistantLanguage,
     })
     if (result.state !== current) {
       dashboardStateRef.current = result.state
@@ -1051,6 +1065,8 @@ function App() {
             enabled={dashboardState.preferences.assistantEnabled}
             voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
             readAloud={dashboardState.preferences.assistantReadAloud}
+            speechVoice={dashboardState.preferences.assistantVoices[dashboardState.preferences.assistantLanguage]}
+            assistantLanguage={dashboardState.preferences.assistantLanguage}
             now={now}
             onExecute={executeAssistant}
             onOpenPage={openDashboardPage}
@@ -1125,13 +1141,47 @@ function App() {
             preferences={dashboardState.preferences}
             widgets={dashboardState.widgets}
             onBack={() => goTo('home')}
-            onPreferencesChange={updatePreferences}
+            onPreferencesChange={(patch) => { if (patch.assistantEnabled === false) setAssistantPopupOpen(false); updatePreferences(patch) }}
             onTogglePage={togglePage}
-            onWidgetVisibilityChange={setWidgetVisible}
+            onWidgetVisibilityChange={(widgetId, visible) => { if (widgetId === 'assistant' && !visible) setAssistantPopupOpen(false); setWidgetVisible(widgetId, visible) }}
             nightModeActive={nightModeActive}
           />
         )}
       </section>
+
+      {dashboardState.preferences.assistantEnabled && dashboardState.widgets.some((widget) => widget.id === 'assistant' && widget.visible) && !(screen === 'home' && activePage?.id === 'assistant') ? (
+        <button type="button" className={`assistant-floating-button ${assistantVoiceMode ? 'is-listening' : ''}`} aria-label={tx(dashboardState.preferences.assistantVoiceEnabled ? 'Hablar con Lumi' : 'Abrir asistente')} aria-expanded={assistantPopupOpen} onClick={() => {
+          if (!assistantPopupInitialized) flushSync(() => setAssistantPopupInitialized(true))
+          setAssistantPopupOpen(true)
+          if (!dashboardState.preferences.assistantVoiceEnabled) return
+          assistantPageRef.current?.startListening()
+        }} data-swipe-block>
+          <Sparkles size={24} aria-hidden="true" />
+        </button>
+      ) : null}
+
+      {assistantPopupInitialized ? (
+        <section className={`assistant-popup ${assistantPopupOpen ? 'is-open' : 'is-closed'}`} role="dialog" aria-label={tx('Asistente')} aria-hidden={!assistantPopupOpen} inert={!assistantPopupOpen} data-swipe-block onKeyDown={(event) => { if (event.key === 'Escape') { setAssistantVoiceMode(false); setAssistantPopupOpen(false) } }}>
+          <button type="button" className="assistant-popup-close" aria-label={tx('Cerrar asistente')} onClick={() => { setAssistantVoiceMode(false); setAssistantPopupOpen(false) }}><X size={20} /></button>
+          <AssistantPage
+            ref={assistantPageRef}
+            enabled={dashboardState.preferences.assistantEnabled}
+            voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
+            readAloud={dashboardState.preferences.assistantReadAloud}
+            speechVoice={dashboardState.preferences.assistantVoices[dashboardState.preferences.assistantLanguage]}
+            assistantLanguage={dashboardState.preferences.assistantLanguage}
+            visible={assistantPopupOpen}
+            compact
+            voiceMode={assistantVoiceMode}
+            onVoiceModeStart={() => { setAssistantVoiceMode(true); setAssistantPopupOpen(true) }}
+            onVoiceResponseReady={() => setAssistantPopupOpen(true)}
+            now={now}
+            onExecute={executeAssistant}
+            onOpenPage={(pageId) => { setAssistantVoiceMode(false); setAssistantPopupOpen(false); setScreen('home'); openDashboardPage(pageId) }}
+            onEditingChange={setInteractionLocked}
+          />
+        </section>
+      ) : null}
 
       {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>{tx('Simulación web de aviso local')}</small></div><button type="button" onClick={() => setSimulatedAlert(null)} aria-label={tx('Cerrar aviso')}><X size={18} /></button></div> : null}
       {ringingAlert ? <RingingAlertOverlay alert={ringingAlert} snoozeMinutes={snoozeMinutes} onSnoozeMinutesChange={setSnoozeMinutes} onSnooze={snoozeRingingAlert} onStop={stopRinging} /> : null}
@@ -1146,6 +1196,8 @@ function App() {
         pageNavigationPosition={dashboardState.preferences.pageNavigationPosition}
         showPageNavigationLabels={dashboardState.preferences.showPageNavigationLabels}
         onMoveToPage={(index) => {
+          setAssistantVoiceMode(false)
+          setAssistantPopupOpen(false)
           if (screen === 'settings') {
             setScreen('home')
           }
@@ -2173,6 +2225,7 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
 
 function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onDelete, onClose }: { event: CalendarEvent; calendars: SyncedCalendar[]; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onSetDestination: (eventId: string, calendarId: string | null) => void; onDelete: () => void; onClose: () => void }) {
   const [remindersOpen, setRemindersOpen] = useState(false)
+  const [multiDay, setMultiDay] = useState(() => event.endDate > event.date)
   const [startYear, startMonth, startDay] = event.date.split('-').map(Number)
   const [endYear, endMonth, endDay] = event.endDate.split('-').map(Number)
   const years = Array.from({ length: 7 }, (_, index) => new Date().getFullYear() - 1 + index)
@@ -2187,6 +2240,10 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
   }
   const updateStartDate = (nextYear: number, nextMonth: number, nextDay: number) => {
     const date = makeDate(nextYear, nextMonth, nextDay)
+    if (!multiDay) {
+      onUpdate(event.id, { date, endDate: date, ...(event.startTime > event.endTime ? { endTime: event.startTime } : {}) })
+      return
+    }
     if (date > event.endDate) {
       onUpdate(event.id, { date, endDate: date, endTime: event.startTime })
       return
@@ -2207,6 +2264,7 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
 
   const dateFields = (kind: 'start' | 'end') => {
     const isStart = kind === 'start'
+    if (!isStart && !multiDay && event.allDay) return null
     const year = isStart ? startYear : endYear
     const month = isStart ? startMonth : endMonth
     const day = isStart ? startDay : endDay
@@ -2215,10 +2273,12 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
     const time = isStart ? event.startTime : event.endTime
     return <div className="calendar-boundary">
       <span className="calendar-boundary-label">{tx(isStart ? 'Empieza' : 'Termina')}</span>
-      <div className={`calendar-boundary-fields ${event.allDay ? 'is-all-day' : ''}`}>
-        <label><span>{tx('Día')}</span><select value={day} onChange={(change) => updateDate(year, month, Number(change.target.value))}>{days.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-        <label><span>{tx('Mes')}</span><select value={month} onChange={(change) => updateDate(year, Number(change.target.value), day)}>{months.map((value) => <option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
-        <label><span>{tx('Año')}</span><select value={year} onChange={(change) => updateDate(Number(change.target.value), month, day)}>{years.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+      <div className={`calendar-boundary-fields ${event.allDay ? 'is-all-day' : ''} ${!isStart && !multiDay ? 'is-time-only' : ''}`}>
+        {isStart || multiDay ? <>
+          <label><span>{tx('Día')}</span><select value={day} onChange={(change) => updateDate(year, month, Number(change.target.value))}>{days.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+          <label><span>{tx('Mes')}</span><select value={month} onChange={(change) => updateDate(year, Number(change.target.value), day)}>{months.map((value) => <option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
+          <label><span>{tx('Año')}</span><select value={year} onChange={(change) => updateDate(Number(change.target.value), month, day)}>{years.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        </> : null}
         {!event.allDay ? <label><span>{tx('Hora')}</span><select value={time} onChange={(change) => isStart ? updateStartTime(change.target.value) : updateEndTime(change.target.value)}>{times.map((value) => <option key={value}>{value}</option>)}</select></label> : null}
       </div>
     </div>
@@ -2236,6 +2296,11 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
       <div className={`calendar-event-switches ${event.type === 'task' ? 'has-task' : ''}`}>
         {event.type === 'task' ? <button type="button" className={`calendar-task-status ${event.completed ? 'is-completed' : ''}`} role="switch" aria-checked={event.completed} onClick={() => onUpdate(event.id, { completed: !event.completed })}><span><Check size={18} />{tx(event.completed ? 'Tarea completada' : 'Marcar como completada')}</span><span className={`toggle ${event.completed ? 'is-on' : ''}`}><span /></span></button> : null}
         <button type="button" className="calendar-all-day" role="switch" aria-checked={event.allDay} onClick={() => onUpdate(event.id, { allDay: !event.allDay })}><span><CalendarDays size={18} />{tx('Todo el día')}</span><span className={`toggle ${event.allDay ? 'is-on' : ''}`}><span /></span></button>
+        <button type="button" className="calendar-all-day" role="switch" aria-checked={multiDay} onClick={() => {
+          const next = !multiDay
+          setMultiDay(next)
+          if (!next && event.endDate !== event.date) onUpdate(event.id, { endDate: event.date, ...(event.endTime < event.startTime ? { endTime: event.startTime } : {}) })
+        }}><span><CalendarDays size={18} />{tx('Varios días')}</span><span className={`toggle ${multiDay ? 'is-on' : ''}`}><span /></span></button>
       </div>
       <div className="calendar-event-boundaries">{dateFields('start')}{dateFields('end')}</div>
       <div className="calendar-event-details">

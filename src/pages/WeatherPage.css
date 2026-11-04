@@ -186,5 +186,16 @@
   }
 }
 
+/* On very short landscape screens, let all forecast panels grow and scroll. */
+@media (max-height: 600px) and (orientation: landscape) {
+  .tablet-shell .tablet-content.is-weather { overflow-y: auto; }
+  .weather-page { height: auto; min-height: 100%; overflow: visible; }
+  .weather-page .weather-layout { display: flex; flex: 0 0 auto; flex-direction: column; min-height: min-content; }
+  .weather-page .weather-primary-column { min-height: min-content; }
+  .weather-page :is(.weather-hours-panel, .weather-forecast-panel) { flex: 0 0 auto; min-height: min-content; }
+  .weather-page .daily-forecast { flex: 0 0 auto; min-height: min-content; overflow: visible; }
+  .weather-page .hourly-forecast { flex: 0 0 auto; grid-template-rows: auto; min-height: min-content; }
+}
+
 /* Negative temperatures must fit even in narrow, large-text monospace themes. */
 @container weather-current (max-width: 17rem) { .weather-page .weather-current-main .weather-current-copy > strong { font-size: clamp(2rem, 24cqw, 4rem); } }

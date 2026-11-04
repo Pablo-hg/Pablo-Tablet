@@ -618,7 +618,7 @@
 .calendar-recurrence-field { margin-top: 10px; }
 .calendar-recurrence-options { display: grid; gap: 6px; grid-template-columns: repeat(5, 1fr); }
 .calendar-recurrence-options button { align-items: center; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); border-radius: 9px; color: #aebbd4; cursor: pointer; display: flex; font: inherit; font-size: .65rem; gap: 5px; justify-content: center; padding: 7px 6px; }.calendar-recurrence-options button.is-selected { background: rgba(121,153,255,.2); border-color: rgba(147,178,255,.5); color: #f1f5ff; }
-.calendar-event-switches { display: grid; grid-template-columns: 1fr; }.calendar-event-switches.has-task { gap: 8px; grid-template-columns: 1fr 1fr; }
+.calendar-event-switches { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
 .calendar-event-switches .calendar-all-day, .calendar-task-status { margin-top: 10px; }
 .calendar-task-status { align-items: center; background: rgba(85,216,176,.08); border: 1px solid rgba(85,216,176,.18); border-radius: 12px; color: #dff9f0; cursor: pointer; display: flex; font: inherit; justify-content: space-between; padding: 8px 11px; width: 100%; }.calendar-task-status > span:first-child { align-items: center; display: flex; font-size: .76rem; gap: 8px; }.calendar-task-status.is-completed { background: rgba(85,216,176,.16); }
 .calendar-title-field input, .calendar-destination-field select, .calendar-location-field input, .calendar-notes-field textarea, .calendar-editor-date select, .calendar-time-fields select, .calendar-boundary-fields select { background: rgba(4,14,33,.28); border: 1px solid rgba(255,255,255,.13); border-radius: 11px; box-sizing: border-box; color: #f6f8ff; font: inherit; outline: none; padding: 9px 11px; width: 100%; }
@@ -631,6 +631,7 @@
 .calendar-boundary-label { color: #dce6fa; display: block; font-size: .72rem; font-weight: 750; margin-bottom: 7px; }
 .calendar-boundary-fields { display: grid; gap: 8px; grid-template-columns: .55fr 1.25fr .75fr .75fr; }
 .calendar-boundary-fields.is-all-day { grid-template-columns: .65fr 1.45fr .9fr; }
+.calendar-boundary-fields.is-time-only { grid-template-columns: 1fr; }
 .calendar-event-details { min-width: 0; }
 .calendar-reminders-summary { align-items: center; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; color: #e9effc; cursor: pointer; display: flex; font: inherit; justify-content: space-between; margin-top: 12px; padding: 9px 10px; text-align: left; width: 100%; }
 .calendar-reminders-summary > span { align-items: center; display: flex; gap: 9px; min-width: 0; }.calendar-reminders-summary strong, .calendar-reminders-summary small { display: block; }.calendar-reminders-summary strong { font-size: .75rem; }.calendar-reminders-summary small { color: #9facbf; font-size: .62rem; margin-top: 2px; }
@@ -1213,23 +1214,51 @@
   .calendar-event-editor { display: block; max-height: calc(100svh - 24px); }
 }
 .assistant-page { gap: 12px; }
+.assistant-floating-button { align-items: center; background: var(--ui-action); border: 1px solid var(--ui-border); border-radius: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--ui-shadow); color: var(--ui-action-text, #fff); cursor: pointer; display: flex; height: 52px; justify-content: center; position: fixed; right: calc(12px + env(safe-area-inset-right, 0px)); width: 52px; z-index: 5; }
+.assistant-floating-button:focus-visible { outline: 3px solid var(--ui-text); outline-offset: 3px; }
+.assistant-floating-button.is-listening { animation: lumi-listening 1s ease-in-out infinite alternate; }
+@keyframes lumi-listening { from { transform: scale(1.08); box-shadow: 0 0 0 4px var(--ui-action-soft); } to { transform: scale(1.2); box-shadow: 0 0 0 12px var(--ui-action-soft); } }
+@media (prefers-reduced-motion: reduce) { .assistant-floating-button.is-listening { animation: none; transform: scale(1.12); } }
+.page-nav-position-right .assistant-floating-button { right: calc(var(--page-nav-edge-size) + 12px + env(safe-area-inset-right, 0px)); }
+.assistant-popup { background: linear-gradient(var(--ui-panel-solid), var(--ui-panel-solid)), var(--ui-canvas); border: 1px solid var(--ui-border); border-radius: 24px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--ui-shadow); box-sizing: border-box; height: min(600px, calc(100svh - 100px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); padding: 18px; position: fixed; right: calc(12px + env(safe-area-inset-right, 0px)); width: min(440px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))); z-index: 6; opacity: 0; transform: translateY(14px) scale(.97); transform-origin: bottom right; visibility: hidden; pointer-events: none; transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s; }
+.assistant-popup.is-open { opacity: 1; transform: translateY(0) scale(1); visibility: visible; pointer-events: auto; transition: opacity .2s ease, transform .2s ease, visibility 0s; }
+.assistant-popup::after { background: var(--ui-panel-solid); border-bottom: 1px solid var(--ui-border); border-right: 1px solid var(--ui-border); bottom: -8px; content: ''; height: 14px; position: absolute; right: 30px; transform: rotate(45deg); width: 14px; }
+@starting-style { .assistant-popup.is-open { opacity: 0; transform: translateY(14px) scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .assistant-popup, .assistant-popup.is-open { transition: none; } }
+.assistant-popup-close { align-items: center; background: var(--ui-control); border: 1px solid var(--ui-border); border-radius: 12px; color: var(--ui-text); cursor: pointer; display: flex; height: 44px; justify-content: center; position: absolute; right: 14px; top: 14px; width: 44px; z-index: 1; }
+.assistant-popup .assistant-page { box-sizing: border-box; height: 100%; min-width: 0; padding-top: 46px; }
+.assistant-popup .dashboard-header { padding-right: 48px; }
+.assistant-popup .assistant-suggestions { flex-wrap: wrap; max-height: 100px; overflow-x: hidden; overflow-y: auto; }
+.assistant-popup .assistant-suggestions button { flex: 0 1 auto; }
+.page-nav-position-right .assistant-popup { right: calc(var(--page-nav-edge-size) + 12px + env(safe-area-inset-right, 0px)); }
+.lumi-voice-indicator { align-items: center; display: flex; flex: 0 0 auto; flex-direction: column; gap: 4px; }
+.lumi-voice-indicator > span { align-items: center; background: var(--ui-action-soft); border: 1px solid var(--ui-border); border-radius: 50%; display: flex; gap: 4px; height: 60px; justify-content: center; width: 60px; }
+.assistant-popup .has-pending .lumi-voice-indicator > span { height: 40px; width: 40px; }
+.lumi-voice-indicator i { background: var(--ui-action); border-radius: 99px; height: 6px; width: 4px; }
+.lumi-voice-indicator small { color: var(--ui-text-muted); font-size: .7rem; font-weight: 700; }
+.lumi-voice-indicator:is(.is-listening, .is-speaking) i { animation: lumi-voice-wave .75s ease-in-out infinite alternate; }
+.lumi-voice-indicator i:nth-child(2), .lumi-voice-indicator i:nth-child(4) { animation-delay: -.35s; }
+.lumi-voice-indicator i:nth-child(3) { animation-delay: -.55s; }
+@keyframes lumi-voice-wave { from { height: 6px; } to { height: 28px; } }
+@media (prefers-reduced-motion: reduce) { .lumi-voice-indicator i { animation: none !important; } }
 .assistant-page .page-header { flex: 0 0 auto; }
 .assistant-status { align-items: center; color: var(--ui-text-muted); display: flex; flex: 0 0 auto; font-size: .76rem; justify-content: space-between; padding: 0 4px; }
 .assistant-status > span { align-items: center; display: inline-flex; font-weight: 700; gap: 7px; }
 .assistant-status > span i, .assistant-listening i { background: #61d49a; border-radius: 50%; box-shadow: 0 0 0 4px rgba(97,212,154,.14); height: 8px; width: 8px; }
 .assistant-status > span.is-disabled i { background: #8793aa; box-shadow: none; }
 .assistant-log { display: flex; flex: 1 1 auto; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 5px 7px 14px 3px; scrollbar-color: rgba(255,255,255,.2) transparent; }
-.assistant-message { align-items: flex-start; display: flex; gap: 9px; max-width: min(760px, 88%); }
+.assistant-message { align-items: flex-start; display: flex; flex: 0 0 auto; gap: 9px; max-width: min(760px, 88%); min-width: 0; }
 .assistant-message.is-user { align-self: flex-end; }
-.assistant-message > div { background: var(--ui-panel); border: 1px solid var(--ui-border); border-radius: 20px 20px 20px 7px; box-shadow: 0 10px 24px rgba(4,12,30,.14); padding: 13px 16px; }
+.assistant-message > div { background: var(--ui-panel); border: 1px solid var(--ui-border); border-radius: 20px 20px 20px 7px; box-shadow: 0 10px 24px rgba(4,12,30,.14); min-width: 0; overflow-wrap: anywhere; padding: 13px 16px; }
 .assistant-message.is-user > div { background: var(--ui-action); border-color: transparent; border-radius: 20px 20px 7px 20px; color: #fff; }
 .assistant-message p { font-size: clamp(.88rem, 1.5vw, 1.02rem); line-height: 1.5; margin: 0; white-space: pre-wrap; }
-.assistant-message footer { display: flex; gap: 7px; margin-top: 9px; }
+.assistant-message footer { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
 .assistant-message footer button, .assistant-message.is-processing button { align-items: center; background: var(--ui-control); border: 1px solid var(--ui-border); border-radius: 999px; color: var(--ui-text-muted); cursor: pointer; display: inline-flex; font: inherit; font-size: .7rem; gap: 5px; padding: 6px 9px; }
 .assistant-avatar { align-items: center; background: var(--ui-action-soft); border: 1px solid var(--ui-border); border-radius: 12px; color: var(--ui-action); display: flex; flex: 0 0 auto; height: 34px; justify-content: center; width: 34px; }
 .assistant-message.is-processing p { align-items: center; display: flex; gap: 8px; }
-.assistant-confirmation { align-self: center; background: var(--ui-panel); border: 2px solid var(--ui-action); border-radius: 24px; box-shadow: 0 20px 50px rgba(3,12,31,.32); box-sizing: border-box; max-width: 680px; padding: 18px; width: min(92%, 680px); }
+.assistant-confirmation { align-self: center; background: var(--ui-panel); border: 2px solid var(--ui-action); border-radius: 24px; box-shadow: 0 20px 50px rgba(3,12,31,.32); box-sizing: border-box; flex: 0 0 auto; max-width: 680px; overflow-wrap: anywhere; padding: 18px; width: min(100%, 680px); }
 .assistant-confirmation header { align-items: center; display: flex; gap: 12px; }
+.assistant-confirmation header > div { min-width: 0; }
 .assistant-confirmation header > span { align-items: center; background: var(--ui-action-soft); border-radius: 12px; color: var(--ui-action); display: flex; height: 40px; justify-content: center; width: 40px; }
 .assistant-confirmation header small { color: var(--ui-text-muted); font-size: .68rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .assistant-confirmation h2 { font-size: 1.12rem; margin: 2px 0 0; }
@@ -1244,7 +1273,7 @@
 .assistant-composer { flex: 0 0 auto; }
 .assistant-composer > label { color: var(--ui-text-muted); display: block; font-size: .68rem; font-weight: 700; margin: 0 0 6px 5px; }
 .assistant-composer > div { align-items: center; background: var(--ui-panel); border: 1px solid var(--ui-border); border-radius: 22px; display: flex; gap: 8px; padding: 8px; }
-.assistant-composer textarea { background: transparent; border: 0; color: var(--ui-text); flex: 1; font: inherit; line-height: 1.4; max-height: 100px; min-height: 44px; outline: 0; padding: 8px 10px; resize: none; }
+.assistant-composer textarea { background: transparent; border: 0; color: var(--ui-text); flex: 1; font: inherit; line-height: 1.4; max-height: 100px; min-height: 44px; min-width: 0; outline: 0; padding: 8px 10px; resize: none; }
 .assistant-composer textarea::placeholder { color: var(--ui-text-muted); }
 .assistant-composer button { align-items: center; background: var(--ui-control); border: 1px solid var(--ui-border); border-radius: 15px; color: var(--ui-text); cursor: pointer; display: flex; flex: 0 0 auto; height: 48px; justify-content: center; width: 48px; }
 .assistant-composer button.is-listening { background: rgba(255,98,110,.18); border-color: rgba(255,98,110,.55); color: #ff9aa3; }
