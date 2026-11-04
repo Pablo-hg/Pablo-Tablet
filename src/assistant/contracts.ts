@@ -2,9 +2,10 @@ import { tx } from '../i18n'
 
 export type AssistantCommand =
   | { type: 'get_daily_summary'; args: { date: string } }
-  | { type: 'get_weather'; args: { period: 'now' | 'today' | 'tomorrow' } }
+  | { type: 'get_weather'; args: { period: 'now' | 'today' | 'tomorrow' | 'next_week' } }
   | { type: 'get_calendar'; args: { from: string; to: string } }
   | { type: 'get_notes'; args: { limit: number } }
+  | { type: 'get_clock_status'; args: { include: 'alarms' | 'timers' | 'both' } }
   | { type: 'create_note'; args: { title: string; content: string; reminderAt: string | null } }
   | { type: 'create_alarm'; args: { label: string; at: string; repeatDays: number[] } }
   | { type: 'start_timer'; args: { label: string; durationSeconds: number } }
@@ -42,7 +43,7 @@ export class InvalidAssistantCommandError extends Error {
 }
 
 const WRITE_COMMANDS = new Set<AssistantCommandType>(['create_note', 'create_alarm', 'start_timer'])
-const PERIODS = new Set(['now', 'today', 'tomorrow'])
+const PERIODS = new Set(['now', 'today', 'tomorrow', 'next_week'])
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -57,7 +58,7 @@ const isIsoDateTime = (value: unknown): value is string =>
   typeof value === 'string' && value.length <= 40 && !Number.isNaN(Date.parse(value))
 
 const isDateOnly = (value: unknown): value is string =>
-  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value
 
 const isRepeatDays = (value: unknown): value is number[] =>
   Array.isArray(value) &&
@@ -80,14 +81,19 @@ export function validateAssistantCommand(value: unknown): AssistantCommand {
       return { type, args: { date: args.date } }
     case 'get_weather':
       if (!hasOnlyKeys(args, ['period']) || typeof args.period !== 'string' || !PERIODS.has(args.period)) break
-      return { type, args: { period: args.period as 'now' | 'today' | 'tomorrow' } }
+      return { type, args: { period: args.period as 'now' | 'today' | 'tomorrow' | 'next_week' } }
     case 'get_calendar':
       if (!hasOnlyKeys(args, ['from', 'to']) || !isIsoDateTime(args.from) || !isIsoDateTime(args.to)) break
+      if (typeof args.from !== 'string' || typeof args.to !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(args.from) || !/^\d{4}-\d{2}-\d{2}T/.test(args.to) || !isDateOnly(args.from.slice(0, 10)) || !isDateOnly(args.to.slice(0, 10))) break
       if (Date.parse(args.from) > Date.parse(args.to)) break
+      if (Date.parse(`${args.to.slice(0, 10)}T00:00:00Z`) - Date.parse(`${args.from.slice(0, 10)}T00:00:00Z`) > 31 * 86_400_000) break
       return { type, args: { from: args.from, to: args.to } }
     case 'get_notes':
       if (!hasOnlyKeys(args, ['limit']) || !Number.isInteger(args.limit) || (args.limit as number) < 1 || (args.limit as number) > 10) break
       return { type, args: { limit: args.limit as number } }
+    case 'get_clock_status':
+      if (!hasOnlyKeys(args, ['include']) || (args.include !== 'alarms' && args.include !== 'timers' && args.include !== 'both')) break
+      return { type, args: { include: args.include } }
     case 'create_note':
       if (
         !hasOnlyKeys(args, ['title', 'content', 'reminderAt']) ||

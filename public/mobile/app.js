@@ -49,7 +49,7 @@ const mobileEnglish = {
   'Nombre del dispositivo': 'Device name',
   'Solicitar autorización': 'Request access',
   'Acceso protegido': 'Protected access',
-  'Móvil no autorizado': 'Unauthorised phone',
+  'Dispositivos no autorizados': 'Unauthorised devices',
   'Abre Ajustes → Administración móvil en la tablet y escanea el QR temporal.': 'Open Settings → Mobile administration on the tablet and scan the temporary QR code.',
   'Sin conexión con la tablet. La edición está bloqueada hasta reconectar.': 'No connection to the tablet. Editing is locked until it reconnects.',
   'Secciones del editor': 'Editor sections',
@@ -706,7 +706,7 @@ refreshButton.addEventListener('click', () => {
 document.querySelector('#pair-button').addEventListener('click', () => void beginPairing())
 
 async function boot() {
-  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=13').catch(() => {})
+  if ('serviceWorker' in navigator && location.protocol === 'https:') void navigator.serviceWorker.register('/sw.js?v=14').catch(() => {})
   if (!credential && pairingToken) {
     showOnly('pair')
     setConnection(false, tr('Pendiente de autorización'))

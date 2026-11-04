@@ -35,6 +35,10 @@ export function tx(key: TranslationKey, options?: TOptions): string {
   return i18n.t(key, options)
 }
 
+export function txFor(language: SupportedLanguage, key: TranslationKey, options?: TOptions): string {
+  return i18n.t(key, { ...options, lng: language })
+}
+
 export function activeLocale(language: SupportedLanguage = i18n.resolvedLanguage as SupportedLanguage): typeof languageLocales[SupportedLanguage] {
   return languageLocales[isSupportedLanguage(language) ? language : 'es']
 }

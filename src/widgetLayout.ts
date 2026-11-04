@@ -146,7 +146,7 @@ export function arrangeWidgets(widgets: DashboardWidget[], orientation: Dashboar
 
   const normalisedPreferred = normalisePosition(preferredId, preferredPosition, orientation)
   const preferred = { ...normalisedPreferred, y: Math.min(normalisedPreferred.y, rows - normalisedPreferred.height) }
-  const visible = widgets.filter((widget) => widget.visible)
+  const visible = widgets.filter((widget) => widget.visible && widget.id !== 'assistant')
   const totalArea = visible.reduce((area, widget) => {
     const layout = widget.id === preferredId ? preferred : normalisePosition(widget.id, widget.layouts[orientation], orientation)
     return area + layout.width * layout.height
@@ -200,7 +200,7 @@ function findFirstSpace(candidate: WidgetPosition, occupied: WidgetPosition[], o
 export function placeWidgets(widgets: DashboardWidget[], orientation: DashboardOrientation): PlacedWidget[] {
   const occupied: WidgetPosition[] = []
   return widgets
-    .filter((widget) => widget.visible)
+    .filter((widget) => widget.visible && widget.id !== 'assistant')
     .map((widget) => ({ widget, requested: normalisePosition(widget.id, widget.layouts[orientation], orientation) }))
     .sort((a, b) => a.requested.y - b.requested.y || a.requested.x - b.requested.x || a.widget.id.localeCompare(b.widget.id))
     .map(({ widget, requested }) => {

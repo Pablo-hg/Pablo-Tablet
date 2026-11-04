@@ -2,7 +2,7 @@
 
 - Lee `FLUJO-DE-RAMAS-Y-VERSIONES.md` antes de proponer cambios.
 - La rama de integración es `dev`; `main` representa únicamente código estable y publicable.
-- El trabajo normal parte de `dev` en una rama `feature/<issue>-<descripcion>` o `fix/<issue>-<descripcion>`.
+- El trabajo normal parte de `dev` en una rama `feat/<issue>-<descripcion>` o `fix/<issue>-<descripcion>`. `feature/*` se admite por compatibilidad; no crees ramas nuevas con el prefijo `codex/`.
 - Los pull requests de trabajo apuntan a `dev` y usan `Refs #<numero>`. No uses `Fixes` ni `Closes` antes de una publicación correcta.
 - No hagas push directo a `dev` o `main`, no crees tags ni Releases y no cambies etiquetas de estado de los Issues.
 - La versión continúa siendo `0.1.0` hasta que Pablo apruebe expresamente otra.

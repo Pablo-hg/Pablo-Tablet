@@ -1,0 +1,178 @@
+# Publicacion unica al integrar dev en main.
+# El commit de fusion debe contener [publish-v0.5.1].
+# El GITHUB_TOKEN no dispara android-release.yml cuando crea un tag;
+# esta ejecucion compila y publica directamente los cuatro artefactos verificados.
+name: Publicar v0.5.1 al integrar dev
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/release-notes/v0.5.1.md'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pablo-tablet-bootstrap-v0.5.1
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.repository == 'Pablo-hg/Pablo-Tablet' && contains(github.event.head_commit.message, '[publish-v0.5.1]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Comprobar la version y la integracion completa
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          git merge-base --is-ancestor '7a1b4b035448363eac20f8187d149678f2edc675' HEAD
+          test -s '.github/release-notes/v0.5.1.md'
+          if gh release view v0.5.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'La release v0.5.1 ya existe; no se permite publicarla por segunda vez.' >&2
+            exit 1
+          fi
+          if git show-ref --verify --quiet 'refs/tags/v0.5.1'; then
+            test "$(git rev-parse 'refs/tags/v0.5.1^{commit}')" = "$GITHUB_SHA" || {
+              echo 'Ya existe v0.5.1, pero apunta a otro commit.' >&2
+              exit 1
+            }
+          fi
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Preparar Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Instalar y validar la aplicacion
+        env:
+          VITE_CALENDAR_RELAY_URL: https://pablo-tablet-calendar-relay.phghorcajada.workers.dev
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run lint
+          npm test
+          npm run build
+          npx cap sync android
+
+      - name: Recuperar y validar la clave de firma
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for variable in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            test -n "${!variable:-}" || { echo "Falta el secret $variable" >&2; exit 1; }
+          done
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-key.jks
+          keytool -list \
+            -keystore android/release-key.jks \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" >/dev/null
+
+      - name: Compilar APK firmado
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/android/release-key.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          FEEDBACK_RELAY_URL: ${{ secrets.FEEDBACK_RELAY_URL }}
+          FEEDBACK_RELAY_KEY: ${{ secrets.FEEDBACK_RELAY_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$FEEDBACK_RELAY_URL"
+          test -n "$FEEDBACK_RELAY_KEY"
+          VERSION_CODE=$((2000 + GITHUB_RUN_NUMBER))
+          chmod +x android/gradlew
+          (
+            cd android
+            ./gradlew assembleRelease \
+              -PappVersionName='0.5.1' \
+              -PappVersionCode="$VERSION_CODE" \
+              -PfeedbackRelayUrl="$FEEDBACK_RELAY_URL" \
+              -PfeedbackRelayKey="$FEEDBACK_RELAY_KEY"
+          )
+          cp android/app/build/outputs/apk/release/app-release.apk Pablo-Tablet-0.5.1.apk
+          sha256sum Pablo-Tablet-0.5.1.apk > Pablo-Tablet-0.5.1.apk.sha256
+
+      - name: Verificar APK firmado, version y certificado
+        run: |
+          set -euo pipefail
+          node scripts/verify-android-release.mjs \
+            --apk Pablo-Tablet-0.5.1.apk \
+            --expected-package com.pablohorcajada.tablet \
+            --expected-version 0.5.1 \
+            --expected-certificate-sha256 7a706549c89f27d3560fad8ffb7127d395c3830d18f403463d65d9e2fb6af346 \
+            --minimum-version-code 2001 \
+            --output Pablo-Tablet-0.5.1.apk.metadata.txt
+          sha256sum --check Pablo-Tablet-0.5.1.apk.sha256
+
+      - name: Generar manifiesto de actualizacion
+        run: |
+          set -euo pipefail
+          node scripts/create-update-manifest.mjs \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag v0.5.1 \
+            --apk Pablo-Tablet-0.5.1.apk \
+            --sha256-file Pablo-Tablet-0.5.1.apk.sha256 \
+            --notes-directory .github/release-notes \
+            --output Pablo-Tablet-update.json
+
+      - name: Crear tag y publicar los artefactos verificados
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! git show-ref --verify --quiet refs/tags/v0.5.1; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git tag -a v0.5.1 -m 'Pablo Tablet v0.5.1' "$GITHUB_SHA"
+            git push origin refs/tags/v0.5.1
+          fi
+          gh release create v0.5.1 \
+            --repo "$GITHUB_REPOSITORY" \
+            Pablo-Tablet-0.5.1.apk \
+            Pablo-Tablet-0.5.1.apk.sha256 \
+            Pablo-Tablet-0.5.1.apk.metadata.txt \
+            Pablo-Tablet-update.json \
+            --verify-tag \
+            --notes-file .github/release-notes/v0.5.1.md \
+            --title 'Pablo Tablet 0.5.1'
+
+      - name: Verificar la GitHub Release publicada
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view v0.5.1 --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name' > /tmp/release-assets.txt
+          for asset in \
+            Pablo-Tablet-0.5.1.apk \
+            Pablo-Tablet-0.5.1.apk.sha256 \
+            Pablo-Tablet-0.5.1.apk.metadata.txt \
+            Pablo-Tablet-update.json; do
+            grep -Fx -- "$asset" /tmp/release-assets.txt
+          done
+
+      - name: Eliminar la clave temporal
+        if: always()
+        run: rm -f android/release-key.jks
