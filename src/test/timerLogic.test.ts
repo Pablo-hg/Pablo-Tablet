@@ -8,6 +8,8 @@ const baseTimer: Timer = {
   durationSeconds: 300,
   remainingSeconds: 300,
   endsAt: null,
+  soundName: 'Sonido predeterminado',
+  soundUri: null,
   createdAt: '2026-10-04T10:00:00.000Z',
 }
 

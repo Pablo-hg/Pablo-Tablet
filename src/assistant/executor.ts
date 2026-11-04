@@ -218,6 +218,8 @@ export function executeAssistantCommand(
         durationSeconds: command.args.durationSeconds,
         remainingSeconds: command.args.durationSeconds,
         endsAt,
+        soundName: DEFAULT_ALARM_SOUND.name,
+        soundUri: null,
         createdAt: now.toISOString(),
       }
       return { state: { ...state, timers: [...state.timers, timer] }, response: tx('Temporizador iniciado durante {{duration}}.', { duration: formatTimerDuration(command.args.durationSeconds, language) }), openPage: 'clock' }

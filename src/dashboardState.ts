@@ -112,6 +112,8 @@ export interface Timer {
   durationSeconds: number
   remainingSeconds: number
   endsAt: string | null
+  soundName: string
+  soundUri: string | null
   createdAt: string
 }
 
@@ -402,6 +404,8 @@ function readTimers(value: unknown): Timer[] {
       durationSeconds,
       remainingSeconds: Math.min(remainingSeconds, durationSeconds),
       endsAt: typeof timer.endsAt === 'string' ? timer.endsAt : null,
+      soundName: typeof timer.soundName === 'string' ? timer.soundName.slice(0, 80) : 'Sonido predeterminado',
+      soundUri: typeof timer.soundUri === 'string' ? timer.soundUri : null,
       createdAt: typeof timer.createdAt === 'string' ? timer.createdAt : new Date().toISOString(),
     }]
   })

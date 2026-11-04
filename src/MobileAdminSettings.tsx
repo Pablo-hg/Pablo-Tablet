@@ -38,6 +38,7 @@ export function MobileAdminSettings() {
   const [requests, setRequests] = useState<PairingRequest[]>([])
   const [devices, setDevices] = useState<AuthorizedDevice[]>([])
   const [busy, setBusy] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -66,6 +67,18 @@ export function MobileAdminSettings() {
     applyStatus(nextStatus)
     setDevices(nextDevices)
   }, [applyStatus])
+
+  const refreshManually = async () => {
+    setRefreshing(true)
+    setMessage(null)
+    try {
+      await Promise.all([refresh(), new Promise<void>((resolve) => window.setTimeout(resolve, 600))])
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : tx('No se pudo consultar el servidor local.'))
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -241,7 +254,7 @@ export function MobileAdminSettings() {
       <div className={`mobile-server-status ${status?.running ? 'is-online' : 'is-offline'}`}>
         <span className="mobile-status-icon"><Wifi size={21} /></span>
         <span><strong>{tx(status?.serviceState === 'available' ? 'Servidor local activo' : status?.serviceState === 'starting' ? 'Iniciando servidor local…' : status?.serviceState === 'error' ? 'Servidor no disponible' : 'Acceso desde la red desactivado')}</strong><small>{status?.localAddress ?? tx(status?.enabled ? 'Esperando una Wi-Fi privada…' : 'La tablet sigue funcionando con sus datos locales.')}</small></span>
-        <button type="button" className="icon-button" onClick={() => void refresh()} aria-label={tx('Actualizar servidor')}><RefreshCw size={17} /></button>
+        <button type="button" className="icon-button" onClick={() => void refreshManually()} disabled={refreshing} aria-busy={refreshing} aria-label={tx(refreshing ? 'Consultando servidor…' : 'Actualizar servidor')}><RefreshCw className={refreshing ? 'is-spinning mobile-refresh-icon' : 'mobile-refresh-icon'} size={17} /></button>
       </div>
       <p className="settings-help">{tx('El móvil debe estar conectado a la misma Wi‑Fi. Si no puede abrir la dirección, comprueba que la red no aísle unos dispositivos de otros. Los datos y las fotos siguen guardándose únicamente en esta tablet.')}</p>
       {status?.error ? <p className="mobile-admin-message is-error">{status.error}</p> : null}

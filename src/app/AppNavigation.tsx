@@ -13,6 +13,7 @@ interface AppNavigationProps {
   pageNavigationStyle: PageNavigationStyle
   pageNavigationPosition: PageNavigationPosition
   showPageNavigationLabels: boolean
+  themeId: string
   onMoveToPage: (index: number) => void
   onGoSettings: () => void
 }
@@ -31,7 +32,7 @@ const PAGE_ICONS = {
   gallery: Images,
 }
 
-export function AppNavigation({ screen, enabledPages, activePageIndex, pageNavigationStyle, pageNavigationPosition, showPageNavigationLabels, onMoveToPage, onGoSettings }: AppNavigationProps) {
+export function AppNavigation({ screen, enabledPages, activePageIndex, pageNavigationStyle, pageNavigationPosition, showPageNavigationLabels, themeId, onMoveToPage, onGoSettings }: AppNavigationProps) {
   const navigationRef = useRef<HTMLElement>(null)
   const previousIndexRef = useRef(screen === 'settings' ? enabledPages.length : activePageIndex)
   const transitionTimerRef = useRef<number | null>(null)
@@ -43,7 +44,8 @@ export function AppNavigation({ screen, enabledPages, activePageIndex, pageNavig
     const navigation = navigationRef.current
     const activeButton = navigation?.querySelector<HTMLButtonElement>(`button[data-navigation-index="${currentIndex}"]`)
     if (!navigation || !activeButton) return
-    const navigationRect = navigation.getBoundingClientRect()
+    const rect = navigation.getBoundingClientRect()
+    const navigationRect = { left: rect.left + navigation.clientLeft, top: rect.top + navigation.clientTop }
     const buttonRect = activeButton.getBoundingClientRect()
     const vertical = pageNavigationPosition === 'left' || pageNavigationPosition === 'right'
     const minimal = pageNavigationStyle === 'minimal'
@@ -75,7 +77,8 @@ export function AppNavigation({ screen, enabledPages, activePageIndex, pageNavig
     transitionTimerRef.current = window.setTimeout(() => setAdjacentTransition(false), 360)
 
     const updateWithoutAnimation = () => {
-      const nextNavigationRect = navigation.getBoundingClientRect()
+      const rect = navigation.getBoundingClientRect()
+      const nextNavigationRect = { left: rect.left + navigation.clientLeft, top: rect.top + navigation.clientTop }
       const nextButtonRect = activeButton.getBoundingClientRect()
       setAdjacentTransition(false)
       setIndicatorStyle(minimal
@@ -89,7 +92,7 @@ export function AppNavigation({ screen, enabledPages, activePageIndex, pageNavig
       window.removeEventListener('resize', updateWithoutAnimation)
       if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current)
     }
-  }, [currentIndex, enabledPages.length, pageNavigationPosition, pageNavigationStyle, showPageNavigationLabels])
+  }, [currentIndex, enabledPages.length, pageNavigationPosition, pageNavigationStyle, showPageNavigationLabels, themeId])
 
   return (
     <nav ref={navigationRef} className={`page-indicators page-indicators--${pageNavigationStyle} is-position-${pageNavigationPosition} has-page-indicator ${adjacentTransition ? 'is-adjacent-transition' : 'is-direct-transition'} ${showPageNavigationLabels ? 'show-labels' : 'hide-labels'}`} aria-label={tx('Páginas del dashboard')}>

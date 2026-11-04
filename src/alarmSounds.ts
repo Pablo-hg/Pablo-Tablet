@@ -1,5 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
-import type { Alarm } from './dashboardState'
+import type { Alarm, Timer } from './dashboardState'
+import { tx } from './i18n'
 
 export interface DeviceAlarmSound {
   name: string
@@ -26,8 +27,12 @@ function stableNumber(value: string) {
   return Math.abs(hash) || 1
 }
 
-export function alarmChannelId(alarmId: string) {
-  return `pablo_alarm_${stableNumber(alarmId)}`
+export function alarmChannelId(alarmId: string, soundUri: string | null = null) {
+  return `pablo_alarm_${stableNumber(alarmId)}_${stableNumber(soundUri || 'default')}`
+}
+
+export function timerChannelId(timerId: string, soundUri: string | null = null) {
+  return `pablo_timer_${stableNumber(timerId)}_${stableNumber(soundUri || 'default')}`
 }
 
 export async function getDeviceAlarmSounds() {
@@ -49,8 +54,15 @@ export async function stopAlarmSoundPreview() {
 
 export async function configureAlarmChannel(alarm: Alarm) {
   if (!Capacitor.isNativePlatform()) return undefined
-  const channelId = alarmChannelId(alarm.id)
-  await configureAlertChannel(channelId, `Alarma: ${alarm.label.trim() || alarm.time}`, alarm.soundUri)
+  const channelId = alarmChannelId(alarm.id, alarm.soundUri)
+  await configureAlertChannel(channelId, `${tx('Alarma')}: ${alarm.label.trim() || alarm.time}`, alarm.soundUri)
+  return channelId
+}
+
+export async function configureTimerChannel(timer: Timer) {
+  if (!Capacitor.isNativePlatform()) return undefined
+  const channelId = timerChannelId(timer.id, timer.soundUri)
+  await configureAlertChannel(channelId, `${tx('Temporizador')}: ${timer.label.trim() || timer.id}`, timer.soundUri)
   return channelId
 }
 

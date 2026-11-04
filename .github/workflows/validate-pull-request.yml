@@ -36,8 +36,8 @@ jobs:
           fi
           if [ "$BASE_BRANCH" = "dev" ]; then
             case "$HEAD_BRANCH" in
-              feature/*|fix/*|hotfix/*|automation/*|main) ;;
-              *) echo "dev solo acepta PR desde feature/*, fix/*, hotfix/*, automation/* o main."; exit 1 ;;
+              feat/*|feature/*|fix/*|hotfix/*|automation/*|main) ;;
+              *) echo "dev solo acepta PR desde feat/*, feature/*, fix/*, hotfix/*, automation/* o main."; exit 1 ;;
             esac
           fi
 
