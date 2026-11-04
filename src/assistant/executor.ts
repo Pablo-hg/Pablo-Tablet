@@ -1,6 +1,6 @@
 import type { AssistantCommand } from './contracts'
 import { DEFAULT_ALARM_SOUND } from '../alarmSounds'
-import { calendarOccurrenceForDate, eventForOccurrence, toLocalDateKey } from '../calendarRecurrence'
+import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, toLocalDateKey } from '../calendarRecurrence'
 import type { AlarmWeekday, DashboardPageId, DashboardState, Note } from '../dashboardState'
 import { weatherDescription, type WeatherForecast, type WeatherLocation } from '../weather'
 import type { TOptions } from 'i18next'
@@ -18,6 +18,7 @@ export interface AssistantExecutionEnvironment {
 export interface AssistantExecutionResult {
   state: DashboardState
   response: string
+  spokenResponse?: string
   openPage?: DashboardPageId
 }
 
@@ -74,6 +75,26 @@ export function executeAssistantCommand(
     }
     case 'get_weather': {
       if (!homeWeatherLocation || !homeWeatherForecast) return unchanged(state, tx('No hay una previsión de Casa disponible. Añade o actualiza una ubicación en Tiempo.'), 'weather')
+      if (command.args.period === 'next_week') {
+        const zone = homeWeatherLocation.timezone === 'auto' ? Intl.DateTimeFormat().resolvedOptions().timeZone : homeWeatherLocation.timezone
+        let today: string
+        try {
+          const parts = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+          const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? ''
+          today = `${part('year')}-${part('month')}-${part('day')}`
+        } catch { today = toLocalDateKey(now) }
+        const weekday = new Date(`${today}T12:00:00Z`).getUTCDay()
+        const start = addDaysToDateKey(today, 7 - ((weekday + 6) % 7))
+        const end = addDaysToDateKey(start, 6)
+        const days = homeWeatherForecast.daily.filter((day) => day.date >= start && day.date <= end).sort((a, b) => a.date.localeCompare(b.date))
+        if (!days.length) return unchanged(state, tx('No tengo datos de la previsión para la semana que viene. Actualiza el tiempo y vuelve a intentarlo.'), 'weather')
+        const details = days.map((day) => {
+          const date = new Intl.DateTimeFormat(activeLocale(language), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day.date}T12:00:00Z`))
+          return tx('El {{date}}: {{description}}, máxima de {{maximum}}° y mínima de {{minimum}}°.', { date, description: weatherDescription(day.weatherCode, language).toLowerCase(), maximum: Math.round(day.temperatureMax), minimum: Math.round(day.temperatureMin) })
+        }).join('\n')
+        const partial = days.length < 7 ? ` ${tx('Solo tengo previsión para {{count}} de los 7 días; los demás no están disponibles.', { count: days.length })}` : ''
+        return unchanged(state, tx('Previsión de la semana que viene en {{location}}:', { location: homeWeatherLocation.name }) + `\n${details}` + partial, 'weather')
+      }
       const forecast = command.args.period === 'tomorrow' ? homeWeatherForecast.daily[1] : homeWeatherForecast.daily[0]
       if (!forecast) return unchanged(state, tx('La previsión solicitada todavía no está disponible.'), 'weather')
       if (command.args.period === 'now') {
@@ -85,14 +106,74 @@ export function executeAssistantCommand(
     case 'get_calendar': {
       const from = command.args.from.slice(0, 10)
       const to = command.args.to.slice(0, 10)
-      const events = state.calendarEvents.filter((event) => event.endDate >= from && event.date <= to && !event.completed).slice(0, 5)
-      if (!events.length) return unchanged(state, tx('No hay eventos ni tareas pendientes en ese intervalo.'), 'calendar')
-      return unchanged(state, tx('Agenda: {{events}}.', { events: events.map((event) => `${event.title || tx('Sin título')} (${event.date}${event.allDay ? '' : `, ${event.startTime}`})`).join('; ') }), 'calendar')
+      const occurrences = new Map<string, typeof state.calendarEvents[number]>()
+      for (let date = from; date <= to; date = addDaysToDateKey(date, 1)) {
+        for (const event of state.calendarEvents) {
+          if (event.completed || event.syncStatus === 'pending-delete') continue
+          const occurrence = calendarOccurrenceForDate(event, date)
+          if (occurrence) occurrences.set(`${event.id}:${occurrence.startDate}`, eventForOccurrence(event, occurrence))
+        }
+      }
+      const events = [...occurrences.values()].sort((a, b) => a.date.localeCompare(b.date) || (a.allDay ? '' : a.startTime).localeCompare(b.allDay ? '' : b.startTime) || a.title.localeCompare(b.title))
+      const syncWarning = state.calendarAccounts.some((account) => account.enabled && account.status !== 'connected')
+        ? ` ${tx('Alguna cuenta no está sincronizada; los datos podrían no estar actualizados.')}` : ''
+      if (!events.length) {
+        const formatDate = (date: string) => new Intl.DateTimeFormat(activeLocale(language), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`))
+        const message = from === to
+          ? tx('No hay eventos ni tareas pendientes el {{date}}.', { date: formatDate(from) })
+          : tx('No hay eventos ni tareas pendientes entre el {{from}} y el {{to}}.', { from: formatDate(from), to: formatDate(to) })
+        return unchanged(state, message + syncWarning, 'calendar')
+      }
+      const details = events.map((event) => {
+        const calendar = state.externalCalendars.find((item) => item.provider === event.source && item.accountId === event.accountId && item.remoteId === event.calendarId)
+        const formatDay = (date: string) => new Intl.DateTimeFormat(activeLocale(language), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC', ...(date.slice(0, 4) !== toLocalDateKey(now).slice(0, 4) ? { year: 'numeric' } : {}) }).format(new Date(`${date}T12:00:00Z`))
+        const date = formatDay(event.date)
+        const endDate = formatDay(event.endDate)
+        const title = event.title || tx('Sin título')
+        const multiDay = event.date !== event.endDate
+        const sentence = event.allDay
+          ? multiDay
+            ? tx('Del {{date}} al {{endDate}} tienes {{title}} durante todo el día.', { date, endDate, title })
+            : tx('El {{date}} tienes {{title}} durante todo el día.', { date, title })
+          : multiDay
+            ? tx('El {{date}} a las {{start}} empieza {{title}} y termina el {{endDate}} a las {{end}}.', { date, start: event.startTime, title, endDate, end: event.endTime })
+            : tx('El {{date}} tienes {{title}} de {{start}} a {{end}}.', { date, title, start: event.startTime, end: event.endTime })
+        const source = event.source !== 'local' && event.source !== 'native' ? ` ${tx('Calendario: {{calendar}}.', { calendar: calendar?.name ?? event.source })}` : ''
+        const status = event.syncStatus !== 'local' && event.syncStatus !== 'synced' ? ` ${tx('Sincronización pendiente o con error.')}` : ''
+        return sentence + source + status
+      }).join('\n')
+      const response = details + syncWarning
+      if (response.length > 2_000) return { state, response, spokenResponse: tx('Hay {{count}} elementos en ese periodo. La lista completa está en la conversación.', { count: events.length }) + syncWarning, openPage: 'calendar' }
+      return unchanged(state, response, 'calendar')
     }
     case 'get_notes': {
       const notes = [...state.notes].filter((note) => !note.archived).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, command.args.limit)
       if (!notes.length) return unchanged(state, tx('No hay notas activas guardadas.'), 'notes')
       return unchanged(state, tx('Notas recientes: {{notes}}.', { notes: notes.map((note) => note.title || note.content.slice(0, 50) || tx('Sin título')).join('; ') }), 'notes')
+    }
+    case 'get_clock_status': {
+      const sections: string[] = []
+      if (command.args.include !== 'timers') {
+        const days: TranslationKey[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+        const alarms = [...state.alarms].sort((a, b) => a.time.localeCompare(b.time))
+        if (!alarms.length) sections.push(tx('No tienes alarmas configuradas.'))
+        else for (const alarm of alarms) {
+          const repetition = alarm.weekdays.length === 7 ? tx('todos los días') : new Intl.ListFormat(activeLocale(language), { style: 'long', type: 'conjunction' }).format(alarm.weekdays.map((day) => tx(days[day - 1]).toLocaleLowerCase(activeLocale(language))))
+          sections.push(tx(alarm.enabled ? 'Alarma «{{name}}» a las {{time}}, {{days}}; está activada.' : 'Alarma «{{name}}» a las {{time}}, {{days}}; está desactivada.', { name: alarm.label, time: alarm.time, days: repetition }))
+        }
+      }
+      if (command.args.include !== 'alarms') {
+        if (!state.timers.length) sections.push(tx('No tienes temporizadores configurados.'))
+        else for (const timer of state.timers) {
+          const remaining = timer.endsAt ? Math.max(0, Math.ceil((new Date(timer.endsAt).getTime() - now.getTime()) / 1_000)) : timer.remainingSeconds
+          if (!Number.isFinite(remaining)) sections.push(tx('No puedo determinar el estado del temporizador «{{name}}».', { name: timer.label }))
+          else if (remaining <= 0) sections.push(tx('El temporizador «{{name}}» ha terminado.', { name: timer.label }))
+          else sections.push(tx(timer.endsAt ? 'Al temporizador «{{name}}» le quedan {{duration}}.' : 'El temporizador «{{name}}» está pausado con {{duration}} restantes.', { name: timer.label, duration: formatTimerDuration(remaining, language) }))
+        }
+      }
+      const response = sections.join('\n')
+      if (response.length > 2_000) return { state, response, spokenResponse: tx('La lista completa está en la conversación.'), openPage: 'clock' }
+      return unchanged(state, response, 'clock')
     }
     case 'get_local_help':
       return unchanged(state, helpForTopic(command.args.topic, language))

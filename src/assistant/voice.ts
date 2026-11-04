@@ -52,7 +52,7 @@ export async function recognizeAssistantSpeech(signal?: AbortSignal, language?: 
     if (permission.microphone === 'prompt' || permission.microphone === 'prompt-with-rationale') permission = await AssistantVoice.requestPermissions()
     if (permission.microphone !== 'granted') throw new Error(tx('Activa el permiso de micrófono en Android para utilizar el dictado.'))
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-    const stop = () => { void AssistantVoice.stopListening() }
+    const stop = () => { void AssistantVoice.stopListening().catch(() => undefined) }
     signal?.addEventListener('abort', stop, { once: true })
     try {
       const { text } = await AssistantVoice.startListening({ language: activeLocale(language) })
@@ -67,16 +67,27 @@ export async function recognizeAssistantSpeech(signal?: AbortSignal, language?: 
   return new Promise((resolve, reject) => {
     const recognition = new Recognition()
     let settled = false
+    const cleanup = () => signal?.removeEventListener('abort', onAbort)
+    const onAbort = () => {
+      if (settled) return
+      settled = true
+      cleanup()
+      recognition.abort()
+      reject(new DOMException('Aborted', 'AbortError'))
+    }
     recognition.lang = activeLocale(language)
     recognition.interimResults = false
     recognition.continuous = false
     recognition.onresult = (event) => {
+      if (settled) return
       settled = true
+      cleanup()
       resolve(event.results[0]?.[0]?.transcript?.trim() ?? '')
     }
     recognition.onerror = (event) => {
       if (settled) return
       settled = true
+      cleanup()
       const message = event.error === 'not-allowed' || event.error === 'service-not-allowed'
         ? tx('El navegador ha bloqueado el micrófono o el servicio de voz. Revisa los permisos de este sitio y del sistema.')
         : event.error === 'audio-capture'
@@ -91,10 +102,15 @@ export async function recognizeAssistantSpeech(signal?: AbortSignal, language?: 
       reject(new Error(message))
     }
     recognition.onend = () => {
-      if (!settled) reject(new Error(tx('No se ha detectado voz.')))
+      if (!settled) {
+        settled = true
+        cleanup()
+        reject(new Error(tx('No se ha detectado voz.')))
+      }
     }
-    signal?.addEventListener('abort', () => recognition.abort(), { once: true })
-    recognition.start()
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) { onAbort(); return }
+    try { recognition.start() } catch (error) { cleanup(); reject(error) }
   })
 }
 
@@ -108,7 +124,10 @@ export async function getAssistantVoices(selectedLanguage?: SupportedLanguage) {
   return voices.filter((voice) => voice.lang.toLowerCase().split('-')[0] === language)
 }
 
+let speechGeneration = 0
+
 export async function speakAssistantText(text: string, voiceId = '', language?: SupportedLanguage) {
+  const generation = ++speechGeneration
   await TextToSpeech.stop()
   let voice: number | undefined
   if (voiceId) {
@@ -118,9 +137,11 @@ export async function speakAssistantText(text: string, voiceId = '', language?: 
       if (index >= 0) voice = index
     } catch { /* The system default remains available if voice enumeration fails. */ }
   }
+  if (generation !== speechGeneration) return
   await TextToSpeech.speak({ text: text.slice(0, 2_000), lang: activeLocale(language), rate: 0.92, pitch: 1, volume: 1, queueStrategy: 0, ...(voice === undefined ? {} : { voice }) })
 }
 
 export async function stopAssistantSpeech() {
+  speechGeneration += 1
   await TextToSpeech.stop()
 }

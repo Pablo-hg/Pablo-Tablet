@@ -1,7 +1,8 @@
 import { useEffect, useId, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from 'react'
 import type { TOptions } from 'i18next'
 import { Bot, Check, Edit3, Mic, MicOff, Send, Volume2, X } from 'lucide-react'
-import type { AssistantCommand, ValidatedAssistantPlan } from '../assistant/contracts'
+import { validateAssistantCommand, type AssistantCommand, type ValidatedAssistantPlan } from '../assistant/contracts'
+import { addDaysToDateKey, dateKeyToDayNumber } from '../calendarRecurrence'
 import { assistantCommandSummary, type AssistantExecutionResult } from '../assistant/executor'
 import { LocalAssistantProvider } from '../assistant/localProvider'
 import { executeAssistantPlan, planAssistantRequest } from '../assistant/prototype'
@@ -56,13 +57,18 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   const [pending, setPending] = useState<{ plan: ValidatedAssistantPlan; sourceText: string } | null>(null)
   const pendingRef = useRef<{ plan: ValidatedAssistantPlan; sourceText: string } | null>(null)
   const [processing, setProcessing] = useState(false)
+  const processingRef = useRef(false)
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [requestCount, setRequestCount] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
+  const listeningControllerRef = useRef<AbortController | null>(null)
   const confirmingRef = useRef(false)
   const logRef = useRef<HTMLDivElement | null>(null)
   const confirmationRef = useRef<HTMLElement | null>(null)
+  const lastTopicRef = useRef<{ type: 'calendar'; weekStart: string } | { type: 'weather' } | null>(null)
+  const lastQueryTopicRef = useRef<'calendar' | 'weather' | null>(null)
+  const speechSequenceRef = useRef(0)
 
   useEffect(() => {
     onEditingChange(visible && (processing || listening || pending !== null))
@@ -71,8 +77,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
 
   useEffect(() => {
     if (!visible) abortRef.current?.abort()
-    if (!visible) void stopAssistantSpeech().catch(() => undefined)
-  }, [visible, listening, voiceMode])
+  }, [visible])
 
   useEffect(() => {
     const log = logRef.current
@@ -92,18 +97,19 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   const addAssistantResponse = async (result: AssistantExecutionResult, voiceRequest = false) => {
     setMessages((current) => [...current, newMessage('assistant', result.response, result.openPage)])
     if (voiceRequest) onVoiceResponseReady?.()
-    if (readAloud || voiceRequest) await speakResponse(result.response)
+    if (readAloud || voiceRequest) await speakResponse(result.spokenResponse ?? result.response)
   }
 
   const speakResponse = async (text: string) => {
+    const sequence = ++speechSequenceRef.current
     setSpeaking(true)
     try { await speakAssistantText(text, speechVoice, assistantLanguage) } catch { /* Voice output can be unavailable on the device. */ }
-    finally { setSpeaking(false) }
+    finally { if (speechSequenceRef.current === sequence) setSpeaking(false) }
   }
 
   const submit = async (text: string, voiceRequest = false) => {
     const trimmed = text.trim()
-    if (!trimmed || processing || pendingRef.current) return
+    if (!trimmed || processingRef.current || pendingRef.current) return
     if (!enabled) {
       setMessages((current) => [...current, newMessage('assistant', tx('El Asistente está desactivado. Actívalo en Ajustes para utilizarlo.'))])
       if (voiceRequest) onVoiceResponseReady?.()
@@ -117,22 +123,39 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
 
     const controller = new AbortController()
     abortRef.current = controller
+    processingRef.current = true
     setInput('')
     setProcessing(true)
     setRequestCount((count) => count + 1)
     setMessages((current) => [...current, newMessage('user', trimmed)])
     try {
-      const plan = await planAssistantRequest(provider, {
-        text: trimmed,
-        locale: activeLocale(assistantLanguage),
-        now: now.toISOString(),
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
-      }, controller.signal)
+      const normalized = trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[¿?¡!.,]/g, '').trim().replace(/\s+/g, ' ')
+      const nextWeekFollowup = /^(?:y\s+)?(?:la\s+)?(?:semana que viene|semana siguiente|proxima semana)$|^(?:and\s+)?next week$|^what about next week$/.test(normalized)
+      const dayFollowup = /^(?:y\s+)?(hoy|manana|pasado manana)$|^(?:and\s+|what about\s+)?(today|tomorrow|the day after tomorrow)$/.exec(normalized)
+      const queryTopic = lastQueryTopicRef.current
+      if (dayFollowup && !queryTopic) throw new Error(tx('¿Te refieres al tiempo o a la agenda?'))
+      const previousTopic = lastTopicRef.current
+      if (!nextWeekFollowup) lastTopicRef.current = null
+      if (!nextWeekFollowup && !dayFollowup) lastQueryTopicRef.current = null
+      if (nextWeekFollowup && !previousTopic && !queryTopic) throw new Error(tx('¿Te refieres al tiempo o a la agenda de la semana que viene?'))
+      const nextStart = nextWeekFollowup && previousTopic?.type === 'calendar' ? addDaysToDateKey(previousTopic.weekStart, 7) : null
+      const plan = nextWeekFollowup && previousTopic?.type === 'weather'
+        ? { command: validateAssistantCommand({ type: 'get_weather', args: { period: 'next_week' } }), explanation: tx('Consultar la previsión disponible para Casa.'), requiresConfirmation: false }
+        : nextStart
+        ? { command: validateAssistantCommand({ type: 'get_calendar', args: { from: `${nextStart}T00:00:00`, to: `${addDaysToDateKey(nextStart, 6)}T23:59:59` } }), explanation: tx('Consultar la agenda del intervalo solicitado.'), requiresConfirmation: false }
+        : await planAssistantRequest(provider, {
+          text: dayFollowup ? `${queryTopic === 'calendar' ? 'agenda' : 'tiempo'} ${dayFollowup[1] ?? dayFollowup[2]}` : nextWeekFollowup && queryTopic === 'calendar' ? 'agenda la semana que viene' : trimmed,
+          locale: activeLocale(assistantLanguage),
+          now: now.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
+        }, controller.signal)
       if (controller.signal.aborted) return
       if (plan.requiresConfirmation) {
         const proposal = { plan, sourceText: trimmed }
         pendingRef.current = proposal
         setPending(proposal)
+        processingRef.current = false
+        setProcessing(false)
         if (voiceRequest) {
           onVoiceResponseReady?.()
           await speakResponse(`${plan.explanation} ${tx('Puedes decir confirmar, editar o cancelar.')}`)
@@ -140,6 +163,16 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         }
       } else {
         const result = await executeAssistantPlan(plan, { execute: onExecute }) as AssistantExecutionResult
+        if (controller.signal.aborted) return
+        if (plan.command.type === 'get_calendar') {
+          lastQueryTopicRef.current = 'calendar'
+          const from = plan.command.args.from.slice(0, 10)
+          const to = plan.command.args.to.slice(0, 10)
+          lastTopicRef.current = dateKeyToDayNumber(to) - dateKeyToDayNumber(from) === 6 && new Date(`${from}T12:00:00Z`).getUTCDay() === 1 ? { type: 'calendar', weekStart: from } : null
+        } else if (plan.command.type === 'get_weather') {
+          lastQueryTopicRef.current = 'weather'
+          lastTopicRef.current = { type: 'weather' }
+        }
         await addAssistantResponse(result, voiceRequest)
       }
     } catch (error) {
@@ -149,8 +182,11 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         if (voiceRequest) { onVoiceResponseReady?.(); await speakResponse(message) }
       }
     } finally {
-      if (abortRef.current === controller) abortRef.current = null
-      setProcessing(false)
+      if (abortRef.current === controller) {
+        abortRef.current = null
+        processingRef.current = false
+        setProcessing(false)
+      }
     }
   }
 
@@ -198,11 +234,12 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     if (pendingRef.current !== proposal) return
     const controller = new AbortController()
     abortRef.current = controller
+    listeningControllerRef.current = controller
     setListening(true)
     try {
       const answer = await recognizeAssistantSpeech(controller.signal, assistantLanguage)
       if (controller.signal.aborted || pendingRef.current !== proposal) return
-      setListening(false)
+      if (listeningControllerRef.current === controller) { listeningControllerRef.current = null; setListening(false) }
       const normalized = answer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, ' ')
       if (/^(si|si confirmo|confirmo|confirmar|confirma|confirm|yes|yes confirm)$/.test(normalized)) {
         await confirmPending(proposal, true)
@@ -217,10 +254,11 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         setMessages((current) => [...current, newMessage('assistant', prompt)])
         await speakResponse(prompt)
         if (controller.signal.aborted) return
+        listeningControllerRef.current = controller
         setListening(true)
         const revised = await recognizeAssistantSpeech(controller.signal, assistantLanguage)
         if (controller.signal.aborted || !revised.trim()) return
-        setListening(false)
+        if (listeningControllerRef.current === controller) { listeningControllerRef.current = null; setListening(false) }
         setInput('')
         await submit(revised, true)
       } else {
@@ -232,14 +270,15 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       if (!controller.signal.aborted) setMessages((current) => [...current, newMessage('assistant', error instanceof Error ? error.message : tx('No se ha podido utilizar el micrófono.'))])
     } finally {
       if (abortRef.current === controller) abortRef.current = null
-      setListening(false)
+      if (listeningControllerRef.current === controller) { listeningControllerRef.current = null; setListening(false) }
     }
   }
 
   const toggleListening = async () => {
     if (listening) {
-      abortRef.current?.abort()
-      await stopAssistantSpeechRecognition().catch(() => undefined)
+      const controller = listeningControllerRef.current
+      listeningControllerRef.current = null
+      controller?.abort()
       setListening(false)
       return
     }
@@ -249,12 +288,13 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     }
     const controller = new AbortController()
     abortRef.current = controller
+    listeningControllerRef.current = controller
     onVoiceModeStart?.()
     setListening(true)
     try {
       const text = await recognizeAssistantSpeech(controller.signal, assistantLanguage)
       if (controller.signal.aborted) return
-      setListening(false)
+      if (listeningControllerRef.current === controller) { listeningControllerRef.current = null; setListening(false) }
       if (text && onVoiceModeStart) await submit(text, true)
       else if (text) setInput(text)
       else onVoiceResponseReady?.()
@@ -265,16 +305,27 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null
-      setListening(false)
+      if (listeningControllerRef.current === controller) { listeningControllerRef.current = null; setListening(false) }
     }
   }
 
   useImperativeHandle(ref, () => ({
     startListening: () => {
-      if (!enabled || !voiceEnabled || pending || processing || listening) {
+      if (!enabled || !voiceEnabled) {
         onVoiceResponseReady?.()
         return
       }
+      if (listeningControllerRef.current) {
+        void toggleListening()
+        return
+      }
+      abortRef.current?.abort()
+      abortRef.current = null
+      processingRef.current = false
+      setProcessing(false)
+      speechSequenceRef.current += 1
+      setSpeaking(false)
+      void stopAssistantSpeech().catch(() => undefined)
       void toggleListening()
     },
   }))
@@ -292,7 +343,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     <div className="assistant-log" ref={logRef} role="log" aria-live="polite" aria-label={tx('Conversación del Asistente')}>
       {messages.map((message) => <article key={message.id} className={`assistant-message is-${message.role}`}>
         {message.role === 'assistant' ? <span className="assistant-avatar"><Bot size={18} /></span> : null}
-        <div><p>{message.text}</p>{message.role === 'assistant' ? <footer>
+        <div><p>{message.text}</p>{!compact && message.role === 'assistant' ? <footer>
           <button type="button" onClick={() => void speakResponse(message.text)} aria-label={tx('Leer respuesta')}><Volume2 size={15} />{tx('Leer')}</button>
           {message.openPage ? <button type="button" onClick={() => onOpenPage(message.openPage as DashboardPageId)}>{tx('Abrir módulo')}</button> : null}
         </footer> : null}</div>
@@ -301,26 +352,26 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         <header><span><Check size={18} /></span><div><small>{tx('Revisa antes de ejecutar')}</small><h2>{summary.title}</h2></div></header>
         <ul>{summary.details.map((detail) => <li key={detail}>{detail}</li>)}</ul>
         <p>{pending.plan.explanation}</p>
-        <div className="assistant-confirmation-actions">
+        {!compact ? <div className="assistant-confirmation-actions">
           <button type="button" className="assistant-confirm" onClick={() => void confirmPending()}><Check size={17} />{tx('Confirmar')}</button>
           <button type="button" onClick={editPending}><Edit3 size={17} />{tx('Editar petición')}</button>
           <button type="button" onClick={cancelPending}><X size={17} />{tx('Cancelar')}</button>
-        </div>
+        </div> : null}
       </section> : null}
     </div>
 
-    {messages.length <= 1 ? <div className="assistant-suggestions" aria-label={tx('Sugerencias')} data-swipe-block>
+    {!compact && messages.length <= 1 ? <div className="assistant-suggestions" aria-label={tx('Sugerencias')} data-swipe-block>
       {SUGGESTIONS.map((suggestion) => <button key={suggestion} type="button" onClick={() => void submit(tx(suggestion))}>{tx(suggestion)}</button>)}
     </div> : null}
 
-    <form className="assistant-composer" data-swipe-block onSubmit={onSubmit}>
+    {!compact ? <form className="assistant-composer" data-swipe-block onSubmit={onSubmit}>
       <label htmlFor={inputId}>{tx('Escribe o dicta una petición')}</label>
       <div>
         <textarea id={inputId} value={input} onChange={(event) => setInput(event.target.value)} placeholder={tx('Ej.: Temporizador de 20 minutos')} rows={2} disabled={!enabled || processing || pending !== null} />
-        {voiceEnabled ? <button type="button" className={listening ? 'is-listening' : ''} onClick={() => void toggleListening()} disabled={!enabled || (processing && pending === null)} aria-label={listening ? tx('Detener dictado') : tx('Iniciar dictado')}>{listening ? <MicOff size={21} /> : <Mic size={21} />}</button> : null}
+        {voiceEnabled ? <button type="button" className={listening ? 'is-listening' : ''} onClick={() => void toggleListening()} disabled={!enabled || (processing && pending === null && !listening)} aria-label={listening ? tx('Detener dictado') : tx('Iniciar dictado')}>{listening ? <MicOff size={21} /> : <Mic size={21} />}</button> : null}
         <button type="submit" className="assistant-send" disabled={!input.trim() || !enabled || processing || pending !== null} aria-label={tx('Enviar petición')}><Send size={21} /></button>
       </div>
       {listening ? <p className="assistant-listening"><i />{tx('Escuchando… toca el micrófono para cancelar')}</p> : null}
-    </form>
+    </form> : null}
   </div>
 }

@@ -2,6 +2,7 @@ import { InvalidAssistantCommandError, type AssistantProposal, type AssistantReq
 import type { AssistantProvider } from './provider'
 import { txFor } from '../i18n'
 import type { TranslationKey } from '../i18n/translations'
+import { addDaysToDateKey } from '../calendarRecurrence'
 
 const NUMBER_WORDS: Record<string, number> = {
   un: 1,
@@ -58,6 +59,9 @@ const NUMBER_WORDS: Record<string, number> = {
   sixty: 60,
 }
 
+const WEEKDAYS: Record<string, number> = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6, sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 }
+const MONTHS: Record<string, number> = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 }
+
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
 const dateInTimeZone = (now: string, timeZone: string) => {
@@ -112,7 +116,13 @@ export class LocalAssistantProvider implements AssistantProvider {
       )
     }
 
-    if (text.includes('resumen') || text.includes('que tengo hoy') || text.includes('summary') || text.includes('what do i have today')) {
+    const alarmQuery = /\b(?:mis alarmas|(?:que|cuales|cuantas)\s+(?:son\s+)?(?:mis\s+)?alarmas?|tengo\s+(?:alguna\s+)?alarmas?|my alarms|(?:what|which|how many)\s+(?:are\s+)?(?:my\s+)?alarms?|do i have (?:any )?alarms?)\b/.test(text)
+    const timerQuery = /\b(?:mis temporizadores|(?:que|cuales|cuantos)\s+(?:son\s+)?(?:mis\s+)?temporizadores?|tengo\s+(?:algun\s+)?temporizadores?|cuanto (?:tiempo )?(?:(?:me|le) )?queda.*temporizador|(?:que|cuales)\s+alarmas?\s+y\s+(?:mis\s+)?temporizadores?|my timers|(?:what|which|how many)\s+(?:are\s+)?(?:my\s+)?timers?|do i have (?:any )?timers?|how much time.*timer)\b/.test(text)
+    if (alarmQuery || timerQuery) {
+      return proposal({ type: 'get_clock_status', args: { include: alarmQuery && timerQuery ? 'both' : alarmQuery ? 'alarms' : 'timers' } }, tx('Consultar las alarmas y los temporizadores de esta tablet.'))
+    }
+
+    if ((text.includes('resumen') || text.includes('que tengo hoy') || text.includes('summary') || text.includes('what do i have today')) && !/semana|\bweek\b/.test(text)) {
       return proposal({ type: 'get_daily_summary', args: { date: today } }, tx('Preparar el resumen con datos guardados en esta tablet.'))
     }
 
@@ -150,14 +160,61 @@ export class LocalAssistantProvider implements AssistantProvider {
     }
 
     if (text.includes('tiempo') || text.includes('llover') || text.includes('temperatura') || text.includes('weather') || text.includes('rain') || text.includes('temperature')) {
-      const period = text.includes('manana') || text.includes('tomorrow') ? 'tomorrow' : text.includes('ahora') || text.includes('now') ? 'now' : 'today'
+      if (/\bpasado manana\b|\bday after tomorrow\b/.test(text)) throw new InvalidAssistantCommandError(tx('Por ahora puedo consultar el tiempo de hoy, mañana o la semana que viene.'))
+      const nextWeek = /semana (?:que viene|proxima|siguiente)|proxima semana|next week/.test(text)
+      if (!nextWeek && /\bsemana\b|\bweek\b/.test(text)) throw new InvalidAssistantCommandError(tx('Por ahora puedo consultar el tiempo de hoy, mañana o la semana que viene.'))
+      const period = nextWeek ? 'next_week' : text.includes('manana') || text.includes('tomorrow') ? 'tomorrow' : text.includes('ahora') || text.includes('now') ? 'now' : 'today'
       return proposal({ type: 'get_weather', args: { period } }, tx('Consultar la previsión disponible para Casa.'))
     }
 
-    if (text.includes('agenda') || text.includes('proxima cita') || text.includes('eventos') || text.includes('schedule') || text.includes('next appointment') || text.includes('events')) {
+    if (text.includes('agenda') || text.includes('calendario') || text.includes('proxima cita') || text.includes('eventos') || text.includes('tareas') || text.includes('que tengo esta semana') || text.includes('que tengo la semana que viene') || text.includes('que tengo la proxima semana') || text.includes('que tengo el ') || text.includes('que tengo pasado manana') || text.includes('schedule') || text.includes('calendar') || text.includes('next appointment') || text.includes('events') || text.includes('tasks') || text.includes('what do i have this week') || text.includes('what do i have next week') || text.includes('what do i have on ') || text.includes('what do i have the day after tomorrow')) {
+      if (/\b(ayer|yesterday)\b|semana pasada|last week/.test(text)) {
+        throw new InvalidAssistantCommandError(tx('Todavía no puedo consultar esa fecha. Prueba con hoy, mañana, esta semana o la semana que viene.'))
+      }
+      let from = today
+      let to = tomorrow
+      const nextWeek = /semana (?:que viene|proxima|siguiente)|proxima semana|next week/.test(text)
+      const thisWeek = /esta semana|semana actual|this week/.test(text)
+      const weekdayMatches = [...text.matchAll(/\b(domingo|lunes|martes|miercoles|jueves|viernes|sabado|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/g)]
+      const isoDate = /\b(\d{4}-\d{2}-\d{2})\b/.exec(text)
+      const slashDate = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\b/.exec(text)
+      const namedDate = /\b(\d{1,2}|[a-z]+(?:\s+y\s+[a-z]+)?)\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\s+de\s+(\d{4}))?\b/.exec(text)
+      if ((nextWeek && thisWeek) || weekdayMatches.length > 1 || (weekdayMatches.length > 0 && (isoDate || slashDate || namedDate)) || Number(Boolean(isoDate)) + Number(Boolean(slashDate)) + Number(Boolean(namedDate)) > 1) throw new InvalidAssistantCommandError(tx('Indica un solo día para consultar la agenda.'))
+      if (isoDate || slashDate || namedDate) {
+        const day = namedDate ? readNumber(namedDate[1]) : slashDate ? Number(slashDate[1]) : null
+        const year = namedDate?.[3] ?? slashDate?.[3] ?? today.slice(0, 4)
+        const date = isoDate ? isoDate[1] : namedDate ? `${year}-${String(MONTHS[namedDate[2]]).padStart(2, '0')}-${String(day).padStart(2, '0')}` : `${year}-${slashDate![2].padStart(2, '0')}-${String(day).padStart(2, '0')}`
+        const parsed = new Date(`${date}T12:00:00Z`)
+        if (((namedDate || slashDate) && (!day || day < 1 || day > 31)) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) throw new InvalidAssistantCommandError(tx('Esa fecha no es válida. Comprueba el día, mes y año.'))
+        from = date
+        to = date
+      } else if (weekdayMatches.length === 1) {
+        if (!nextWeek && !thisWeek && /\b(proximo|proxima|siguiente|que viene|next)\b/.test(text)) throw new InvalidAssistantCommandError(tx('Indica si te refieres a esta semana o a la semana que viene.'))
+        const currentWeekday = new Date(`${today}T12:00:00Z`).getUTCDay()
+        const targetWeekday = WEEKDAYS[weekdayMatches[0][1]]
+        const startOfWeek = addDaysToDateKey(today, -((currentWeekday + 6) % 7))
+        from = nextWeek || thisWeek
+          ? addDaysToDateKey(startOfWeek, ((targetWeekday + 6) % 7) + (nextWeek ? 7 : 0))
+          : addDaysToDateKey(today, (targetWeekday - currentWeekday + 7) % 7)
+        to = from
+      } else if (/\b(?:el|dia|on)\s+\d{1,2}\b/.test(text)) {
+        throw new InvalidAssistantCommandError(tx('Indica el día, el mes y el año que quieres consultar.'))
+      } else if (nextWeek || thisWeek) {
+        const weekday = new Date(`${today}T12:00:00Z`).getUTCDay()
+        from = addDaysToDateKey(today, -((weekday + 6) % 7) + (nextWeek ? 7 : 0))
+        to = addDaysToDateKey(from, 6)
+      } else if (/\bpasado manana\b|\bday after tomorrow\b/.test(text)) {
+        from = addDaysToDateKey(today, 2)
+        to = from
+      } else if (/\b(manana|tomorrow)\b/.test(text)) {
+        from = tomorrow
+        to = tomorrow
+      } else if (/\b(hoy|today)\b/.test(text)) {
+        to = today
+      }
       return proposal(
-        { type: 'get_calendar', args: { from: `${today}T00:00:00`, to: `${tomorrow}T23:59:59` } },
-        tx('Consultar la agenda local de hoy y mañana.'),
+        { type: 'get_calendar', args: { from: `${from}T00:00:00`, to: `${to}T23:59:59` } },
+        tx('Consultar la agenda del intervalo solicitado.'),
       )
     }
 

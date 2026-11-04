@@ -119,7 +119,7 @@ export async function searchWeatherLocations(query: string, signal?: AbortSignal
   })
 }
 
-export async function fetchWeatherForecast(location: WeatherLocation, signal?: AbortSignal): Promise<WeatherForecast> {
+export async function fetchWeatherForecast(location: WeatherLocation, signal?: AbortSignal, forecastDays = 7): Promise<WeatherForecast> {
   const url = new URL('https://api.open-meteo.com/v1/forecast')
   url.searchParams.set('latitude', String(location.latitude))
   url.searchParams.set('longitude', String(location.longitude))
@@ -127,7 +127,7 @@ export async function fetchWeatherForecast(location: WeatherLocation, signal?: A
   url.searchParams.set('hourly', 'temperature_2m,precipitation_probability,weather_code,is_day')
   url.searchParams.set('daily', 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset')
   url.searchParams.set('timezone', location.timezone || 'auto')
-  url.searchParams.set('forecast_days', '7')
+  url.searchParams.set('forecast_days', String(forecastDays))
 
   const response = await fetch(url, { signal })
   if (!response.ok) throw new Error(tx('No se pudo actualizar la previsión.'))
@@ -170,7 +170,7 @@ export async function fetchWeatherForecast(location: WeatherLocation, signal?: A
     })),
   }
 
-  void saveCachedWeatherForecast(forecast)
+  if (forecastDays === 7) void saveCachedWeatherForecast(forecast)
   return forecast
 }
 
