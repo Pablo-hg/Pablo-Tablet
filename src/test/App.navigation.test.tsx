@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
@@ -243,7 +243,8 @@ describe('navegación y flujos principales', () => {
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
-    await user.selectOptions(screen.getByRole('combobox', { name: /Idioma/ }), 'en')
+    const appLanguageSection = screen.getByRole('region', { name: 'Idioma' })
+    await user.selectOptions(within(appLanguageSection).getByRole('combobox'), 'en')
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeVisible())
     expect(screen.getByRole('button', { name: 'Back to home' })).toBeVisible()
@@ -277,10 +278,10 @@ describe('navegación y flujos principales', () => {
     await user.click(screen.getByRole('button', { name: 'Volver al inicio' }))
     expect(document.querySelector('.calendar-widget')).not.toBeInTheDocument()
     expect(document.querySelector('[data-widget-id="assistant"]')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Abrir asistente' })).toBeVisible()
+    expect(screen.getByRole('button', { name: /^(Abrir asistente|Hablar con Lumi)$/ })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Ir a Calendario' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
-    await user.click(screen.getByRole('button', { name: 'Abrir asistente' }))
+    await user.click(screen.getByRole('button', { name: /^(Abrir asistente|Hablar con Lumi)$/ }))
     expect(screen.getByRole('dialog', { name: 'Asistente' })).toBeVisible()
     expect(document.querySelector('.tablet-content')).toHaveClass('is-calendar')
     expect(screen.getByRole('textbox', { name: 'Escribe o dicta una petición' })).toBeVisible()
@@ -289,12 +290,12 @@ describe('navegación y flujos principales', () => {
     await user.click(screen.getByRole('dialog', { name: 'Asistente' }).querySelector('.assistant-popup-close')!)
     expect(screen.queryByRole('dialog', { name: 'Asistente' })).not.toBeInTheDocument()
     expect(document.querySelector('.tablet-content')).toHaveClass('is-calendar')
-    await user.click(screen.getByRole('button', { name: 'Abrir asistente' }))
+    await user.click(screen.getByRole('button', { name: /^(Abrir asistente|Hablar con Lumi)$/ }))
     expect(screen.getByText(/Hoy tienes/)).toBeVisible()
     expect(screen.getByText(/1\/30 peticiones/)).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
     await user.click(screen.getByRole('switch', { name: /Activar Asistente/ }))
-    expect(screen.queryByRole('button', { name: 'Abrir asistente' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Abrir asistente|Hablar con Lumi)$/ })).not.toBeInTheDocument()
     HTMLElement.prototype.scrollTo = scrollTo
   })
 
@@ -462,7 +463,7 @@ describe('navegación y flujos principales', () => {
     state.galleryPhotos = [
       { id: 'foto-1', name: 'Primera.jpg', uri: 'file:///gallery/primera.jpg', createdAt: '2026-10-04T10:00:00.000Z', deletedAt: null },
       { id: 'foto-2', name: 'Segunda.jpg', uri: 'file:///gallery/segunda.jpg', createdAt: '2026-10-04T10:01:00.000Z', deletedAt: null },
-      { id: 'foto-3', name: 'Papelera.jpg', uri: 'file:///gallery/papelera.jpg', createdAt: '2026-10-04T10:02:00.000Z', deletedAt: '2026-10-04T10:03:00.000Z' },
+      { id: 'foto-3', name: 'Papelera.jpg', uri: 'file:///gallery/papelera.jpg', createdAt: '2026-10-04T10:02:00.000Z', deletedAt: new Date().toISOString() },
     ]
     window.localStorage.setItem('pablo-tablet.dashboard.v17', JSON.stringify(state))
     render(<App />)
