@@ -97,3 +97,8 @@ Ampliar a ≥20–30 frases únicas (números, nombres, fechas ambiguas, 2 órde
 - Registrar licencias y decisión argumentada antes de implementar #86.
 
 **No se ha instalado APK, ejecutado un motor real, medido latencia en la T65 ni elegido ganador.**
+
+## 7. Validación inicial de la herramienta de informe (05/11/2026)
+Ejecutados en un entorno Node.js v22.16.0 **los siete tests unitarios sintéticos** del reportador: **7/7 OK**. Se verificaron mediana, p95 nearest-rank, WER básico, límite mínimo de 10 repeticiones, ausencia de confirmación offline, rechazo de valores inválidos y salida no válida para plantilla sin datos. La plantilla vacía devuelve código 1 correctamente.
+
+Estas pruebas validan **solo la lógica del script de reportes**, no la velocidad/calidad de sherpa-onnx, whisper.cpp, Piper o Kokoro, ni la compatibilidad de ningún dispositivo Android. La ejecución en CI del repositorio sigue pendiente.
