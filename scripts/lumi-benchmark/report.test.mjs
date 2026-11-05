@@ -58,3 +58,13 @@ test('rechaza metadatos no válidos y duraciones negativas', () => {
   negative.sessions[0].samples[0].latencyMs = -10
   assert.throws(() => summarize(negative), /latencyMs/)
 })
+
+test('plantilla vacía no constituye prueba física ni aprobará el CLI', async () => {
+  const { spawnSync } = await import('node:child_process')
+  const { fileURLToPath } = await import('node:url')
+  const script = fileURLToPath(new URL('./report.mjs', import.meta.url))
+  const sample = fileURLToPath(new URL('./plantilla.json', import.meta.url))
+  const processResult = spawnSync(process.execPath, [script, sample], { encoding: 'utf8' })
+  assert.equal(processResult.status, 1)
+  assert.match(processResult.stdout, /NO SE APRUEBA AUTOMÁTICAMENTE/)
+})
