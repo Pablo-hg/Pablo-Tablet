@@ -41,19 +41,21 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppLocalePlugin.class);
         super.onCreate(savedInstanceState);
         getOnBackPressedDispatcher().addCallback(this, kioskBackCallback);
+        // En DEV se puede salir normalmente con Atrás y cambiar a la app estable.
+        kioskBackCallback.setEnabled(!BuildConfig.DEBUG);
         MobileAdminServiceController.reconcile(this);
         getWindow().getDecorView().setOnSystemUiVisibilityChangeListener((visibility) -> {
-            if (!kioskExitRequested && (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+            if (!BuildConfig.DEBUG && !kioskExitRequested && (visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
                 new Handler(Looper.getMainLooper()).postDelayed(this::enableImmersiveMode, 80);
             }
         });
-        enterKioskMode();
+        if (!BuildConfig.DEBUG) enterKioskMode();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (!kioskExitRequested) {
+        if (!BuildConfig.DEBUG && !kioskExitRequested) {
             enterKioskMode();
         }
     }
@@ -61,12 +63,13 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && !kioskExitRequested) {
+        if (!BuildConfig.DEBUG && hasFocus && !kioskExitRequested) {
             enableImmersiveMode();
         }
     }
 
     public void enterKioskMode() {
+        if (BuildConfig.DEBUG) return; // Evitar bloqueo táctil durante pruebas.
         kioskExitRequested = false;
         kioskBackCallback.setEnabled(true);
         enableImmersiveMode();
