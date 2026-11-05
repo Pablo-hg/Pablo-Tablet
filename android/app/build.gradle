@@ -38,6 +38,11 @@ android {
         }
     }
     buildTypes {
+        // APK experimental paralelo: firma debug de Android, datos y paquete aislados.
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-dev"
+        }
         release {
             signingConfig signingConfigs.release
             minifyEnabled false
