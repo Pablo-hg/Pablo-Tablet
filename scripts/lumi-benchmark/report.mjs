@@ -130,7 +130,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
         status: 'NO SE APRUEBA AUTOMÁTICAMENTE NINGÚN MOTOR. Requiere revisión y pruebas físicas.',
         reports,
       }, null, 2))
-      if (reports.some((r) => r.status !== 'MEDIDO_NO_VALIDADO')) process.exitCode = 1
+      if (reports.length === 0 || reports.some((r) => r.status !== 'MEDIDO_NO_VALIDADO')) process.exitCode = 1
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error))
       process.exitCode = 2
