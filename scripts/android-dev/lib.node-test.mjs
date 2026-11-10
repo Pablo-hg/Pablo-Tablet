@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   DEV_ID, STABLE_ID, assertAdbAllowed, assertDevApk, assertDevTarget, cleanEnvironment, liveEnvironment,
-  labHome, parseListeningPid, parseBadging, parseDevices, selectDevice, viteArgs,
+  labHome, parseListeningPid, parseBadging, parseDevices, selectDevice, viteArgs, assertDevApkVersion, assertBuildReceipt,
 } from './lib.mjs'
 
 const badging = (pkg, extra = '') => `package: name='${pkg}' versionCode='1' versionName='0.2.0-dev'\napplication-label:'Pablo Tablet DEV'\n${extra}`
@@ -60,4 +60,18 @@ test('logcat permitido; labHome fuera del repositorio; pid de puerto', () => {
   const ss = 'LISTEN 0 511 127.0.0.1:5173 0.0.0.0:* users:(("node",pid=4242,fd=20))'
   assert.equal(parseListeningPid(ss, 5173), 4242)
   assert.equal(parseListeningPid(ss, 9999), null)
+})
+
+test('rechaza APK antigua incluso si android:dev:install se ejecuta tras fallar Gradle', () => {
+  const previous = parseBadging(badging(DEV_ID, 'application-debuggable\\n'))
+  assert.throws(() => assertDevApkVersion(previous, '0.5.2'), /obsoleta/)
+  assert.doesNotThrow(() => assertDevApkVersion({ ...previous, versionName: '0.5.2-dev' }, '0.5.2'))
+})
+
+test('el registro de build evita instalar un APK sin compilación correcta', () => {
+  const apk = { packageName: DEV_ID, versionName: '0.5.2-dev' }
+  const receipt = { ...apk, sha256: 'abc123' }
+  assert.doesNotThrow(() => assertBuildReceipt(receipt, apk, 'abc123'))
+  assert.throws(() => assertBuildReceipt(receipt, apk, 'hash-distinto'), /integridad/)
+  assert.throws(() => assertBuildReceipt({ ...receipt, versionName: '0.2.0-dev' }, apk, 'abc123'), /integridad/)
 })
