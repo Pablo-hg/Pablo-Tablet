@@ -95,3 +95,17 @@ export function assertAdbAllowed(args) {
   if (command === 'shell' && FORBIDDEN_SHELL.test(rest.slice(1).join(' '))) throw new Error('Comando shell no permitido.')
   if (command === 'install' && !rest.includes('-r')) throw new Error('adb install debe usar -r (reemplazo sin borrar datos).')
 }
+
+// Detecta las APK anteriores que Gradle haya dejado en outputs/ tras un build fallido.
+export function assertDevApkVersion(badging, baseVersion) {
+  const expected = `${baseVersion}-dev`
+  if (badging.versionName !== expected) {
+    throw new Error(`APK DEV obsoleta: ${badging.versionName}; versión esperada: ${expected}`)
+  }
+}
+
+export function assertBuildReceipt(receipt, badging, sha256) {
+  if (!receipt || receipt.packageName !== badging.packageName || receipt.versionName !== badging.versionName || receipt.sha256 !== sha256) {
+    throw new Error('No coincide la firma de integridad del último build correcto')
+  }
+}
