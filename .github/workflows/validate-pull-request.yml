@@ -85,6 +85,12 @@ jobs:
         if: ${{ hashFiles('scripts/android-dev/lib.node-test.mjs') != '' }}
         run: node --test scripts/android-dev/lib.node-test.mjs
 
+      - name: Comprobar coherencia de versiones
+        run: npm run android:version:check
+
+      - name: Probar versionado y preparación de releases
+        run: node --test scripts/versioning/project-version.node-test.mjs
+
       - name: Compilar la aplicación web
         run: npm run build
 
