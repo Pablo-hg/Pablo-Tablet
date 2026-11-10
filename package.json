@@ -1,7 +1,7 @@
 {
   "name": "pablo-tablet",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.5.2",
   "type": "module",
   "scripts": {
     "postinstall": "node scripts/patch-local-notifications.mjs",
@@ -23,14 +23,15 @@
     "android:dev:stop": "node scripts/android-dev/cli.mjs stop",
     "android:dev:logcat": "node scripts/android-dev/cli.mjs logcat",
     "android:dev:test": "node scripts/android-dev/cli.mjs test",
-    "test:scripts": "node --test scripts/android-dev/lib.node-test.mjs",
+    "test:scripts": "node --test scripts/android-dev/lib.node-test.mjs scripts/versioning/project-version.node-test.mjs",
     "release:check": "node scripts/release/cli.mjs check",
     "release:prepare": "node scripts/release/cli.mjs prepare",
     "release:validate": "node scripts/release/cli.mjs validate",
     "release:submit": "node scripts/release/cli.mjs submit",
     "release:merge": "node scripts/release/cli.mjs merge",
     "release:publish": "node scripts/release/cli.mjs publish",
-    "release:verify": "node scripts/release/cli.mjs verify"
+    "release:verify": "node scripts/release/cli.mjs verify",
+    "android:version:check": "node scripts/versioning/check.mjs"
   },
   "dependencies": {
     "@capacitor-community/text-to-speech": "^8.0.2",
