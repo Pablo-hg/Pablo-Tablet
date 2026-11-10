@@ -2,7 +2,10 @@ apply plugin: 'com.android.application'
 
 def releaseKeystoreFile = System.getenv('ANDROID_KEYSTORE_FILE')
 def configuredVersionCode = (project.findProperty('appVersionCode') ?: '1').toString().toInteger()
-def configuredVersionName = (project.findProperty('appVersionName') ?: '0.2.0').toString()
+def configuredVersionName = project.findProperty('appVersionName')?.toString()
+if (!configuredVersionName || !(configuredVersionName ==~ /[0-9]+\.[0-9]+\.[0-9]+/)) {
+    throw new GradleException('Falta appVersionName=X.Y.Z en android/gradle.properties o como -PappVersionName.')
+}
 def configuredFeedbackRelayUrl = (project.findProperty('feedbackRelayUrl') ?: '').toString().replace('\\', '\\\\').replace('"', '\\"')
 def configuredFeedbackRelayKey = (project.findProperty('feedbackRelayKey') ?: '').toString().replace('\\', '\\\\').replace('"', '\\"')
 
