@@ -65,3 +65,36 @@ Si aparece `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, revisar la **firma de la app de
 - Confirmar visualmente y con `pm list packages` la coexistencia con release.
 - Decidir si merece la pena habilitar más adelante administración móvil en DEV con **puerto propio** y un mDNS distinto.
 - Configurar Live Reload de Vite por ADB una vez validado el modo debug básico.
+
+## Comandos protegidos (Linux/macOS/Windows con Node 22)
+Todos comprueban antes de actuar: que la copia de trabajo tenga `applicationIdSuffix ".debug"`, que el APK sea `com.pablohorcajada.tablet.debug` (debuggable, nombre "Pablo Tablet DEV", versión `-dev`) y que haya un único dispositivo (o `ANDROID_SERIAL`). Solo usan `adb install -r` (nunca `uninstall`, `pm clear` ni restauraciones) y tras instalar verifican que la app estable no ha cambiado.
+
+| Comando | Qué hace |
+|---|---|
+| `npm run android:dev:status` | Solo lectura: estado de ambos paquetes y del APK local. |
+| `npm run android:dev:build` | `android:sync` + `assembleDebug` + verificación del APK. No instala. |
+| `npm run android:dev:install` | SIMULACIÓN: muestra el plan. |
+| `npm run android:dev:install -- --yes` | Instala de verdad el APK DEV verificado. |
+| `npm run android:dev:live` | Compila una APK Live y la verifica; SIMULACIÓN, no instala. |
+| `npm run android:dev:live -- --yes` | Instala la APK Live, abre `adb reverse`, lanza DEV y arranca Vite. Ctrl+C lo desactiva todo. |
+| `npm run android:dev:doctor` | Solo lectura: versiones de Node/Java/adb/Gradle, espacio de laboratorio y estado de ambos paquetes. |
+| `npm run android:dev:logcat` | Logcat solo del proceso DEV (`-- --dump` para volcado único), guardado en `~/pablo-tablet-lab/logs/android/`. |
+| `npm run android:dev:stop` | Para Vite (solo si es el de este proyecto), quita `adb reverse` y restaura la configuración normal. |
+| `npm run android:dev:test` | lint + vitest + tests de scripts + tests unitarios Android (Robolectric). |
+| `npm run android:dev:live-off` | Quita `adb reverse` y regenera la configuración normal de Capacitor. |
+
+Gradle además bloquea `installDebug` salvo con `-PpabloDevInstall=true` (lo que evita instalaciones accidentales desde Android Studio o `./gradlew`) y bloquea cualquier `installRelease`. Los workflows de CI solo usan `assembleDebug`/`assembleRelease`.
+
+## Live Reload (USB, sin exponer Vite)
+- Vite escucha solo en `127.0.0.1:5173` (`--strictPort`); la tablet lo alcanza por `adb reverse tcp:5173 tcp:5173`. No se abre ningún puerto en la Wi-Fi.
+- `capacitor.config.ts` añade `server.url = http://localhost:5173` y `cleartext` solo si existen `PABLO_ANDROID_VARIANT=dev` y `PABLO_DEV_LIVE_URL` (solo se aceptan URLs localhost). El comando las define únicamente durante su ejecución. Sin ellas la configuración es la de producción.
+- La URL queda embebida en el APK Live instalado. Para volver a un DEV normal: `android:dev:live-off`, luego `android:dev:build` y `android:dev:install -- --yes`. Con Vite apagado, el DEV Live muestra error de conexión (la estable no se ve afectada).
+- Cambios en React, CSS y TypeScript se ven al instante (HMR). Cambios Java/Gradle/manifest requieren reinstalar.
+- Validado el 05/11/2026 sin instalar: configuración generada con y sin Live, rechazo de URL no local, Vite en loopback. Pendiente de prueba física: carga real en la T65.
+
+## Qué se aísla y qué no
+- Aislado: paquete, datos, base de datos, WebView, FileProvider, esquema de enlaces, canales de notificación y alarmas (todo por paquete). Quiosco, administración móvil (puerto 8765, mDNS) y actualizador de producción desactivados. Los volúmenes y el tiempo de pantalla del sistema no se modifican desde DEV.
+- Compartido (no se puede aislar): Wi-Fi, brillo/orientación del hardware, permisos del sistema que se concedan a cada app, cuentas de calendario externas si se configuran en ambas, y la clave de firma debug (la de Android por defecto, distinta de la de release).
+
+## Tests unitarios Android y variante DEV
+Los tests Robolectric corren en la variante debug. Los bloqueos DEV pasan por `DevVariant.lockdown()`, que Gradle desactiva solo en la JVM de pruebas (`-Dpablo.dev.lockdown=false`); `DevVariantLockdownTest` comprueba que el bloqueo funciona cuando está activo. Sin esta costura 13 tests de administración móvil fallaban en debug.

@@ -42,7 +42,7 @@ public class DeviceSettingsPlugin extends Plugin implements SensorEventListener 
             setStreamVolume(audioManager, AudioManager.STREAM_MUSIC, mediaVolume);
         }
 
-        if (!keepScreenAwake && Settings.System.canWrite(getContext())) {
+        if (!BuildConfig.DEBUG && !keepScreenAwake && Settings.System.canWrite(getContext())) {
             Settings.System.putInt(getContext().getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, screenTimeoutSeconds * 1000);
         }
 
@@ -148,6 +148,8 @@ public class DeviceSettingsPlugin extends Plugin implements SensorEventListener 
     }
 
     private void setStreamVolume(AudioManager audioManager, int stream, int percentage) {
+        // DEV no toca volúmenes del sistema: son globales y afectarían a la tablet con la app estable.
+        if (BuildConfig.DEBUG) return;
         int maximum = audioManager.getStreamMaxVolume(stream);
         int volume = Math.round(maximum * (percentage / 100f));
         audioManager.setStreamVolume(stream, volume, 0);

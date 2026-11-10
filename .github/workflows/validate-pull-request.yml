@@ -81,6 +81,10 @@ jobs:
         if: ${{ hashFiles('scripts/release/cli.node-test.mjs') != '' }}
         run: node --test scripts/release/cli.node-test.mjs
 
+      - name: Probar protecciones de Pablo Tablet DEV
+        if: ${{ hashFiles('scripts/android-dev/lib.node-test.mjs') != '' }}
+        run: node --test scripts/android-dev/lib.node-test.mjs
+
       - name: Compilar la aplicación web
         run: npm run build
 
