@@ -24,6 +24,10 @@ jobs:
           git fetch origin main --no-tags
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
 
+      - name: Confirmar versiones del tag y del código
+        shell: bash
+        run: node scripts/versioning/check.mjs "${GITHUB_REF_NAME#v}"
+
       - name: Preparar Node.js
         uses: actions/setup-node@v7
         with:
@@ -89,6 +93,15 @@ jobs:
           cd ..
           cp android/app/build/outputs/apk/release/app-release.apk "Pablo-Tablet-${VERSION_NAME}.apk"
           sha256sum "Pablo-Tablet-${VERSION_NAME}.apk" > "Pablo-Tablet-${VERSION_NAME}.apk.sha256"
+
+      - name: Prohibir Live Reload en APK de producción
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="Pablo-Tablet-${GITHUB_REF_NAME#v}.apk"
+          unzip -p "$APK" assets/public/index.html > /dev/null
+          unzip -p "$APK" assets/capacitor.config.json > /tmp/pablo-tablet-capacitor-config.json
+          node -e 'const c=require("/tmp/pablo-tablet-capacitor-config.json"); if(c.server?.url) {console.error("ERROR: la APK estable contiene server.url="+c.server.url);process.exit(1)}'
 
       - name: Verificar identidad y firma del APK
         run: |
