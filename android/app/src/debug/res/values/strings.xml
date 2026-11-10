@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <!-- Override exclusivo de debug; no cambia nombre ni enlaces en release. -->
+    <string name="app_name">Pablo Tablet DEV</string>
+    <string name="title_activity_main">Pablo Tablet DEV</string>
+    <string name="package_name">com.pablohorcajada.tablet.debug</string>
+    <string name="custom_url_scheme">com.pablohorcajada.tablet.debug</string>
+</resources>

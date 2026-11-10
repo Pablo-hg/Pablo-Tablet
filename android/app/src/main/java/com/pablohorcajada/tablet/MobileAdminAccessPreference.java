@@ -13,10 +13,13 @@ final class MobileAdminAccessPreference {
     }
 
     boolean isEnabled() {
-        return preferences.getBoolean(ENABLED_KEY, false);
+        // El servidor de administración tiene un puerto fijo (8765). No permitir
+        // que DEV compita con la instalación estable al convivir ambas APK.
+        return !DevVariant.lockdown() && preferences.getBoolean(ENABLED_KEY, false);
     }
 
     void setEnabled(boolean enabled) {
-        preferences.edit().putBoolean(ENABLED_KEY, enabled).apply();
+        // DEV nunca levanta el servicio LAN, aunque el usuario pulse activar.
+        preferences.edit().putBoolean(ENABLED_KEY, !DevVariant.lockdown() && enabled).apply();
     }
 }

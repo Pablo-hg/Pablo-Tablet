@@ -2,7 +2,10 @@ apply plugin: 'com.android.application'
 
 def releaseKeystoreFile = System.getenv('ANDROID_KEYSTORE_FILE')
 def configuredVersionCode = (project.findProperty('appVersionCode') ?: '1').toString().toInteger()
-def configuredVersionName = (project.findProperty('appVersionName') ?: '0.2.0').toString()
+def configuredVersionName = project.findProperty('appVersionName')?.toString()
+if (!configuredVersionName || !(configuredVersionName ==~ /[0-9]+\.[0-9]+\.[0-9]+/)) {
+    throw new GradleException('Falta appVersionName=X.Y.Z en android/gradle.properties o como -PappVersionName.')
+}
 def configuredFeedbackRelayUrl = (project.findProperty('feedbackRelayUrl') ?: '').toString().replace('\\', '\\\\').replace('"', '\\"')
 def configuredFeedbackRelayKey = (project.findProperty('feedbackRelayKey') ?: '').toString().replace('\\', '\\\\').replace('"', '\\"')
 
@@ -38,6 +41,11 @@ android {
         }
     }
     buildTypes {
+        // APK experimental paralelo: firma debug de Android, datos y paquete aislados.
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-dev"
+        }
         release {
             signingConfig signingConfigs.release
             minifyEnabled false
@@ -48,6 +56,8 @@ android {
         unitTests.includeAndroidResources = true
         unitTests.all {
             jvmArgs '--add-exports=java.base/jdk.internal.access=ALL-UNNAMED'
+            // Los tests ejercitan el comportamiento de producción; ver DevVariant.java.
+            systemProperty 'pablo.dev.lockdown', 'false'
         }
     }
 }
@@ -81,4 +91,24 @@ try {
     }
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+
+// Protección contra instalaciones accidentales sobre la app estable.
+// Las instalaciones se hacen con scripts/android-dev (adb install -r de un APK verificado).
+// Gradle solo permite install* de debug y con -PpabloDevInstall=true; installRelease queda prohibido.
+afterEvaluate {
+    def debugId = android.buildTypes.debug.applicationIdSuffix
+    if (debugId != ".debug") {
+        throw new GradleException("buildTypes.debug debe conservar applicationIdSuffix \".debug\" para no pisar la app estable.")
+    }
+}
+gradle.taskGraph.whenReady { graph ->
+    graph.allTasks.findAll { it.name ==~ /install.*/ }.each { task ->
+        if (task.name != "installDebug") {
+            throw new GradleException("Tarea ${task.path} bloqueada: no se instalan APK de producción desde Gradle.")
+        }
+        if (!project.hasProperty("pabloDevInstall")) {
+            throw new GradleException("installDebug bloqueado. Usa npm run android:dev:install -- --yes (comprueba variante y destino).")
+        }
+    }
 }

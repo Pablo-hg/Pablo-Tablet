@@ -50,6 +50,10 @@ public class AppUpdaterPlugin extends Plugin {
 
     @PluginMethod
     public void checkForUpdate(PluginCall call) {
+        if (BuildConfig.DEBUG) {
+            call.reject("Las actualizaciones de producción están deshabilitadas en Pablo Tablet DEV.");
+            return;
+        }
         new Thread(() -> {
             try {
                 JSObject response = installedVersionResponse();
@@ -91,6 +95,10 @@ public class AppUpdaterPlugin extends Plugin {
 
     @PluginMethod
     public void downloadUpdate(PluginCall call) {
+        if (BuildConfig.DEBUG) {
+            call.reject("Las actualizaciones de producción están deshabilitadas en Pablo Tablet DEV.");
+            return;
+        }
         String downloadUrl = call.getString("downloadUrl", "");
         String expectedSha256 = normalizeDigest(call.getString("sha256", ""));
         String assetName = call.getString("assetName", "Pablo-Tablet.apk");
@@ -158,6 +166,10 @@ public class AppUpdaterPlugin extends Plugin {
 
     @PluginMethod
     public void installDownloadedUpdate(PluginCall call) {
+        if (BuildConfig.DEBUG) {
+            call.reject("Las actualizaciones de producción están deshabilitadas en Pablo Tablet DEV.");
+            return;
+        }
         File apk = downloadedUpdate();
         if (!apk.isFile()) {
             call.reject(AppLocale.text(getContext(), R.string.error_update_not_downloaded));

@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { fileURLToPath } from 'node:url'
+import { setProjectVersion, checkProjectVersion } from '../versioning/project-version.mjs'
 
 const REPOSITORY = 'Pablo-hg/Pablo-Tablet'
 const CERTIFICATE = '7a706549c89f27d3560fad8ffb7127d395c3830d18f403463d65d9e2fb6af346'
@@ -256,11 +257,14 @@ async function prepare(root, version, opts) {
   git(['worktree', 'add', '-b', branch, folder, 'origin/main'], root)
   try {
     for (const sha of commits) git(['cherry-pick', '-x', sha], folder)
+    // La versión aprobada pasa a ser también la base de futuras compilaciones DEV.
+    setProjectVersion(folder, version)
+    checkProjectVersion(folder, version)
     const noteTarget = join(folder, '.github', 'release-notes', `v${version}.md`)
     if (existsSync(noteTarget)) throw new Error(`El archivo de novedades ya existe: ${noteTarget}`)
     mkdirSync(dirname(noteTarget), { recursive: true })
     copyFileSync(notesSource, noteTarget)
-    git(['add', '--', `.github/release-notes/v${version}.md`], folder)
+    git(['add', '--', `.github/release-notes/v${version}.md`, 'package.json', 'package-lock.json', 'android/gradle.properties'], folder)
     git(['diff', '--cached', '--check'], folder)
     git(['commit', '-m', `docs: novedades para v${version}`], folder)
     validate(folder)
