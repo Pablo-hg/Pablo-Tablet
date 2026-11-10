@@ -24,15 +24,15 @@ jobs:
           git fetch origin main --no-tags
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
 
-      - name: Confirmar versiones del tag y del código
-        shell: bash
-        run: node scripts/versioning/check.mjs "${GITHUB_REF_NAME#v}"
-
       - name: Preparar Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
+
+      - name: Confirmar versiones del tag y del código
+        shell: bash
+        run: node scripts/versioning/check.mjs "${GITHUB_REF_NAME#v}"
 
       - name: Preparar Java
         uses: actions/setup-java@v6
