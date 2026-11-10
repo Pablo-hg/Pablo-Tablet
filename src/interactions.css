@@ -1,0 +1,39 @@
+/* Respuesta de interacción compartida; los colores proceden del tema activo. */
+.tablet-shell :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--ui-action);
+  outline-offset: 3px;
+}
+
+.tablet-shell button:enabled:active {
+  filter: brightness(0.88);
+}
+
+.tablet-shell :is(.toggle-row, .primary-action, .icon-button, .widget-editor-banner button) {
+  transition: filter 120ms ease-out;
+}
+
+.tablet-shell :is(.icon-button, .note-list-reorder) {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* En tamaños de tablet todos los estilos de navegación conservan 44 px táctiles. */
+@media (min-width: 600px) and (min-height: 600px) {
+  .tablet-shell .page-indicators button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Incluye widgets, toggles, overlays, carga y salvapantallas. El estado sigue
+   indicado por texto, color y contornos aunque desaparezca el movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  .tablet-shell,
+  .tablet-shell *,
+  .tablet-shell *::before,
+  .tablet-shell *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

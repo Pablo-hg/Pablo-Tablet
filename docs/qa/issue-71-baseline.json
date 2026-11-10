@@ -1,0 +1,75 @@
+{
+  "issue": 71,
+  "baseline": "df6398c504b0a02ef51e8d84eb37fa373812f50d",
+  "date": "2026-11-10",
+  "method": "Vitest/JSDOM, copia temporal del código original y escenarios del primer incremento. No es una prueba visual ni física.",
+  "total": 16,
+  "passed": 3,
+  "failed": 13,
+  "scenarios": [
+    {
+      "name": "no cambia de página al desplazar primero en vertical y terminar en horizontal",
+      "before": "failed"
+    },
+    {
+      "name": "cancela el deslizamiento cuando interviene un segundo dedo",
+      "before": "failed"
+    },
+    {
+      "name": "no completa el gesto con un identificador de contacto diferente",
+      "before": "failed"
+    },
+    {
+      "name": "permite seleccionar texto en una nota sin cambiar de página ni quitarle el foco",
+      "before": "failed"
+    },
+    {
+      "name": "no navega con el botón secundario del ratón",
+      "before": "failed"
+    },
+    {
+      "name": "protege los botones del mes y mantiene el deslizamiento desde los días",
+      "before": "failed"
+    },
+    {
+      "name": "mantiene la navegación al arrastrar con el botón principal del ratón",
+      "before": "passed"
+    },
+    {
+      "name": "descarta el arrastre ante pointerCancel",
+      "before": "failed"
+    },
+    {
+      "name": "descarta el arrastre ante lostPointerCapture",
+      "before": "failed"
+    },
+    {
+      "name": "descarta el redimensionado ante pointerCancel",
+      "before": "failed"
+    },
+    {
+      "name": "descarta el redimensionado ante lostPointerCapture",
+      "before": "failed"
+    },
+    {
+      "name": "guarda el arrastre y el tamaño cuando se suelta el control normalmente",
+      "before": "passed"
+    },
+    {
+      "name": "descarta la previsualización ante blur de la ventana",
+      "before": "failed"
+    },
+    {
+      "name": "descarta la previsualización ante resize de la ventana",
+      "before": "failed"
+    },
+    {
+      "name": "cancela la pulsación larga cuando el dedo se desplaza",
+      "before": "passed"
+    },
+    {
+      "name": "traduce los controles de edición al inglés",
+      "before": "failed"
+    }
+  ]
+}

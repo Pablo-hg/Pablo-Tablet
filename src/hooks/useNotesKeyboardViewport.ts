@@ -24,7 +24,7 @@ export function useNotesKeyboardViewport() {
       const focused = document.activeElement
       const editingNote = focused instanceof HTMLElement
         && notesPage.contains(focused)
-        && focused.matches('textarea, input:not([type="checkbox"]):not([type="radio"]), [contenteditable="true"]')
+        && focused.matches('textarea, input:not([type="checkbox"]):not([type="radio"]), [contenteditable="true"], [data-notes-editing-control]')
       const nativeOrientation = window.screen.orientation?.type
       const landscape = nativeOrientation
         ? nativeOrientation.startsWith('landscape')

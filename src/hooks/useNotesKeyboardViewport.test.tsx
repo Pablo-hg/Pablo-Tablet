@@ -5,7 +5,7 @@ import { useNotesKeyboardViewport, visibleNotesHeight } from './useNotesKeyboard
 
 function NotesFixture() {
   const ref = useNotesKeyboardViewport()
-  return <main className="tablet-shell"><div className="notes-page" ref={ref}><textarea aria-label="Contenido" /></div></main>
+  return <main className="tablet-shell"><div className="notes-page" ref={ref}><textarea aria-label="Contenido" /><button type="button" data-notes-editing-control>Listo</button></div></main>
 }
 
 afterEach(() => {
@@ -51,5 +51,16 @@ describe('visualización del editor de notas con teclado', () => {
     const editor = container.querySelector<HTMLTextAreaElement>('textarea')!
     editor.focus()
     expect(container.querySelector('.tablet-shell')!.classList.contains('is-notes-keyboard-open')).toBe(false)
+  })
+
+  it('mantiene accesible la salida al enfocar su botón con el teclado', () => {
+    vi.stubGlobal('innerWidth', 1200)
+    vi.stubGlobal('innerHeight', 800)
+    const { container } = render(<NotesFixture />)
+    container.querySelector('textarea')!.focus()
+    container.querySelector('button')!.focus()
+    expect(container.querySelector('.tablet-shell')).toHaveClass('is-notes-keyboard-open')
+    container.querySelector('button')!.blur()
+    expect(container.querySelector('.tablet-shell')).not.toHaveClass('is-notes-keyboard-open')
   })
 })

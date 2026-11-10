@@ -22,6 +22,19 @@ const executionResult = {
 }
 
 describe('pantalla del asistente', () => {
+  it('desplaza la conversación sin animación cuando se solicita movimiento reducido', () => {
+    const originalMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia')!
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: true } as MediaQueryList) })
+    const scroll = vi.mocked(HTMLElement.prototype.scrollTo)
+    scroll.mockClear()
+    try {
+      render(<AssistantPage enabled voiceEnabled={false} readAloud={false} now={new Date()} onExecute={vi.fn()} onOpenPage={vi.fn()} onEditingChange={vi.fn()} />)
+      expect(scroll).toHaveBeenLastCalledWith({ top: 0, behavior: 'auto' })
+    } finally {
+      Object.defineProperty(window, 'matchMedia', originalMatchMedia)
+    }
+  })
+
   it('muestra el estado de escucha y procesa una petición dictada', async () => {
     let finish!: (text: string) => void
     vi.mocked(recognizeAssistantSpeech).mockImplementationOnce(() => new Promise<string>((resolve) => { finish = resolve }))

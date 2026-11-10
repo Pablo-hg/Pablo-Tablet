@@ -236,7 +236,7 @@ export function MobileAdminSettings() {
   const activeDevices = devices.filter((device) => device.revokedAt === null)
 
   return (
-    <section className="settings-section mobile-admin-section" data-swipe-block aria-labelledby="mobile-admin-title">
+    <section className="settings-section mobile-admin-section" aria-labelledby="mobile-admin-title">
       <div className="section-heading">
         <div><p className="eyebrow">{tx('Red local')}</p><h2 id="mobile-admin-title">{tx('Administración móvil')}</h2></div>
         <Smartphone size={22} />
@@ -265,7 +265,7 @@ export function MobileAdminSettings() {
           <Link2 size={19} />{tx('Vincular un móvil')}
         </button>
       ) : (
-        <div className="pairing-panel">
+        <div className="pairing-panel" data-swipe-block>
           <div className="pairing-panel-header"><div><strong>{tx('Escanea este QR')}</strong><small>{tx('Caduca en {{time}}', { time: `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')}` })}</small></div><button type="button" className="icon-button" onClick={() => void closePairing()} aria-label={tx('Cerrar QR')}><X size={18} /></button></div>
           {pairingQr ? <img src={pairingQr} alt={tx('QR temporal para vincular un móvil')} className="pairing-qr" /> : <div className="pairing-qr-placeholder">{tx('Preparando QR…')}</div>}
           <code className="pairing-address">{pairing.url}</code>
