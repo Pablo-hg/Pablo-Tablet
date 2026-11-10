@@ -2,17 +2,20 @@
 // Comandos de desarrollo de Pablo Tablet DEV. Solo pueden actuar sobre com.pablohorcajada.tablet.debug.
 // Uso: node scripts/android-dev/cli.mjs <doctor|status|build|install|live|live-off|stop|logcat|test> [--yes]
 import { spawn, spawnSync } from 'node:child_process'
-import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
+import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { checkProjectVersion } from '../versioning/project-version.mjs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   DEV_ID, LIVE_PORT, LIVE_URL, MAIN_ACTIVITY, STABLE_ID,
   adbArgs, assertAdbAllowed, labHome, parseListeningPid, assertDevApk, assertDevTarget, cleanEnvironment, liveEnvironment,
-  parseBadging, parseDevices, selectDevice, viteArgs,
+  parseBadging, parseDevices, selectDevice, viteArgs, assertDevApkVersion, assertBuildReceipt,
 } from './lib.mjs'
 
 const root = resolve(fileURLToPath(import.meta.url), '../../..')
 const apkPath = join(root, 'android/app/build/outputs/apk/debug/app-debug.apk')
+const buildReceiptPath = join(root, 'android/app/build/outputs/apk/debug/.pablo-dev-build.json')
 const sdk = process.env.ANDROID_HOME || join(process.env.HOME || '', 'Android/Sdk')
 
 function fail(message) {
@@ -55,6 +58,7 @@ function inspectApk() {
   const badging = parseBadging(result.stdout)
   try {
     assertDevApk(badging)
+    assertDevApkVersion(badging, checkProjectVersion(root))
   } catch (error) {
     fail(error.message)
   }
@@ -84,19 +88,37 @@ function status() {
   console.log(existsSync(apkPath) ? `APK DEV: ${JSON.stringify(inspectApk())}` : 'APK DEV: sin compilar')
 }
 
+function apkSha256() {
+  return createHash('sha256').update(readFileSync(apkPath)).digest('hex')
+}
+
+function requireSuccessfulBuild(badging) {
+  if (!existsSync(buildReceiptPath)) fail('No hay registro de compilación DEV correcta. Ejecuta npm run android:dev:build antes de instalar.')
+  try {
+    const receipt = JSON.parse(readFileSync(buildReceiptPath, 'utf8'))
+    assertBuildReceipt(receipt, badging, apkSha256())
+  } catch (error) {
+    fail('La APK no coincide con una compilación DEV verificada: ' + error.message + '. Ejecuta npm run android:dev:build.')
+  }
+}
+
 function build(env = cleanEnvironment(process.env)) {
   assertDevCheckout()
+  // No se permite reutilizar una APK antigua si falla cualquier etapa del build.
+  rmSync(buildReceiptPath, { force: true })
   for (const [command, args] of [['npm', ['run', 'android:sync']], ['./gradlew', [':app:assembleDebug']]]) {
     const result = run(command, args, { cwd: command === './gradlew' ? join(root, 'android') : root, stdio: 'inherit', env })
     if (result.status !== 0) fail(`Falló: ${command} ${args.join(' ')}`)
   }
   const badging = inspectApk()
+  writeFileSync(buildReceiptPath, JSON.stringify({ sha256: apkSha256(), packageName: badging.packageName, versionName: badging.versionName }) + '\n')
   console.log(`\nAPK DEV verificado: ${badging.packageName} ${badging.versionName} («${badging.label}»)`)
 }
 
 function install(confirmed) {
   assertDevCheckout()
   const badging = inspectApk()
+  requireSuccessfulBuild(badging)
   assertDevTarget(badging.packageName)
   const serial = device()
   const stableBefore = packageTimes(serial, STABLE_ID)
@@ -128,6 +150,8 @@ function liveOff() {
 
 function live(confirmed) {
   assertDevCheckout()
+  // Una APK Live no puede reutilizarse desde android:dev:install en modo normal.
+  rmSync(buildReceiptPath, { force: true })
   const serial = device()
   const env = liveEnvironment(process.env)
   console.log(`Live Reload: ${LIVE_URL} (solo loopback) -> adb reverse -> ${DEV_ID} en ${serial}`)
