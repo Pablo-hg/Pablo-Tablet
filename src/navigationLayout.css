@@ -1,0 +1,90 @@
+/* El dock inferior reserva su altura real y el mismo margen a ambos lados.
+   La reserva es padding: el viewport conserva toda su altura para no recortar
+   sombras y fondos en una línea horizontal encima del dock. */
+.tablet-shell.page-nav-style-dock.page-nav-position-bottom {
+  --page-nav-gap: 12px;
+  --bottom-nav-space: calc(var(--page-nav-height, 56px) + 2 * var(--page-nav-gap) + env(safe-area-inset-bottom, 0px));
+}
+
+.tablet-shell.page-nav-style-dock.page-nav-position-bottom .page-indicators {
+  bottom: calc(var(--page-nav-gap) + env(safe-area-inset-bottom, 0px));
+}
+
+.tablet-shell.page-nav-style-dock.page-nav-position-bottom .tablet-content {
+  height: 100svh;
+  min-height: 0;
+  padding-bottom: var(--bottom-nav-space);
+}
+
+.tablet-shell.page-nav-style-dock.page-nav-position-bottom :is(.weather-page, .calendar-page) {
+  --weather-bottom-space: 0px;
+  padding-bottom: 0;
+}
+
+/* Ajustes se desplaza hasta el borde de la pantalla, por detrás del dock.
+   Solo el final del documento reserva espacio para los últimos controles. */
+.tablet-shell.page-nav-style-dock.page-nav-position-bottom .tablet-content.is-settings {
+  padding-bottom: 0;
+}
+
+.tablet-shell.page-nav-style-dock.page-nav-position-bottom .settings-page {
+  padding-bottom: var(--bottom-nav-space);
+}
+
+.tablet-shell.page-nav-style-dock.page-nav-position-bottom .settings-page > :last-child {
+  margin-bottom: 0;
+}
+
+/* La vista de escritura conserva una salida accesible aunque oculte el dock. */
+.note-editor-done {
+  display: none;
+}
+
+.tablet-shell.is-notes-keyboard-open .note-editor-done {
+  align-items: center;
+  background: var(--ui-action);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-control, 12px);
+  color: var(--ui-action-text);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font: inherit;
+  gap: 6px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+/* Ampliar el dibujo conserva el mismo editor y el mismo lienzo montados. */
+.notes-page.is-drawing-expanded {
+  animation: none;
+  background: var(--ui-canvas);
+  height: min(100svh, var(--notes-visible-height, 100svh));
+  inset: 0;
+  max-width: none;
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  position: fixed;
+  width: 100%;
+  z-index: 20;
+}
+
+.notes-page.is-drawing-expanded :is(.compact-header, .notes-sidebar, .note-editor-actions, .note-editor-footer) {
+  display: none;
+}
+
+.notes-page.is-drawing-expanded .notes-workspace {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.tablet-shell:has(.notes-page.is-drawing-expanded) .page-indicators {
+  visibility: hidden;
+}
+
+.note-drawing-expand {
+  flex: 0 0 auto;
+  justify-content: center;
+  min-height: 44px;
+  white-space: nowrap;
+}

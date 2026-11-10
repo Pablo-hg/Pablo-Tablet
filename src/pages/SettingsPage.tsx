@@ -56,7 +56,7 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
         <button type="button" className="btn back-button" onClick={onBack}>{tx('Volver al inicio')}</button>
       </header>
 
-      <section className="settings-section settings-list" data-swipe-block aria-labelledby="language-settings-title">
+      <section className="settings-section settings-list" aria-labelledby="language-settings-title">
         <div className="section-heading">
           <div><p className="eyebrow">{tx('Personalización')}</p><h2 id="language-settings-title">{tx('Idioma')}</h2></div>
           <Languages size={22} />
@@ -73,7 +73,7 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
         />
       </section>
 
-      <section className="settings-section" data-swipe-block aria-labelledby="appearance-settings-title">
+      <section className="settings-section" aria-labelledby="appearance-settings-title">
         <div className="section-heading">
           <div><p className="eyebrow">{tx('Personalización')}</p><h2 id="appearance-settings-title">{tx('Apariencia')}</h2></div>
           <Palette size={22} />
@@ -81,7 +81,7 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
         <ThemePicker value={preferences.themeId} onChange={(themeId) => onPreferencesChange({ themeId })} />
       </section>
 
-      <section className="settings-section" data-swipe-block aria-labelledby="dashboard-settings-title">
+      <section className="settings-section" aria-labelledby="dashboard-settings-title">
         <div className="section-heading"><div><p className="eyebrow">Dashboard</p><h2 id="dashboard-settings-title">{tx('Widgets y páginas')}</h2></div><Home size={22} /></div>
         <div className="page-navigation-settings">
           <SettingsTextSelect<PageNavigationStyle>
@@ -147,7 +147,7 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
         </div>
       </section>
 
-      <section className="settings-section" data-swipe-block aria-labelledby="assistant-settings-title">
+      <section className="settings-section" aria-labelledby="assistant-settings-title">
         <div className="section-heading"><div><p className="eyebrow">{tx('Privacidad')}</p><h2 id="assistant-settings-title">{tx('Asistente')}</h2></div><Bot size={22} /></div>
         <div className="page-toggle-list assistant-settings-list">
           <SettingToggle icon={<Sparkles size={20} />} title={tx('Activar Asistente')} detail={tx('Las peticiones se procesan localmente y la conversación no se guarda. El dictado depende del servicio de voz del dispositivo o navegador.')} checked={preferences.assistantEnabled} onChange={(assistantEnabled) => onPreferencesChange({ assistantEnabled })} />
@@ -160,7 +160,7 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
 
       <MobileAdminSettings />
 
-      <section className="settings-section settings-list" data-swipe-block aria-labelledby="display-settings-title">
+      <section className="settings-section settings-list" aria-labelledby="display-settings-title">
         <div className="section-heading"><div><p className="eyebrow">{tx('Dispositivo')}</p><h2 id="display-settings-title">{tx('Pantalla')}</h2></div><SunMedium size={22} /></div>
         <div className={`night-mode-settings ${preferences.nightModeEnabled ? 'is-enabled' : ''} ${nightModeActive ? 'is-active' : ''}`}>
           <SettingToggle
@@ -187,7 +187,7 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
         {!preferences.keepScreenAwake ? <ScreenTimeoutSelect value={preferences.screenTimeoutSeconds} onChange={(screenTimeoutSeconds) => onPreferencesChange({ screenTimeoutSeconds })} /> : null}
       </section>
 
-      <section className="settings-section settings-list" data-swipe-block aria-labelledby="sound-settings-title">
+      <section className="settings-section settings-list" aria-labelledby="sound-settings-title">
         <div className="section-heading"><div><p className="eyebrow">{tx('Dispositivo')}</p><h2 id="sound-settings-title">{tx('Sonido')}</h2></div><Volume2 size={22} /></div>
         <SettingsRange icon={<Volume2 size={20} />} label={tx('Volumen de alarmas')} value={preferences.alarmVolume} minimum={0} onChange={(alarmVolume) => { onPreferencesChange({ alarmVolume }); void previewDeviceVolume('alarm', alarmVolume) }} />
         <SettingsRange icon={<Volume2 size={20} />} label={tx('Volumen general')} value={preferences.mediaVolume} minimum={0} onChange={(mediaVolume) => { onPreferencesChange({ mediaVolume }); void playInteractionSound(mediaVolume) }} />
@@ -195,22 +195,22 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
       </section>
 
       <div className="settings-compact-grid">
-        <section className="settings-section settings-list compact-notifications" data-swipe-block aria-labelledby="notification-settings-title">
+        <section className="settings-section settings-list compact-notifications" aria-labelledby="notification-settings-title">
           <div className="section-heading"><div><p className="eyebrow">{tx('Avisos')}</p><h2 id="notification-settings-title">{tx('Notificaciones')}</h2></div><BellRing size={22} /></div>
           <NotificationSettings />
         </section>
 
-        <section className="settings-section settings-list compact-screensaver" data-swipe-block aria-labelledby="screensaver-settings-title">
+        <section className="settings-section settings-list compact-screensaver" aria-labelledby="screensaver-settings-title">
           <div className="section-heading"><div><p className="eyebrow">{tx('Inactividad')}</p><h2 id="screensaver-settings-title">{tx('Salvapantallas')}</h2></div><Images size={22} /></div>
           <SettingToggle icon={<Images size={20} />} title={tx('Salvapantallas de fotos')} detail={tx('Muestra las fotos elegidas cuando la tablet queda inactiva.')} checked={preferences.screensaverEnabled} onChange={(screensaverEnabled) => onPreferencesChange({ screensaverEnabled })} />
           {preferences.screensaverEnabled ? <ScreensaverDelaySelect value={preferences.screensaverDelaySeconds} onChange={(screensaverDelaySeconds) => onPreferencesChange({ screensaverDelaySeconds })} /> : null}
         </section>
 
-        <section className="settings-section compact-updates" data-swipe-block aria-label={tx('Actualizaciones')}>
+        <section className="settings-section compact-updates" aria-label={tx('Actualizaciones')}>
           <AppUpdateSettings />
         </section>
 
-        <section className="settings-section settings-list compact-system" data-swipe-block aria-labelledby="system-settings-title">
+        <section className="settings-section settings-list compact-system" aria-labelledby="system-settings-title">
           <div className="section-heading"><div><p className="eyebrow">{tx('Aplicación')}</p><h2 id="system-settings-title">{tx('Sistema')}</h2></div><LogOut size={22} /></div>
           <button type="button" className="settings-row exit-app-row" onClick={() => void exitTabletApp()}>
             <span className="settings-icon"><LogOut size={20} /></span>

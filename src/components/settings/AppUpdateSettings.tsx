@@ -337,7 +337,7 @@ export function AppUpdateSettings() {
         {error ? <p className="app-update-message is-error" role="alert">{error}</p> : null}
       </div>
       {showSimulatedInstaller ? (
-        <div className="simulated-installer-backdrop" role="presentation">
+        <div className="simulated-installer-backdrop" role="presentation" data-swipe-block>
           <section className="simulated-installer" role="dialog" aria-modal="true" aria-labelledby="simulated-installer-title">
             <span className="simulated-installer-icon"><Smartphone size={28} /></span>
             <div>

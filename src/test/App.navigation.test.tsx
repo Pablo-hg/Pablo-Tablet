@@ -94,8 +94,8 @@ describe('navegación y flujos principales', () => {
     const dayButton = screen.getByRole('button', { name: /^17.*Revisión médica/ })
     const pointerCapture = vi.mocked(HTMLElement.prototype.setPointerCapture)
     pointerCapture.mockClear()
-    fireEvent.pointerDown(dayButton, { button: 0, pointerId: 1, clientX: 120, clientY: 120 })
-    fireEvent.pointerUp(dayButton, { button: 0, pointerId: 1, clientX: 120, clientY: 120 })
+    fireEvent.pointerDown(dayButton, { button: 0, isPrimary: true, pointerId: 1, clientX: 120, clientY: 120 })
+    fireEvent.pointerUp(dayButton, { button: 0, isPrimary: true, pointerId: 1, clientX: 120, clientY: 120 })
     fireEvent.click(dayButton)
 
     expect(pointerCapture).toHaveBeenCalledWith(1)
@@ -117,8 +117,8 @@ describe('navegación y flujos principales', () => {
     render(<App />)
 
     const dayButton = screen.getByRole('button', { name: /Abrir domingo, 25 de octubre/i })
-    fireEvent.pointerDown(dayButton, { button: 0, pointerId: 1, clientX: 120, clientY: 120 })
-    fireEvent.pointerUp(dayButton, { button: 0, pointerId: 1, clientX: 120, clientY: 120 })
+    fireEvent.pointerDown(dayButton, { button: 0, isPrimary: true, pointerId: 1, clientX: 120, clientY: 120 })
+    fireEvent.pointerUp(dayButton, { button: 0, isPrimary: true, pointerId: 1, clientX: 120, clientY: 120 })
     fireEvent.click(dayButton)
 
     expect(screen.getByRole('heading', { name: /domingo, 25 de octubre/i })).toBeVisible()

@@ -224,10 +224,9 @@
   width: 100%;
 }
 .dashboard-widget-shell.is-holding {
-  animation: widget-hold-pulse 0.7s ease-in-out infinite alternate;
   border-radius: 28px;
   outline: 3px solid rgba(142, 174, 255, 0.72);
-  outline-offset: 3px;
+  outline-offset: -3px;
 }
 .widget-hold-hint {
   background: rgba(8, 18, 38, 0.92);
@@ -248,10 +247,13 @@
 .dashboard-widget-shell.is-editing > .widget-card {
   border-color: rgba(143, 177, 255, 0.8);
   pointer-events: none;
-  transform: scale(0.975);
+  transform: none;
+}
+.dashboard-widget-shell.is-holding > .widget-card,
+.dashboard-widget-shell > .interactive-card:hover {
+  transform: none;
 }
 .dashboard-widget-shell.is-editing {
-  animation: widget-edit-wiggle 0.32s ease-in-out infinite alternate;
   cursor: grab;
   touch-action: none;
 }
@@ -262,18 +264,18 @@
 }
 .dashboard-widget-shell.is-dragging > .widget-card {
   box-shadow: 0 30px 70px rgba(0, 8, 27, 0.42);
-  transform: scale(1.015);
 }
 .widget-size-indicator {
   background: rgba(7, 17, 36, 0.94);
   border: 1px solid rgba(161, 188, 255, 0.45);
   border-radius: 12px;
-  bottom: 9px;
+  bottom: 52px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   display: grid;
   left: 50%;
   line-height: 1.05;
-  min-width: 74px;
+  max-width: calc(100% - 104px);
+  min-width: 0;
   padding: 7px 11px;
   pointer-events: none;
   position: absolute;
@@ -283,6 +285,7 @@
 .widget-size-indicator strong {
   color: #f2f6ff;
   font-size: 0.66rem;
+  overflow-wrap: anywhere;
 }
 .widget-size-indicator small {
   color: #aebfe0;
@@ -313,7 +316,6 @@
   line-height: 1;
 }
 .widget-resize-handle.can-expand {
-  animation: resize-handle-pulse 1.1s ease-in-out infinite;
   background: #7899ff;
   border-color: #d9e4ff;
   color: #07142d;
@@ -327,28 +329,28 @@
   height: 54px;
   top: 50%;
   transform: translateY(-50%);
-  width: 25px;
+  width: 44px;
 }
 .widget-resize-handle.is-left {
-  left: -13px;
+  left: 0;
 }
 .widget-resize-handle.is-right {
-  right: -13px;
+  right: 0;
 }
 .widget-resize-handle.is-top,
 .widget-resize-handle.is-bottom {
   border-radius: 10px;
   cursor: ns-resize;
-  height: 25px;
+  height: 44px;
   left: 50%;
   transform: translateX(-50%);
   width: 54px;
 }
 .widget-resize-handle.is-top {
-  top: -13px;
+  top: 0;
 }
 .widget-resize-handle.is-bottom {
-  bottom: -13px;
+  bottom: 0;
 }
 .widget-editor-banner {
   align-items: center;
@@ -359,6 +361,7 @@
   display: flex;
   gap: 14px;
   left: 50%;
+  max-width: calc(100% - 24px);
   padding: 7px 8px 7px 15px;
   position: fixed;
   top: 14px;
@@ -369,6 +372,8 @@
   color: #dce7ff;
   font-size: 0.72rem;
   font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .widget-editor-banner button {
   align-items: center;
@@ -381,35 +386,20 @@
   font-size: 0.7rem;
   font-weight: 800;
   gap: 5px;
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 44px;
   padding: 8px 12px;
 }
-@keyframes widget-hold-pulse {
-  from {
-    transform: scale(1);
+@container dashboard-widget (max-height: 150px) {
+  .widget-size-indicator {
+    padding: 4px 7px;
   }
-  to {
-    transform: scale(0.985);
+  .widget-size-indicator strong {
+    display: none;
   }
-}
-@keyframes widget-edit-wiggle {
-  from {
-    transform: rotate(-0.12deg);
-  }
-  to {
-    transform: rotate(0.12deg);
-  }
-}
-@keyframes resize-handle-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 0 rgba(120, 153, 255, 0.24),
-      0 5px 18px rgba(0, 0, 0, 0.32);
-  }
-  50% {
-    box-shadow:
-      0 0 0 7px rgba(120, 153, 255, 0),
-      0 5px 18px rgba(0, 0, 0, 0.32);
+  .widget-size-indicator small {
+    margin-top: 0;
   }
 }
 .dashboard-empty-state {

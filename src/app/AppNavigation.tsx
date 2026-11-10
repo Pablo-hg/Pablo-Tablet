@@ -42,6 +42,25 @@ export function AppNavigation({ screen, enabledPages, activePageIndex, pageNavig
 
   useLayoutEffect(() => {
     const navigation = navigationRef.current
+    const shell = navigation?.closest<HTMLElement>('.tablet-shell')
+    if (!navigation || !shell) return
+    const measure = () => {
+      const height = navigation.getBoundingClientRect().height
+      if (height > 0) shell.style.setProperty('--page-nav-height', `${height}px`)
+    }
+    measure()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    observer?.observe(navigation)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', measure)
+      shell.style.removeProperty('--page-nav-height')
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    const navigation = navigationRef.current
     const activeButton = navigation?.querySelector<HTMLButtonElement>(`button[data-navigation-index="${currentIndex}"]`)
     if (!navigation || !activeButton) return
     const rect = navigation.getBoundingClientRect()

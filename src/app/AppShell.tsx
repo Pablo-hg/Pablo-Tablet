@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 import type { DashboardThemeId, PageNavigationPosition, PageNavigationStyle } from '../dashboardState'
 
-interface AppShellProps extends Pick<HTMLAttributes<HTMLElement>, 'onPointerDown' | 'onPointerUp' | 'onPointerCancel' | 'onTouchStart' | 'onTouchEnd' | 'onTouchCancel' | 'onClickCapture' | 'onClick'> {
+interface AppShellProps extends Pick<HTMLAttributes<HTMLElement>, 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel' | 'onLostPointerCapture' | 'onTouchStart' | 'onTouchMove' | 'onTouchEnd' | 'onTouchCancel' | 'onClickCapture' | 'onClick'> {
   themeId: DashboardThemeId
   nightModeActive: boolean
   pageNavigationStyle: PageNavigationStyle

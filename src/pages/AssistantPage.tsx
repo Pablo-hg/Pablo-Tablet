@@ -85,7 +85,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     const top = pending && confirmationRef.current
       ? log.scrollTop + confirmationRef.current.getBoundingClientRect().top - log.getBoundingClientRect().top
       : log.scrollHeight
-    log.scrollTo({ top, behavior: 'smooth' })
+    log.scrollTo({ top, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   }, [messages, pending])
 
   useEffect(() => () => {

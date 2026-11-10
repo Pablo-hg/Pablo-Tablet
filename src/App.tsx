@@ -30,6 +30,8 @@ import {
   Home,
   ListTodo,
   MapPin,
+  Maximize2,
+  Minimize2,
   Minus,
   Moon,
   Pause,
@@ -109,12 +111,15 @@ import { AssistantPage, type AssistantPageHandle } from './pages/AssistantPage'
 import { PageHeader } from './components/PageHeader'
 import { nativeCalendarEventsForYears } from './nativeCalendarDates'
 import { activeLocale, setAppLanguage, tx } from './i18n'
+import type { TranslationKey } from './i18n/translations'
 import { setNativeAppLanguage } from './nativeLocale'
 import './App.css'
 import './themes.css'
 import './pages/WeatherPage.css'
 import './components/DashboardWidgetDetails.css'
 import './components/NotesWidget.css'
+import './interactions.css'
+import './navigationLayout.css'
 
 type SimulatedAlert = { title: string; body: string }
 type RingingAlert = { kind: 'alarm' | 'timer' | 'calendar'; sourceId: string; title: string; subtitle: string; soundUri: string | null }
@@ -153,7 +158,7 @@ function App() {
   const [screensaverVisible, setScreensaverVisible] = useState(false)
   const [screensaverPhotoId, setScreensaverPhotoId] = useState<string | null>(null)
   const pointerStart = useRef<{ x: number; y: number; pointerId: number } | null>(null)
-  const touchStart = useRef<{ x: number; y: number } | null>(null)
+  const touchStart = useRef<{ x: number; y: number; identifier: number } | null>(null)
   const screensaverQueue = useRef<string[]>([])
   const lastScreensaverPhotoId = useRef<string | null>(null)
   const suppressClick = useRef(false)
@@ -161,6 +166,24 @@ function App() {
   const calendarSyncInFlight = useRef(new Set<string>())
   const dashboardStateRef = useRef(dashboardState)
   const dashboardReady = useDashboardPersistence({ state: dashboardState, stateRef: dashboardStateRef, setState: setDashboardState })
+
+  useEffect(() => {
+    const cancelPageGesture = () => {
+      pointerStart.current = null
+      touchStart.current = null
+    }
+    const handleVisibilityChange = () => {
+      if (document.hidden) cancelPageGesture()
+    }
+    window.addEventListener('blur', cancelPageGesture)
+    window.addEventListener('resize', cancelPageGesture)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.removeEventListener('blur', cancelPageGesture)
+      window.removeEventListener('resize', cancelPageGesture)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
 
   const enabledPages = useMemo(
     () => DASHBOARD_PAGES.filter((page) => dashboardState.preferences.enabledPageIds.includes(page.id)),
@@ -943,11 +966,15 @@ function App() {
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return
+    if (event.button !== 0 || event.isPrimary === false) {
+      pointerStart.current = null
+      return
+    }
     const target = event.target as HTMLElement
     const swipeSurfaceButton = target.closest('[data-page-swipe-surface]') && target.closest('button')
-    const interactiveTarget = target.closest('button, a, input, textarea, select, [role="button"]')
+    const interactiveTarget = target.closest('button, a, input, textarea, select, [role="button"], [role="switch"], [role="slider"], [contenteditable]:not([contenteditable="false"])')
     const gestureBlocked = interactionLocked
-      || target.closest('[data-swipe-block], .page-indicators')
+      || target.closest('[data-swipe-block], .page-indicators, [role="dialog"], [role="alertdialog"]')
       || (interactiveTarget && !swipeSurfaceButton)
     if (gestureBlocked) {
       pointerStart.current = null
@@ -959,6 +986,14 @@ function App() {
     registerInteraction()
   }
 
+  const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
+    const start = pointerStart.current
+    if (!start || start.pointerId !== event.pointerId) return
+    const deltaX = event.clientX - start.x
+    const deltaY = event.clientY - start.y
+    if (Math.abs(deltaY) > 14 && Math.abs(deltaY) > Math.abs(deltaX) * 1.2) handlePointerCancel(event)
+  }
+
   const handlePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch') return
     if (!pointerStart.current || pointerStart.current.pointerId !== event.pointerId) return
@@ -966,6 +1001,7 @@ function App() {
     const deltaY = event.clientY - pointerStart.current.y
     pointerStart.current = null
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (interactionLocked) return
     if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
     suppressClick.current = true
     window.setTimeout(() => {
@@ -1002,26 +1038,46 @@ function App() {
   }
 
   const handleTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
+    if (event.touches.length > 1 || event.changedTouches.length !== 1) {
+      touchStart.current = null
+      return
+    }
     const target = event.target as HTMLElement
-    const isNoteTextarea = Boolean(target.closest('.note-editor textarea'))
     const swipeSurfaceButton = target.closest('[data-page-swipe-surface]') && target.closest('button')
-    const interactiveTarget = target.closest('button, a, input, select, [role="button"]')
-    const gestureBlocked = (!isNoteTextarea && interactionLocked)
-      || target.closest('[data-swipe-block], .page-indicators')
+    const interactiveTarget = target.closest('button, a, input, textarea, select, [role="button"], [role="switch"], [role="slider"], [contenteditable]:not([contenteditable="false"])')
+    const gestureBlocked = interactionLocked
+      || target.closest('[data-swipe-block], .page-indicators, [role="dialog"], [role="alertdialog"]')
       || (interactiveTarget && !swipeSurfaceButton)
-      || (!isNoteTextarea && target.closest('textarea'))
     if (gestureBlocked) {
       touchStart.current = null
       return
     }
     const touch = event.changedTouches[0]
-    touchStart.current = { x: touch.clientX, y: touch.clientY }
+    touchStart.current = { x: touch.clientX, y: touch.clientY, identifier: touch.identifier }
     registerInteraction()
+  }
+
+  const handleTouchMove = (event: ReactTouchEvent<HTMLElement>) => {
+    const start = touchStart.current
+    if (!start) return
+    const touch = Array.from(event.touches).find(contact => contact.identifier === start.identifier)
+    if (event.touches.length !== 1 || !touch) {
+      touchStart.current = null
+      return
+    }
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    // Una vez iniciado el scroll vertical, el mismo gesto no navega entre páginas.
+    if (Math.abs(deltaY) > 14 && Math.abs(deltaY) > Math.abs(deltaX) * 1.2) touchStart.current = null
   }
 
   const handleTouchEnd = (event: ReactTouchEvent<HTMLElement>) => {
     if (!touchStart.current) return
-    const touch = event.changedTouches[0]
+    const touch = Array.from(event.changedTouches).find(contact => contact.identifier === touchStart.current?.identifier)
+    if (!touch || event.touches.length > 0 || interactionLocked) {
+      touchStart.current = null
+      return
+    }
     const deltaX = touch.clientX - touchStart.current.x
     const deltaY = touch.clientY - touchStart.current.y
     touchStart.current = null
@@ -1030,8 +1086,6 @@ function App() {
     window.setTimeout(() => {
       suppressClick.current = false
     }, 0)
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-    setInteractionLocked(false)
     moveToNavigationPage(activeNavigationIndex + (deltaX < 0 ? 1 : -1))
   }
 
@@ -1051,9 +1105,12 @@ function App() {
       pageNavigationPosition={dashboardState.preferences.pageNavigationPosition}
       showPageNavigationLabels={dashboardState.preferences.showPageNavigationLabels}
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
+      onLostPointerCapture={handlePointerCancel}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={() => { touchStart.current = null }}
       onClickCapture={handleClickCapture}
@@ -1571,6 +1628,28 @@ function GridDashboard({ now, time, date, widgets, notes, alarms, calendarEvents
     setHoldingWidgetId(null)
   }, [])
 
+  const cancelWidgetGestures = useCallback(() => {
+    cancelWidgetHold()
+    dragGesture.current = null
+    resizeGesture.current = null
+    setDragPreview(null)
+    setResizePreview(null)
+  }, [cancelWidgetHold])
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) cancelWidgetGestures()
+    }
+    window.addEventListener('blur', cancelWidgetGestures)
+    window.addEventListener('resize', cancelWidgetGestures)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.removeEventListener('blur', cancelWidgetGestures)
+      window.removeEventListener('resize', cancelWidgetGestures)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [cancelWidgetGestures])
+
   useEffect(() => {
     onEditingChangeRef.current = onEditingChange
   }, [onEditingChange])
@@ -1599,6 +1678,7 @@ function GridDashboard({ now, time, date, widgets, notes, alarms, calendarEvents
   const startWidgetHold = (widgetId: DashboardWidgetId, event: ReactPointerEvent<HTMLDivElement>) => {
     if (isEditing || event.button !== 0) return
     cancelWidgetHold()
+    if (event.isPrimary === false || (event.target as HTMLElement).closest('[data-swipe-block], input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return
     holdGesture.current = { widgetId, pointerId: event.pointerId, x: event.clientX, y: event.clientY }
     setHoldingWidgetId(widgetId)
     holdTimer.current = window.setTimeout(() => {
@@ -1615,11 +1695,8 @@ function GridDashboard({ now, time, date, widgets, notes, alarms, calendarEvents
   }
 
   const finishEditing = () => {
-    cancelWidgetHold()
-    dragGesture.current = null
-    resizeGesture.current = null
-    setDragPreview(null)
-    setResizePreview(null)
+    cancelWidgetGestures()
+    suppressWidgetActivation.current = false
     setSelectedWidgetId(null)
     setIsEditing(false)
     onEditingChangeRef.current(false)
@@ -1645,7 +1722,7 @@ function GridDashboard({ now, time, date, widgets, notes, alarms, calendarEvents
     : widget.layout.height > 1
 
   const startWidgetResize = (widget: PlacedWidget, direction: WidgetResizeDirection, event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!isEditing || event.button !== 0) return
+    if (!isEditing || event.button !== 0 || event.isPrimary === false || dragGesture.current || resizeGesture.current) return
     const grid = gridRef.current
     if (!grid) return
     event.preventDefault()
@@ -1702,6 +1779,7 @@ function GridDashboard({ now, time, date, widgets, notes, alarms, calendarEvents
     resizeGesture.current = null
     setResizePreview(null)
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (event.type !== 'pointerup') return
     if (finalPosition.x !== gesture.initial.x || finalPosition.y !== gesture.initial.y || finalPosition.width !== gesture.initial.width || finalPosition.height !== gesture.initial.height) {
       onChangeWidgetLayout(gesture.widgetId, orientation, finalPosition)
       if ('vibrate' in navigator) navigator.vibrate(18)
@@ -1709,7 +1787,7 @@ function GridDashboard({ now, time, date, widgets, notes, alarms, calendarEvents
   }
 
   const startWidgetDrag = (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!isEditing || event.button !== 0 || (event.target as HTMLElement).closest('.widget-resize-handle, .widget-size-indicator')) return
+    if (!isEditing || event.button !== 0 || event.isPrimary === false || dragGesture.current || resizeGesture.current || (event.target as HTMLElement).closest('.widget-resize-handle, .widget-size-indicator')) return
     const grid = gridRef.current
     if (!grid) return
     event.preventDefault()
@@ -1759,6 +1837,7 @@ function GridDashboard({ now, time, date, widgets, notes, alarms, calendarEvents
     dragGesture.current = null
     setDragPreview(null)
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (event.type !== 'pointerup') return
     onChangeWidgetLayout(widget.id, orientation, { x, y })
   }
 
@@ -1790,10 +1869,10 @@ function DashboardEmptyState({ time, date }: { time: string; date: string }) {
 }
 
 function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, children }: { widget: PlacedWidget; style: CSSProperties; isEditing: boolean; showResizeHandles: boolean; isHolding: boolean; dragOffset: { x: number; y: number } | null; onHoldStart: (widgetId: DashboardWidgetId, event: ReactPointerEvent<HTMLDivElement>) => void; onDragStart: (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => void; onDragMove: (event: ReactPointerEvent<HTMLDivElement>) => void; onDragEnd: (widget: PlacedWidget, event: ReactPointerEvent<HTMLDivElement>) => void; onResizeStart: (widget: PlacedWidget, direction: WidgetResizeDirection, event: ReactPointerEvent<HTMLButtonElement>) => void; onResizeMove: (event: ReactPointerEvent<HTMLButtonElement>) => void; onResizeEnd: (event: ReactPointerEvent<HTMLButtonElement>) => void; canExpand: (direction: WidgetResizeDirection) => boolean; canShrink: (direction: WidgetResizeDirection) => boolean; children: ReactNode }) {
-  const widgetNames: Record<DashboardWidgetId, string> = { clock: 'Reloj', weather: 'Tiempo', notes: 'Notas', agenda: 'Calendario', assistant: 'Asistente' }
+  const widgetNames: Record<DashboardWidgetId, TranslationKey> = { clock: 'Reloj', weather: 'Tiempo', notes: 'Notas', agenda: 'Calendario', assistant: 'Asistente' }
   const resizeDirections: WidgetResizeDirection[] = ['left', 'right', 'top', 'bottom']
   const arrows: Record<WidgetResizeDirection, string> = { left: '←', right: '→', top: '↑', bottom: '↓' }
-  const directionNames: Record<WidgetResizeDirection, string> = { left: 'izquierdo', right: 'derecho', top: 'superior', bottom: 'inferior' }
+  const directionNames: Record<WidgetResizeDirection, TranslationKey> = { left: 'izquierdo', right: 'derecho', top: 'superior', bottom: 'inferior' }
 
   return <div
     className={`dashboard-widget-shell widget-size-${widget.layout.width}x${widget.layout.height} ${isEditing ? 'is-editing' : ''} ${isHolding ? 'is-holding' : ''} ${dragOffset ? 'is-dragging' : ''}`}
@@ -1804,12 +1883,13 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
     onPointerMove={onDragMove}
     onPointerUp={(event) => onDragEnd(widget, event)}
     onPointerCancel={(event) => onDragEnd(widget, event)}
+    onLostPointerCapture={(event) => onDragEnd(widget, event)}
     onContextMenu={(event) => event.preventDefault()}
   >
     {children}
     {isHolding ? <span className="widget-hold-hint">{tx('Mantén pulsado…')}</span> : null}
     {isEditing ? <>
-      <span className="widget-size-indicator" data-swipe-block><strong>{widgetNames[widget.id]}</strong><small>{widget.layout.width} × {widget.layout.height}</small></span>
+      <span className="widget-size-indicator" data-swipe-block><strong>{tx(widgetNames[widget.id])}</strong><small>{widget.layout.width} × {widget.layout.height}</small></span>
       {showResizeHandles ? resizeDirections.map((direction) => {
         const expands = canExpand(direction)
         if (!expands && !canShrink(direction)) return null
@@ -1818,11 +1898,12 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
           type="button"
           className={`widget-resize-handle is-${direction} ${expands ? 'can-expand' : 'shrink-only'}`}
           data-swipe-block
-          aria-label={`Ajustar borde ${directionNames[direction]} de ${widgetNames[widget.id]}`}
+          aria-label={tx('Ajustar borde {{direction}} de {{widget}}', { direction: tx(directionNames[direction]), widget: tx(widgetNames[widget.id]) })}
           onPointerDown={(event) => onResizeStart(widget, direction, event)}
           onPointerMove={onResizeMove}
           onPointerUp={onResizeEnd}
           onPointerCancel={onResizeEnd}
+          onLostPointerCapture={onResizeEnd}
           onClick={(event) => event.preventDefault()}
         ><span aria-hidden="true">{expands ? arrows[direction] : '•'}</span></button>
       }) : null}
@@ -2182,13 +2263,13 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
         </div>
       </div>
     </section> : <div className="calendar-layout">
-      <section className="calendar-month-panel" data-page-swipe-surface>
+      <section className="calendar-month-panel">
         <header className="calendar-toolbar">
           <div><p className="eyebrow">{tx('Agenda unificada')}</p><h1>{formatCalendarMonth(visibleMonth)}</h1></div>
           <div><button type="button" className={`calendar-hide-completed ${hideCompletedTasks ? 'is-active' : ''}`} onClick={() => onHideCompletedTasksChange(!hideCompletedTasks)} aria-pressed={hideCompletedTasks}><EyeOff size={17} /><span>{tx('Ocultar finalizados')}</span></button><button type="button" onClick={() => changeMonth(-1)} aria-label={tx('Mes anterior')}><ChevronLeft size={20} /></button><button type="button" className="calendar-today-button" onClick={goToToday}>{tx('Hoy')}</button><button type="button" onClick={() => changeMonth(1)} aria-label={tx('Mes siguiente')}><ChevronRight size={20} /></button></div>
         </header>
         <div className="calendar-weekdays">{Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(activeLocale(), { weekday: 'short' }).format(new Date(2026, 0, 5 + index)).replace('.', '')).map((day) => <span key={day}>{day}</span>)}</div>
-        <div className="calendar-month-grid">{monthCells.map((day, index) => {
+        <div className="calendar-month-grid" data-page-swipe-surface>{monthCells.map((day, index) => {
           if (!day) return <span key={`empty-${index}`} className="calendar-empty-day" />
           const key = toLocalDateKey(day)
           const dayEvents = visibleEvents.flatMap((event) => {
@@ -2746,6 +2827,7 @@ function NotesPage({
 }) {
   const [showArchived, setShowArchived] = useState(false)
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false)
+  const [drawingExpanded, setDrawingExpanded] = useState(false)
   const notesPageRef = useNotesKeyboardViewport()
   const visibleNotes = useMemo(
     () => notes.filter((note) => !note.archived).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt)),
@@ -2770,7 +2852,7 @@ function NotesPage({
   </div> : null
 
   return (
-    <div ref={notesPageRef} className="fullscreen-page notes-page page-enter">
+    <div ref={notesPageRef} className={`fullscreen-page notes-page page-enter ${drawingExpanded ? 'is-drawing-expanded' : ''}`} data-swipe-block={drawingExpanded ? true : undefined}>
       <PageHeader pageLabel="Notas" />
       <section className="notes-workspace" aria-label={tx('Notas locales')}>
         <aside className="notes-sidebar">
@@ -2782,7 +2864,7 @@ function NotesPage({
             {notesForView.length === 0 ? <div className="notes-empty"><FileText size={24} /><p>{tx(showArchived ? 'No hay notas archivadas.' : 'Aún no hay notas.')}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>{tx('Crear la primera')}</button> : null}</div> : null}
           </div>
         </aside>
-        {selectedNote ? <NoteEditor key={selectedNote.id} note={selectedNote} readOnly={showArchived} onUpdate={onUpdateNote} onArchive={() => { onArchiveNote(selectedNote.id); setSelectedId(null) }} onRestore={() => { onRestoreNote(selectedNote.id); setShowArchived(false); setSelectedId(selectedNote.id) }} onDelete={() => { if (window.confirm(tx('¿Eliminar esta nota de forma permanente?'))) { onDeleteNote(selectedNote.id); setSelectedId(null) } }} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} /> : <div className="notes-editor-placeholder"><FileText size={32} /><h2>{tx(showArchived ? 'Archivo vacío' : 'Tu espacio de notas')}</h2><p>{tx(showArchived ? 'Las notas archivadas aparecerán aquí.' : 'Crea una nota para guardar ideas y recordatorios locales.')}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>{tx('Nueva nota')}</button> : null}</div>}
+        {selectedNote ? <NoteEditor key={selectedNote.id} note={selectedNote} readOnly={showArchived} drawingExpanded={drawingExpanded} onDrawingExpandedChange={setDrawingExpanded} onUpdate={onUpdateNote} onArchive={() => { onArchiveNote(selectedNote.id); setSelectedId(null) }} onRestore={() => { onRestoreNote(selectedNote.id); setShowArchived(false); setSelectedId(selectedNote.id) }} onDelete={() => { if (window.confirm(tx('¿Eliminar esta nota de forma permanente?'))) { onDeleteNote(selectedNote.id); setSelectedId(null) } }} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} /> : <div className="notes-editor-placeholder"><FileText size={32} /><h2>{tx(showArchived ? 'Archivo vacío' : 'Tu espacio de notas')}</h2><p>{tx(showArchived ? 'Las notas archivadas aparecerán aquí.' : 'Crea una nota para guardar ideas y recordatorios locales.')}</p>{!showArchived ? <button type="button" onClick={() => setIsCreateMenuOpen(true)}>{tx('Nueva nota')}</button> : null}</div>}
       </section>
     </div>
   )
@@ -3094,7 +3176,13 @@ function NoteListEditor({ note, readOnly, onUpdate, onEditingChange }: { note: N
   </div>
 }
 
-function NoteEditor({ note, readOnly, onUpdate, onArchive, onRestore, onDelete, onPreviewNotification, onEditingChange }: { note: Note; readOnly: boolean; onUpdate: (noteId: string, patch: NotePatch) => void; onArchive: () => void; onRestore: () => void; onDelete: () => void; onPreviewNotification: (title: string, body: string) => void; onEditingChange: (isEditing: boolean) => void }) {
+function NoteEditor({ note, readOnly, drawingExpanded, onDrawingExpandedChange, onUpdate, onArchive, onRestore, onDelete, onPreviewNotification, onEditingChange }: { note: Note; readOnly: boolean; drawingExpanded: boolean; onDrawingExpandedChange: (expanded: boolean) => void; onUpdate: (noteId: string, patch: NotePatch) => void; onArchive: () => void; onRestore: () => void; onDelete: () => void; onPreviewNotification: (title: string, body: string) => void; onEditingChange: (isEditing: boolean) => void }) {
+  const editorRef = useRef<HTMLDivElement>(null)
+  const finishEditing = () => {
+    const focused = document.activeElement
+    if (focused instanceof HTMLElement && editorRef.current?.contains(focused)) focused.blur()
+    onEditingChange(false)
+  }
   const colors: NoteColor[] = ['coral', 'violet', 'mint', 'sun']
   const isDrawing = note.type === 'drawing'
   const isList = note.type === 'list'
@@ -3106,7 +3194,13 @@ function NoteEditor({ note, readOnly, onUpdate, onArchive, onRestore, onDelete, 
       : (note.content || tx('Tienes un recordatorio en Pablo Tablet.'))
 
   return (
-    <div className={`note-editor note-editor-${note.type}`}>
+    <div ref={editorRef} className={`note-editor note-editor-${note.type}`} onKeyDown={(event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        finishEditing()
+        onDrawingExpandedChange(false)
+      }
+    }}>
       <div className="note-editor-actions">
         <div className="note-colors" aria-label={tx('Color de la nota')}>{colors.map((color) => <button key={color} type="button" disabled={readOnly} className={`color-dot ${color} ${note.color === color ? 'is-active' : ''}`} onClick={() => onUpdate(note.id, { color })} aria-label={tx('Usar color {{color}}', { color })} />)}</div>
         {!readOnly ? <button type="button" className={`text-action ${note.pinned ? 'is-active' : ''}`} onClick={() => onUpdate(note.id, { pinned: !note.pinned })}><Pin size={16} />{tx(note.pinned ? 'Fijada' : 'Fijar')}</button> : null}
@@ -3114,6 +3208,8 @@ function NoteEditor({ note, readOnly, onUpdate, onArchive, onRestore, onDelete, 
       </div>
       <div className="note-editor-heading">
         <input className="note-title-input" value={note.title} maxLength={80} readOnly={readOnly} onChange={(event) => onUpdate(note.id, { title: event.target.value })} onFocus={() => onEditingChange(true)} onBlur={() => onEditingChange(false)} placeholder={tx('Título de la nota')} aria-label={tx('Título de la nota')} />
+        <button type="button" className="note-editor-done" data-notes-editing-control aria-label={tx('Terminar edición')} onPointerDown={(event) => event.preventDefault()} onClick={finishEditing}><Check size={18} aria-hidden="true" />{tx('Listo')}</button>
+        {isDrawing ? <button type="button" className="text-action note-drawing-expand" aria-label={tx(drawingExpanded ? 'Reducir editor de dibujo' : 'Ampliar editor de dibujo')} aria-pressed={drawingExpanded} onClick={(event) => { finishEditing(); onDrawingExpandedChange(!drawingExpanded); event.currentTarget.focus() }}>{drawingExpanded ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}{tx(drawingExpanded ? 'Reducir' : 'Ampliar')}</button> : null}
         <span className={`note-format-badge is-${note.type}`}>{isDrawing ? <Pencil size={15} /> : isList ? <ListTodo size={15} /> : <FileText size={15} />}{tx(isDrawing ? 'Dibujo' : isList ? 'Lista' : 'Texto')}</span>
       </div>
       <div className={`note-editor-body is-${note.type}`}>
