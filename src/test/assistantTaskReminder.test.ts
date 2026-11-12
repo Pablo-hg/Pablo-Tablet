@@ -33,9 +33,9 @@ describe('tarea con recordatorio conversacional', () => {
     const result = await executeAssistantPlan(plan, { execute }, true) as ReturnType<typeof executeAssistantCommand>
     saveDashboardState(result.state)
     const task = loadDashboardState().calendarEvents[0]
-    expect(task).toMatchObject({ title: 'comprar pilas', date: '2026-11-13', startTime: '19:00', allDay: false, type: 'task', source: 'local', reminders: [{ date: '2026-11-13', time: '18:30' }] })
+    expect(task).toMatchObject({ title: 'comprar pilas', date: '2026-11-13', startTime: '19:00', allDay: false, type: 'task', source: 'local', reminders: [{ date: '2026-11-13', time: '18:00' }] })
     expect(task.id).not.toBe(task.reminders[0].id)
-    expect(assistantCommandSummary(plan.command, 'es', now).details.join(' ')).toContain('18:30')
+    expect(assistantCommandSummary(plan.command, 'es', now).details.join(' ')).toContain('Aviso: 1 hora antes')
     await expect(executeAssistantPlan(plan, { execute }, true)).rejects.toThrow('ya se ha procesado')
   })
 
@@ -52,7 +52,9 @@ describe('tarea con recordatorio conversacional', () => {
   })
 
   it('calcula el aviso del día anterior y rechaza avisos pasados antes de guardar', () => {
-    expect(taskReminderTime('2027-01-01', '00:15')).toEqual({ date: '2026-12-31', time: '23:45' })
+    expect(taskReminderTime('2027-01-01', '00:15')).toEqual({ date: '2026-12-31', time: '23:15' })
+    expect(taskReminderTime('2026-11-13', '19:00', 30)).toEqual({ date: '2026-11-13', time: '18:30' })
+    expect(() => validateAssistantCommand({ type: 'create_task_reminder', args: { title: 'prueba', date: '2026-11-13', time: '19:00', timeZone: 'Europe/Madrid', reminderMinutesBefore: -1 } })).toThrow()
     expect(() => executeAssistantCommand(structuredClone(DEFAULT_DASHBOARD_STATE), { type: 'create_task_reminder', args: { title: 'prueba', date: '2026-11-11', timeZone: 'Europe/Madrid', time: '19:00' } }, environment)).toThrow('ya ha pasado')
   })
 })

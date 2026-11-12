@@ -61,13 +61,13 @@ describe('sincronización de notificaciones locales', () => {
     notificationPlugin.schedule.mockResolvedValue({ notifications: [] })
   })
 
-  it('programa el aviso creado por Lumi media hora antes de la tarea', async () => {
+  it('programa el aviso creado por Lumi una hora antes de la tarea', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 10, 12, 9))
     const result = executeAssistantCommand(structuredClone(DEFAULT_DASHBOARD_STATE), { type: 'create_task_reminder', args: { title: 'comprar pilas', date: '2026-11-13', time: '19:00', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } }, { now: new Date(), createId: () => crypto.randomUUID(), homeWeatherLocation: null, homeWeatherForecast: null })
     await syncCalendarEventNotifications(result.state.calendarEvents)
     expect(notificationPlugin.schedule).toHaveBeenCalledWith({ notifications: [expect.objectContaining({
-      title: 'comprar pilas', schedule: { at: new Date(2026, 10, 13, 18, 30), allowWhileIdle: true },
+      title: 'comprar pilas', schedule: { at: new Date(2026, 10, 13, 18, 0), allowWhileIdle: true },
       extra: expect.objectContaining({ kind: 'calendar', calendarEventId: result.state.calendarEvents[0].id }),
     })] })
   })

@@ -387,6 +387,23 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       {pending && summary ? <section ref={confirmationRef} className="assistant-confirmation" aria-label={tx('Acción pendiente de confirmación')}>
         <header><span><Check size={18} /></span><div><small>{tx('Revisa antes de ejecutar')}</small><h2>{summary.title}</h2></div></header>
         <ul>{summary.details.map((detail) => <li key={detail}>{detail}</li>)}</ul>
+        {!compact && pending.plan.command.type === 'create_task_reminder' ? <label className="settings-select-row">
+          <span>{tx('Antelación del aviso')}</span>
+          <select aria-label={tx('Antelación del aviso')} value={pending.plan.command.args.reminderMinutesBefore ?? 60} onChange={event => {
+            const current = pendingRef.current
+            if (!current || current.plan.command.type !== 'create_task_reminder') return
+            abortRef.current?.abort()
+            listeningControllerRef.current?.abort()
+            listeningControllerRef.current = null
+            setListening(false)
+            const command = validateAssistantCommand({ ...current.plan.command, args: { ...current.plan.command.args, reminderMinutesBefore: Number(event.target.value) } })
+            const updated = { ...current, plan: { ...current.plan, command } }
+            pendingRef.current = updated
+            setPending(updated)
+          }}>
+            {([15, 30, 60, 120, 1440] as const).map(minutes => <option key={minutes} value={minutes}>{tx(minutes === 15 ? '15 minutos antes' : minutes === 30 ? '30 minutos antes' : minutes === 60 ? '1 hora antes' : minutes === 120 ? '2 horas antes' : '1 día antes')}</option>)}
+          </select>
+        </label> : null}
         <p>{pending.plan.explanation}</p>
         {!compact ? <div className="assistant-confirmation-actions">
           <button type="button" className="assistant-confirm" onClick={() => void confirmPending()}><Check size={17} />{tx('Confirmar')}</button>

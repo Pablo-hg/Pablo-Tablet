@@ -92,10 +92,25 @@ describe('pantalla del asistente', () => {
     expect(speakAssistantText).toHaveBeenCalledWith(expect.stringContaining('¿A qué hora?'), '', 'es')
     expect(speakAssistantText).toHaveBeenCalledWith(expect.stringContaining('¿Por la mañana o por la tarde?'), '', 'es')
     expect(screen.getByText('Hora: 19:00')).toBeInTheDocument()
-    expect(speakAssistantText).toHaveBeenCalledWith(expect.stringContaining('18:30'), '', 'es')
+    expect(speakAssistantText).toHaveBeenCalledWith(expect.stringContaining('Aviso: 1 hora antes'), '', 'es')
     confirm('confirmar')
     expect(await screen.findByText('Tarea guardada con aviso.')).toBeInTheDocument()
     expect(onExecute).toHaveBeenCalledOnce()
+  })
+
+  it('muestra solo la antelación y permite editarla antes de confirmar', async () => {
+    const onExecute = vi.fn().mockResolvedValue({ state: {} as never, response: 'Tarea creada.' })
+    render(<AssistantPage enabled voiceEnabled={false} readAloud={false} now={new Date('2026-11-12T09:00:00Z')} onExecute={onExecute} onOpenPage={vi.fn()} onEditingChange={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText('Escribe o dicta una petición'), { target: { value: 'Recuérdame el próximo viernes a las 19:00 que vaya a comprar pilas' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar petición' }))
+    expect(await screen.findByText('Aviso: 1 hora antes')).toBeInTheDocument()
+    expect(screen.getByText('Destino: calendario local')).toBeInTheDocument()
+    expect(screen.queryByText(/Aviso.*18:00/)).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Antelación del aviso' }), { target: { value: '30' } })
+    expect(screen.getByText('Aviso: 30 minutos antes')).toBeInTheDocument()
+    expect(onExecute).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    await waitFor(() => expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ args: expect.objectContaining({ reminderMinutesBefore: 30 }) })))
   })
 
   it('permite cancelar mientras falta la hora sin crear nada', async () => {
@@ -150,7 +165,7 @@ describe('pantalla del asistente', () => {
     }
     send()
     expect(await screen.findByRole('heading', { name: 'Crear tarea local' })).toBeInTheDocument()
-    expect(screen.getByText('Destino: calendario local de esta tablet')).toBeInTheDocument()
+    expect(screen.getByText('Destino: calendario local')).toBeInTheDocument()
     expect(screen.getByText('Fecha: mañana, viernes, día 13')).toBeInTheDocument()
     expect(screen.queryByText(/Zona horaria:/)).not.toBeInTheDocument()
     expect(onExecute).not.toHaveBeenCalled()

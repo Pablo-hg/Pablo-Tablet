@@ -6,7 +6,7 @@ export type AssistantCommand =
   | { type: 'get_calendar'; args: { from: string; to: string } }
   | { type: 'get_notes'; args: { limit: number } }
   | { type: 'get_clock_status'; args: { include: 'alarms' | 'timers' | 'both' } }
-  | { type: 'create_task_reminder'; args: { title: string; date: string; timeZone: string; time: string } }
+  | { type: 'create_task_reminder'; args: { title: string; date: string; timeZone: string; time: string; reminderMinutesBefore?: number } }
   | { type: 'create_task'; args: { title: string; date: string; timeZone: string } }
   | { type: 'create_note'; args: { title: string; content: string; reminderAt: string | null } }
   | { type: 'create_alarm'; args: { label: string; at: string; repeatDays: number[] } }
@@ -115,9 +115,9 @@ export function validateAssistantCommand(value: unknown): AssistantCommand {
       if (!hasOnlyKeys(args, ['include']) || (args.include !== 'alarms' && args.include !== 'timers' && args.include !== 'both')) break
       return { type, args: { include: args.include } }
     case 'create_task_reminder': {
-      if (!hasOnlyKeys(args, ['title', 'date', 'timeZone', 'time']) || !isNonEmptyText(args.title, 120) || !isDateOnly(args.date) || !isNonEmptyText(args.timeZone, 100) || typeof args.time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(args.time)) break
+      if (!hasOnlyKeys(args, ['title', 'date', 'timeZone', 'time', ...('reminderMinutesBefore' in args ? ['reminderMinutesBefore'] : [])]) || ('reminderMinutesBefore' in args && (!Number.isInteger(args.reminderMinutesBefore) || (args.reminderMinutesBefore as number) < 1 || (args.reminderMinutesBefore as number) > 10080)) || !isNonEmptyText(args.title, 120) || !isDateOnly(args.date) || !isNonEmptyText(args.timeZone, 100) || typeof args.time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(args.time)) break
       try { new Intl.DateTimeFormat('en', { timeZone: args.timeZone }).format() } catch { break }
-      return { type, args: { title: args.title.trim(), date: args.date, timeZone: args.timeZone, time: args.time } }
+      return { type, args: { title: args.title.trim(), date: args.date, timeZone: args.timeZone, time: args.time, reminderMinutesBefore: (args.reminderMinutesBefore as number | undefined) ?? 60 } }
     }
     case 'create_task': {
       if (!hasOnlyKeys(args, ['title', 'date', 'timeZone']) || !isNonEmptyText(args.title, 120) || !isDateOnly(args.date) || !isNonEmptyText(args.timeZone, 100)) break

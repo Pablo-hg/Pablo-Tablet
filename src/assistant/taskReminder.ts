@@ -17,7 +17,7 @@ function proposalForTime(text: string, context: AssistantTimeContext, language: 
   if (!half && hour >= 1 && hour <= 12 && !match?.[1].startsWith('0')) throw new AssistantTimeRequired(tx('¿Por la mañana o por la tarde? También puedes indicar la hora en formato de 24 horas.'), { ...context, hour, minute })
   if (half === 'tarde') hour = hour % 12 + 12
   if (half === 'noche') hour = hour === 12 ? 0 : hour <= 5 ? hour : hour + 12
-  return { command: { type: 'create_task_reminder', args: { title: context.title, date: context.date, timeZone: context.timeZone, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}` } }, explanation: tx('Preparar una tarea local con aviso 30 minutos antes. No se guardará hasta confirmarla.') }
+  return { command: { type: 'create_task_reminder', args: { title: context.title, date: context.date, timeZone: context.timeZone, time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}` } }, explanation: tx('Preparar una tarea local con aviso. No se guardará hasta confirmarla.') }
 }
 
 /** Solo solicita aclaraciones: nunca guarda datos ni programa notificaciones. */
@@ -43,8 +43,8 @@ export function interpretTaskReminder(request: AssistantRequest): AssistantPropo
 }
 
 /** El calendario actual guarda avisos en fecha/hora civiles de la tablet. */
-export function taskReminderTime(date: string, time: string) {
+export function taskReminderTime(date: string, time: string, minutesBefore = 60) {
   const value = new Date(`${date}T${time}:00Z`)
-  value.setUTCMinutes(value.getUTCMinutes() - 30)
+  value.setUTCMinutes(value.getUTCMinutes() - minutesBefore)
   return { date: value.toISOString().slice(0, 10), time: value.toISOString().slice(11, 16) }
 }
