@@ -79,6 +79,28 @@ describe('pantalla del asistente', () => {
     expect(await screen.findByText('Nota «Comprar pilas» creada.')).toBeInTheDocument()
   })
 
+  it('muestra destino y fecha de la tarea, permite cancelar y confirmar sin duplicar', async () => {
+    const onExecute = vi.fn().mockResolvedValue({ state: {} as never, response: 'Tarea creada.', openPage: 'calendar' })
+    render(<AssistantPage enabled voiceEnabled={false} readAloud={false} now={new Date('2026-11-12T09:00:00Z')} onExecute={onExecute} onOpenPage={vi.fn()} onEditingChange={vi.fn()} />)
+    const send = () => {
+      fireEvent.change(screen.getByLabelText('Escribe o dicta una petición'), { target: { value: 'Crea una tarea para mañana: comprar pilas' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Enviar petición' }))
+    }
+    send()
+    expect(await screen.findByRole('heading', { name: 'Crear tarea local' })).toBeInTheDocument()
+    expect(screen.getByText('Destino: calendario local de esta tablet')).toBeInTheDocument()
+    expect(screen.getByText('Fecha: 2026-11-13')).toBeInTheDocument()
+    expect(onExecute).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(onExecute).not.toHaveBeenCalled()
+    send()
+    const confirm = await screen.findByRole('button', { name: 'Confirmar' })
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    expect(await screen.findByText('Tarea creada.')).toBeInTheDocument()
+    expect(onExecute).toHaveBeenCalledOnce()
+  })
+
   it('cancela la propuesta sin modificar datos', async () => {
     const onExecute = vi.fn().mockResolvedValue(executionResult)
     render(<AssistantPage

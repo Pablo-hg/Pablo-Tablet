@@ -1,4 +1,14 @@
 const english = {
+  'Crea una tarea para mañana: comprar pilas': 'Create a task for tomorrow: buy batteries',
+  'Indica la fecha y el título. Ejemplo: «Crea una tarea para mañana: comprar pilas».': 'Specify a date and title. Example: “Create a task for tomorrow: buy batteries”.',
+  'Preparar una tarea en el calendario local. Revisa sus datos antes de confirmar.': 'Prepare a task in the local calendar. Review its details before confirming.',
+  'Tarea «{{title}}» creada en el calendario local para {{date}}.': 'Task “{{title}}” created in the local calendar for {{date}}.',
+  'Crear tarea local': 'Create local task',
+  'Fecha: {{value}}': 'Date: {{value}}',
+  'Todo el día · sin aviso': 'All day · no reminder',
+  'Zona horaria: {{value}}': 'Time zone: {{value}}',
+  'Destino: calendario local de esta tablet': 'Destination: this tablet’s local calendar',
+
   'Papel y terracota': 'Paper and terracotta',
   'Instrumentos nocturnos': 'Night instruments',
   'Estudio de los setenta': 'Seventies studio',

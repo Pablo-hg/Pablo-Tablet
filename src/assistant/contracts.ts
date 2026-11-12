@@ -6,6 +6,7 @@ export type AssistantCommand =
   | { type: 'get_calendar'; args: { from: string; to: string } }
   | { type: 'get_notes'; args: { limit: number } }
   | { type: 'get_clock_status'; args: { include: 'alarms' | 'timers' | 'both' } }
+  | { type: 'create_task'; args: { title: string; date: string; timeZone: string } }
   | { type: 'create_note'; args: { title: string; content: string; reminderAt: string | null } }
   | { type: 'create_alarm'; args: { label: string; at: string; repeatDays: number[] } }
   | { type: 'start_timer'; args: { label: string; durationSeconds: number } }
@@ -42,7 +43,7 @@ export class InvalidAssistantCommandError extends Error {
   }
 }
 
-const WRITE_COMMANDS = new Set<AssistantCommandType>(['create_note', 'create_alarm', 'start_timer'])
+const WRITE_COMMANDS = new Set<AssistantCommandType>(['create_note', 'create_task', 'create_alarm', 'start_timer'])
 const PERIODS = new Set(['now', 'today', 'tomorrow', 'next_week'])
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -94,6 +95,11 @@ export function validateAssistantCommand(value: unknown): AssistantCommand {
     case 'get_clock_status':
       if (!hasOnlyKeys(args, ['include']) || (args.include !== 'alarms' && args.include !== 'timers' && args.include !== 'both')) break
       return { type, args: { include: args.include } }
+    case 'create_task': {
+      if (!hasOnlyKeys(args, ['title', 'date', 'timeZone']) || !isNonEmptyText(args.title, 120) || !isDateOnly(args.date) || !isNonEmptyText(args.timeZone, 100)) break
+      try { new Intl.DateTimeFormat('en', { timeZone: args.timeZone }).format() } catch { break }
+      return { type, args: { title: args.title.trim(), date: args.date, timeZone: args.timeZone } }
+    }
     case 'create_note':
       if (
         !hasOnlyKeys(args, ['title', 'content', 'reminderAt']) ||

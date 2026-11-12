@@ -177,6 +177,18 @@ export function executeAssistantCommand(
     }
     case 'get_local_help':
       return unchanged(state, helpForTopic(command.args.topic, language))
+    case 'create_task': {
+      const timestamp = now.toISOString()
+      const task: DashboardState['calendarEvents'][number] = {
+        id: createId(), source: 'local', accountId: null, calendarId: null,
+        externalId: null, externalVersion: null, syncStatus: 'local',
+        type: 'task', recurrence: 'none', completed: false,
+        title: command.args.title, date: command.args.date, endDate: command.args.date,
+        startTime: '00:00', endTime: '23:59', allDay: true, timeZone: command.args.timeZone,
+        location: '', notes: '', color: 'mint', reminders: [], createdAt: timestamp, updatedAt: timestamp,
+      }
+      return { state: { ...state, calendarEvents: [...state.calendarEvents, task] }, response: tx('Tarea «{{title}}» creada en el calendario local para {{date}}.', { title: task.title, date: task.date }), openPage: 'calendar' }
+    }
     case 'create_note': {
       const timestamp = now.toISOString()
       const note: Note = {
@@ -230,6 +242,8 @@ export function executeAssistantCommand(
 export function assistantCommandSummary(command: AssistantCommand, language?: SupportedLanguage) {
   const tx = translateFor(language)
   switch (command.type) {
+    case 'create_task':
+      return { title: tx('Crear tarea local'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: command.args.date }), tx('Todo el día · sin aviso'), tx('Zona horaria: {{value}}', { value: command.args.timeZone }), tx('Destino: calendario local de esta tablet')] }
     case 'create_note':
       return { title: tx('Crear nota'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Contenido: {{value}}', { value: command.args.content }), command.args.reminderAt ? tx('Aviso: {{value}}', { value: formatDateTime(command.args.reminderAt, language) }) : tx('Sin aviso')] }
     case 'create_alarm':

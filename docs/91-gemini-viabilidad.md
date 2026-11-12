@@ -1,6 +1,6 @@
 # #91 — Viabilidad de Gemini gratuito para Lumi, fase 1
 
-Revisión documental: 12/11/2026. Estado: **integración bloqueada para el piloto previsto; no se ha conectado Gemini**. La issue #91 sigue abierta.
+Revisión documental: 12/11/2026. Estado: **Gemini pendiente de validación para el uso previsto; evaluación local de Lumi en desarrollo**. Véase [evaluación local](91-evaluacion-local-lumi.md), acordada después de esta revisión. No se ha conectado Gemini. La issue #91 sigue abierta.
 
 ## Decisión y motivo
 

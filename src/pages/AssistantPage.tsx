@@ -38,7 +38,7 @@ export interface AssistantPageHandle {
 
 const provider = new LocalAssistantProvider()
 const SESSION_LIMIT = 30
-const SUGGESTIONS: TranslationKey[] = ['¿Qué tengo hoy?', '¿Va a llover hoy?', 'Guarda una nota: comprar pilas', 'Temporizador de 20 minutos']
+const SUGGESTIONS: TranslationKey[] = ['¿Qué tengo hoy?', 'Crea una tarea para mañana: comprar pilas', 'Guarda una nota: comprar pilas', 'Temporizador de 20 minutos']
 
 const newMessage = (role: AssistantMessage['role'], text: string, openPage?: DashboardPageId): AssistantMessage => ({
   id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,

@@ -99,6 +99,16 @@ export class LocalAssistantProvider implements AssistantProvider {
     const today = dateInTimeZone(request.now, request.timeZone)
     const tomorrow = addLocalDays(today, 1)
 
+    // Formato acotado para no inventar fechas ni interpretar el título como una orden.
+    const taskPrefix = /^(?:(?:crea|añade|anade|apunta) una tarea|(?:create|add) a task)\b/i
+    if (taskPrefix.test(request.text.trim())) {
+      const task = request.text.trim().match(/^(?:(?:crea|añade|anade|apunta) una tarea para (hoy|mañana|manana|\d{4}-\d{2}-\d{2})|(?:create|add) a task for (today|tomorrow|\d{4}-\d{2}-\d{2}))\s*:\s*(.+)$/i)
+      if (!task) throw new InvalidAssistantCommandError(tx('Indica la fecha y el título. Ejemplo: «Crea una tarea para mañana: comprar pilas».'))
+      const day = normalize(task[1] ?? task[2])
+      const date = day === 'hoy' || day === 'today' ? today : day === 'manana' || day === 'tomorrow' ? tomorrow : day
+      return proposal({ type: 'create_task', args: { title: task[3].trim(), date, timeZone: request.timeZone } }, tx('Preparar una tarea en el calendario local. Revisa sus datos antes de confirmar.'))
+    }
+
     const notePrefix = /^(?:(?:guarda|crea|apunta)(?: una)? nota(?: que diga)?|(?:save|create|write)(?: a)? note(?: saying)?)\s*:?\s*/i
     if (notePrefix.test(request.text.trim())) {
       const noteText = request.text.trim().replace(notePrefix, '').trim()
@@ -167,7 +177,7 @@ export class LocalAssistantProvider implements AssistantProvider {
       return proposal({ type: 'get_weather', args: { period } }, tx('Consultar la previsión disponible para Casa.'))
     }
 
-    if (text.includes('agenda') || text.includes('calendario') || text.includes('proxima cita') || text.includes('eventos') || text.includes('tareas') || text.includes('que tengo esta semana') || text.includes('que tengo la semana que viene') || text.includes('que tengo la proxima semana') || text.includes('que tengo el ') || text.includes('que tengo pasado manana') || text.includes('schedule') || text.includes('calendar') || text.includes('next appointment') || text.includes('events') || text.includes('tasks') || text.includes('what do i have this week') || text.includes('what do i have next week') || text.includes('what do i have on ') || text.includes('what do i have the day after tomorrow')) {
+    if (/^[¿]?(?:que tengo manana|what do i have tomorrow)[?]?$/.test(text) || text.includes('agenda') || text.includes('calendario') || text.includes('proxima cita') || text.includes('eventos') || text.includes('tareas') || text.includes('que tengo esta semana') || text.includes('que tengo la semana que viene') || text.includes('que tengo la proxima semana') || text.includes('que tengo el ') || text.includes('que tengo pasado manana') || text.includes('schedule') || text.includes('calendar') || text.includes('next appointment') || text.includes('events') || text.includes('tasks') || text.includes('what do i have this week') || text.includes('what do i have next week') || text.includes('what do i have on ') || text.includes('what do i have the day after tomorrow')) {
       if (/\b(ayer|yesterday)\b|semana pasada|last week/.test(text)) {
         throw new InvalidAssistantCommandError(tx('Todavía no puedo consultar esa fecha. Prueba con hoy, mañana, esta semana o la semana que viene.'))
       }
