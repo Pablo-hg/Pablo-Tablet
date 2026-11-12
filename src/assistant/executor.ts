@@ -243,7 +243,7 @@ export function assistantCommandSummary(command: AssistantCommand, language?: Su
   const tx = translateFor(language)
   switch (command.type) {
     case 'create_task':
-      return { title: tx('Crear tarea local'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: command.args.date }), tx('Todo el día · sin aviso'), tx('Zona horaria: {{value}}', { value: command.args.timeZone }), tx('Destino: calendario local de esta tablet')] }
+      return { title: tx('Crear tarea local'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: command.args.date }), tx('Todo el día · sin aviso'), tx('Destino: calendario local de esta tablet')] }
     case 'create_note':
       return { title: tx('Crear nota'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Contenido: {{value}}', { value: command.args.content }), command.args.reminderAt ? tx('Aviso: {{value}}', { value: formatDateTime(command.args.reminderAt, language) }) : tx('Sin aviso')] }
     case 'create_alarm':
