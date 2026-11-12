@@ -1,3 +1,4 @@
+import { interpretTaskReminder } from './taskReminder'
 import { InvalidAssistantCommandError, type AssistantProposal, type AssistantRequest } from './contracts'
 import type { AssistantProvider } from './provider'
 import { txFor } from '../i18n'
@@ -98,6 +99,9 @@ export class LocalAssistantProvider implements AssistantProvider {
     const text = normalize(request.text)
     const today = dateInTimeZone(request.now, request.timeZone)
     const tomorrow = addLocalDays(today, 1)
+
+    const reminder = interpretTaskReminder(request)
+    if (reminder) return reminder
 
     // Formato acotado para no inventar fechas ni interpretar el título como una orden.
     const taskPrefix = /^(?:(?:crea|añade|anade|apunta) una tarea|(?:create|add) a task)\b/i

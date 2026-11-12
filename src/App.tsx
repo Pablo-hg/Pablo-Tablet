@@ -1,3 +1,4 @@
+import { checkNotificationPermissionStatus } from './notificationPermissions'
 import { CALENDAR_CATEGORY_ORDER, CALENDAR_CATEGORY_LABELS, getUpcomingCalendarGroups, getUpcomingCalendarEvents, isCalendarHoliday } from './calendarUpcoming'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
 import { flushSync } from 'react-dom'
@@ -113,7 +114,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { AssistantPage, type AssistantPageHandle } from './pages/AssistantPage'
 import { PageHeader } from './components/PageHeader'
 import { nativeCalendarEventsForYears } from './nativeCalendarDates'
-import { activeLocale, setAppLanguage, tx } from './i18n'
+import { activeLocale, setAppLanguage, tx, txFor } from './i18n'
 import type { TranslationKey } from './i18n/translations'
 import { setNativeAppLanguage } from './nativeLocale'
 import './App.css'
@@ -966,6 +967,16 @@ function App() {
     if (result.state !== current) {
       dashboardStateRef.current = result.state
       setDashboardState(result.state)
+    }
+    if (command.type === 'create_task_reminder') {
+      let warning = ''
+      try {
+        const permission = await checkNotificationPermissionStatus()
+        if (!permission.supported) warning = txFor(current.preferences.assistantLanguage, 'El aviso está configurado; las notificaciones requieren la aplicación Android.')
+        else if (permission.display !== 'granted') warning = txFor(current.preferences.assistantLanguage, 'Activa el permiso de notificaciones en Ajustes para recibir el aviso.')
+        else if (permission.exactAlarm !== 'granted' && permission.exactAlarm !== 'not-required') warning = txFor(current.preferences.assistantLanguage, 'Sin permiso de alarmas exactas, Android podría retrasar el aviso.')
+      } catch { warning = txFor(current.preferences.assistantLanguage, 'No he podido comprobar los permisos del aviso. Revísalos en Ajustes.') }
+      if (warning) return { ...result, response: `${result.response} ${warning}` }
     }
     return result
   }

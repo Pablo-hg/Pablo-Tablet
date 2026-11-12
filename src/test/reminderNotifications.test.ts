@@ -1,3 +1,5 @@
+import { executeAssistantCommand } from '../assistant/executor'
+import { DEFAULT_DASHBOARD_STATE } from '../dashboardState'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Alarm, CalendarEvent, Timer } from '../dashboardState'
 import { MAX_SCHEDULED_CALENDAR_NOTIFICATIONS, syncAlarmNotifications, syncCalendarEventNotifications, syncReminderNotifications, syncTimerNotifications } from '../reminderNotifications'
@@ -15,6 +17,7 @@ const notificationPlugin = vi.hoisted(() => ({
 }))
 
 vi.mock('@capacitor/core', () => ({
+  registerPlugin: vi.fn(() => ({})),
   Capacitor: {
     isNativePlatform: vi.fn(() => true),
     getPlatform: vi.fn(() => 'android'),
@@ -56,6 +59,17 @@ describe('sincronización de notificaciones locales', () => {
     notificationPlugin.cancel.mockResolvedValue(undefined)
     notificationPlugin.update.mockResolvedValue({ notifications: [] })
     notificationPlugin.schedule.mockResolvedValue({ notifications: [] })
+  })
+
+  it('programa el aviso creado por Lumi media hora antes de la tarea', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 10, 12, 9))
+    const result = executeAssistantCommand(structuredClone(DEFAULT_DASHBOARD_STATE), { type: 'create_task_reminder', args: { title: 'comprar pilas', date: '2026-11-13', time: '19:00', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } }, { now: new Date(), createId: () => crypto.randomUUID(), homeWeatherLocation: null, homeWeatherForecast: null })
+    await syncCalendarEventNotifications(result.state.calendarEvents)
+    expect(notificationPlugin.schedule).toHaveBeenCalledWith({ notifications: [expect.objectContaining({
+      title: 'comprar pilas', schedule: { at: new Date(2026, 10, 13, 18, 30), allowWhileIdle: true },
+      extra: expect.objectContaining({ kind: 'calendar', calendarEventId: result.state.calendarEvents[0].id }),
+    })] })
   })
 
   it('actualiza fecha y tono de un temporizador conservando su ID, y cancela al pausarlo', async () => {

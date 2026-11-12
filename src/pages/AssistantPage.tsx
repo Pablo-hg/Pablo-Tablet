@@ -1,7 +1,7 @@
 import { useEffect, useId, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from 'react'
 import type { TOptions } from 'i18next'
 import { Bot, Check, Edit3, Mic, MicOff, Send, Volume2, X } from 'lucide-react'
-import { validateAssistantCommand, type AssistantCommand, type ValidatedAssistantPlan } from '../assistant/contracts'
+import { AssistantTimeRequired, type AssistantTimeContext, validateAssistantCommand, type AssistantCommand, type ValidatedAssistantPlan } from '../assistant/contracts'
 import { addDaysToDateKey, dateKeyToDayNumber } from '../calendarRecurrence'
 import { assistantCommandSummary, type AssistantExecutionResult } from '../assistant/executor'
 import { LocalAssistantProvider } from '../assistant/localProvider'
@@ -61,6 +61,9 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [requestCount, setRequestCount] = useState(0)
+  const timeContextRef = useRef<AssistantTimeContext | null>(null)
+  const timeSourceRef = useRef('')
+  const [awaitingTime, setAwaitingTime] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const listeningControllerRef = useRef<AbortController | null>(null)
   const confirmingRef = useRef(false)
@@ -71,13 +74,18 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   const speechSequenceRef = useRef(0)
 
   useEffect(() => {
-    onEditingChange(visible && (processing || listening || pending !== null))
+    onEditingChange(visible && (processing || listening || pending !== null || awaitingTime))
     return () => onEditingChange(false)
-  }, [listening, onEditingChange, pending, processing, visible])
+  }, [awaitingTime, listening, onEditingChange, pending, processing, visible])
 
   useEffect(() => {
-    if (!visible) abortRef.current?.abort()
-  }, [visible])
+    if (!visible || !enabled) {
+      abortRef.current?.abort()
+      timeContextRef.current = null
+      timeSourceRef.current = ''
+      setAwaitingTime(false)
+    }
+  }, [visible, enabled])
 
   useEffect(() => {
     const log = logRef.current
@@ -115,6 +123,17 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       if (voiceRequest) onVoiceResponseReady?.()
       return
     }
+    if (timeContextRef.current && /^(cancelar|cancela|cancel|no)$/i.test(trimmed)) {
+      timeContextRef.current = null
+      timeSourceRef.current = ''
+      setAwaitingTime(false)
+      setInput('')
+      const message = tx('Acción cancelada. No se ha modificado ningún dato.')
+      setMessages(current => [...current, newMessage('assistant', message)])
+      if (voiceRequest) onVoiceResponseReady?.()
+      if (voiceRequest || readAloud) await speakResponse(message)
+      return
+    }
     if (requestCount >= SESSION_LIMIT) {
       setMessages((current) => [...current, newMessage('assistant', tx('Has alcanzado el límite de 30 peticiones de esta sesión. Cierra y vuelve a abrir la pantalla para continuar.'))])
       if (voiceRequest) onVoiceResponseReady?.()
@@ -148,10 +167,14 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
           locale: activeLocale(assistantLanguage),
           now: now.toISOString(),
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
+          timeClarification: timeContextRef.current ?? undefined,
         }, controller.signal)
       if (controller.signal.aborted) return
       if (plan.requiresConfirmation) {
-        const proposal = { plan, sourceText: trimmed }
+        const proposal = { plan, sourceText: timeSourceRef.current || trimmed }
+        timeContextRef.current = null
+        timeSourceRef.current = ''
+        setAwaitingTime(false)
         pendingRef.current = proposal
         setPending(proposal)
         processingRef.current = false
@@ -178,9 +201,22 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       }
     } catch (error) {
       if (!controller.signal.aborted) {
+        if (error instanceof AssistantTimeRequired) {
+          if (!timeSourceRef.current) timeSourceRef.current = trimmed
+          timeContextRef.current = error.context
+          setAwaitingTime(true)
+        }
         const message = error instanceof Error ? error.message : tx('No se ha podido procesar la petición.')
         setMessages((current) => [...current, newMessage('assistant', message)])
-        if (voiceRequest) { onVoiceResponseReady?.(); await speakResponse(message) }
+        if (voiceRequest || readAloud) {
+          if (voiceRequest) onVoiceResponseReady?.()
+          await speakResponse(message)
+        }
+        if (error instanceof AssistantTimeRequired && voiceRequest && !controller.signal.aborted) {
+          processingRef.current = false
+          setProcessing(false)
+          await toggleListening()
+        }
       }
     } finally {
       if (abortRef.current === controller) {

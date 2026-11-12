@@ -1,4 +1,17 @@
 const english = {
+  'El aviso está configurado; las notificaciones requieren la aplicación Android.': 'The reminder is configured; notifications require the Android app.',
+  'Activa el permiso de notificaciones en Ajustes para recibir el aviso.': 'Enable notification permission in Settings to receive the reminder.',
+  'Sin permiso de alarmas exactas, Android podría retrasar el aviso.': 'Without exact alarm permission, Android may delay the reminder.',
+  'No he podido comprobar los permisos del aviso. Revísalos en Ajustes.': 'I could not check reminder permissions. Review them in Settings.',
+
+  '¿A qué hora? Indica también si es por la mañana o por la tarde, o di cancelar.': 'At what time? Say whether it is in the morning or afternoon, or say cancel.',
+  '¿Por la mañana o por la tarde? También puedes indicar la hora en formato de 24 horas.': 'In the morning or afternoon? You can also give the time in 24-hour format.',
+  'Preparar una tarea local con aviso 30 minutos antes. No se guardará hasta confirmarla.': 'Prepare a local task with a reminder 30 minutes before. It will only be saved after confirmation.',
+  'Indica el día y qué quieres recordar. Por ejemplo: «Recuérdame el próximo viernes que vaya a comprar pilas».': 'Specify the day and what you want to remember. For example: “Recuérdame el próximo viernes que vaya a comprar pilas”.',
+  'El aviso de 30 minutos antes ya ha pasado. Elige una hora posterior.': 'The reminder time 30 minutes before has already passed. Choose a later time.',
+  'Tarea «{{title}}» creada para {{date}} a las {{time}}. Aviso configurado 30 minutos antes, a las {{reminder}}.': 'Task “{{title}}” created for {{date}} at {{time}}. Reminder configured 30 minutes before, at {{reminder}}.',
+  'Aviso 30 minutos antes: {{date}} a las {{time}}': 'Reminder 30 minutes before: {{date}} at {{time}}',
+
   '{{weekday}}, día {{day}}': '{{weekday}}, day {{day}}',
   'hoy': 'today',
   'mañana': 'tomorrow',
