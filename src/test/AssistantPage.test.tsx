@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { AssistantPage } from '../pages/AssistantPage'
-import { recognizeAssistantSpeech } from '../assistant/voice'
+import { recognizeAssistantSpeech, speakAssistantText } from '../assistant/voice'
 
 vi.mock('../assistant/voice', () => ({
   recognizeAssistantSpeech: vi.fn(),
@@ -51,6 +51,23 @@ describe('pantalla del asistente', () => {
     expect(onVoiceResponseReady).toHaveBeenCalledOnce()
     expect(screen.getByRole('status', { name: 'Lumi preparada' })).toBeInTheDocument()
   })
+  it('dicta una tarea, lee sus datos y espera confirmación hablada', async () => {
+    let decide!: (text: string) => void
+    vi.mocked(recognizeAssistantSpeech)
+      .mockResolvedValueOnce('Crea una tarea para mañana comprar pilas')
+      .mockImplementationOnce(() => new Promise<string>((resolve) => { decide = resolve }))
+    const onExecute = vi.fn().mockResolvedValue({ state: {} as never, response: 'Tarea creada.' })
+    render(<AssistantPage enabled voiceEnabled readAloud={false} voiceMode onVoiceModeStart={vi.fn()} now={new Date('2026-11-12T09:00:00Z')} onExecute={onExecute} onOpenPage={vi.fn()} onEditingChange={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar dictado' }))
+    await waitFor(() => expect(recognizeAssistantSpeech).toHaveBeenCalledTimes(2))
+    expect(onExecute).not.toHaveBeenCalled()
+    expect(speakAssistantText).toHaveBeenCalledWith(expect.stringContaining('Título: comprar pilas'), '', 'es')
+    expect(speakAssistantText).toHaveBeenCalledWith(expect.stringContaining('Fecha: 2026-11-13'), '', 'es')
+    decide('confirmar')
+    expect(await screen.findByText('Tarea creada.')).toBeInTheDocument()
+    expect(onExecute).toHaveBeenCalledOnce()
+  })
+
   it('no ejecuta una escritura antes de la confirmación explícita', async () => {
     const onExecute = vi.fn().mockResolvedValue(executionResult)
     render(<AssistantPage

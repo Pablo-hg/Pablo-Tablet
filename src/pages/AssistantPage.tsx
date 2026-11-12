@@ -158,7 +158,8 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         setProcessing(false)
         if (voiceRequest) {
           onVoiceResponseReady?.()
-          await speakResponse(`${plan.explanation} ${tx('Puedes decir confirmar, editar o cancelar.')}`)
+          const review = assistantCommandSummary(plan.command, assistantLanguage)
+          await speakResponse(`${review.title}. ${review.details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`)
           if (!controller.signal.aborted && pendingRef.current === proposal) await listenForPendingDecision(proposal)
         }
       } else {
