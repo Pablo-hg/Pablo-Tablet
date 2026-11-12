@@ -17,7 +17,7 @@ describe('navegación y flujos principales', () => {
     await user.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
     expect(document.querySelector('.tablet-content')).toHaveClass('is-calendar')
     expect(screen.getByText('Tu agenda')).toBeInTheDocument()
-    const upcomingHeading = screen.getByRole('heading', { name: 'Próximos eventos' })
+    const upcomingHeading = document.querySelector('.calendar-upcoming-panel h2')!
     const connectionsHeading = screen.getByRole('heading', { name: 'Cuentas sincronizadas' })
     expect(upcomingHeading.compareDocumentPosition(connectionsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Ir a Tiempo' }))
@@ -188,9 +188,9 @@ describe('navegación y flujos principales', () => {
     expect(normalAllDay).not.toHaveClass('is-holiday')
 
     fireEvent.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
-    const holidayToggle = screen.getByRole('switch', { name: /Próximos festivos/ })
-    expect(holidayToggle).toHaveAttribute('aria-checked', 'true')
-    fireEvent.click(holidayToggle)
+    const secondSection = screen.getByRole('combobox', { name: 'Segunda sección del calendario' })
+    expect(secondSection).toHaveValue('holiday')
+    fireEvent.change(secondSection, { target: { value: 'task' } })
     fireEvent.click(screen.getByRole('button', { name: 'Volver al inicio' }))
     expect(document.querySelector('.calendar-widget-holidays')).not.toBeInTheDocument()
   })

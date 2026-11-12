@@ -1,4 +1,10 @@
 const english = {
+  'Próximas tareas': 'Upcoming tasks',
+  'Próximos cumpleaños': 'Upcoming birthdays',
+  'Primera sección del calendario': 'First calendar section',
+  'Segunda sección del calendario': 'Second calendar section',
+  'Elige las dos secciones del widget de calendario. Las secciones vacías se ocultan.': 'Choose the two calendar widget sections. Empty sections are hidden.',
+
   'Crea una tarea para mañana: comprar pilas': 'Create a task for tomorrow: buy batteries',
   'Indica la fecha y el título. Ejemplo: «Crea una tarea para mañana: comprar pilas».': 'Specify a date and title. Example: “Create a task for tomorrow: buy batteries”.',
   'Preparar una tarea en el calendario local. Revisa sus datos antes de confirmar.': 'Prepare a task in the local calendar. Review its details before confirming.',

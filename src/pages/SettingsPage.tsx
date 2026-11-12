@@ -1,3 +1,4 @@
+import { CALENDAR_CATEGORIES, CALENDAR_CATEGORY_LABELS, type CalendarCategory } from '../calendarUpcoming'
 import { useEffect, useState } from 'react'
 import { BellRing, Bot, CalendarDays, Clock3, CloudSun, FileText, Home, Images, Languages, LogOut, Mic, Moon, Palette, RotateCw, Sparkles, SunMedium, Type, Volume2 } from 'lucide-react'
 import { getAssistantVoices, speakAssistantText } from '../assistant/voice'
@@ -137,13 +138,8 @@ export function SettingsPage({ preferences, widgets, onBack, onPreferencesChange
           ))}
         </div>
         <div className="calendar-widget-options">
-          <SettingToggle
-            icon={<CalendarDays size={20} />}
-            title={tx('Próximos festivos')}
-            detail={tx('Muestra una sección separada en el widget de calendario cuando dispone de espacio.')}
-            checked={preferences.showUpcomingCalendarHolidays}
-            onChange={(showUpcomingCalendarHolidays) => onPreferencesChange({ showUpcomingCalendarHolidays })}
-          />
+          <p>{tx('Elige las dos secciones del widget de calendario. Las secciones vacías se ocultan.')}</p>
+          {preferences.calendarWidgetCategories.map((category, index) => <SettingsTextSelect key={index} label={tx(index === 0 ? 'Primera sección del calendario' : 'Segunda sección del calendario')} value={category} options={CALENDAR_CATEGORIES.filter(option => option === category || !preferences.calendarWidgetCategories.includes(option)).map(option => ({ value: option, label: tx(CALENDAR_CATEGORY_LABELS[option]) }))} onChange={value => onPreferencesChange({ calendarWidgetCategories: preferences.calendarWidgetCategories.map((item, slot) => slot === index ? value as CalendarCategory : item) })} />)}
         </div>
       </section>
 

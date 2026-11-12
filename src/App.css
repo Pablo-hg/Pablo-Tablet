@@ -9070,9 +9070,6 @@
     gap: 3px;
     padding: 5px 2px;
   }
-  .responsive-calendar-widget .calendar-widget-holidays {
-    display: none;
-  }
 }
 
 @container dashboard-widget (max-width: 260px) {
@@ -9654,3 +9651,9 @@
     gap: 8px;
   }
 }
+
+.calendar-upcoming-category { margin-top: 16px; }
+.calendar-upcoming-category h3 { color: var(--ui-text, inherit); font-size: .85rem; margin: 0; }
+.calendar-upcoming-category .calendar-upcoming-list { margin-top: 6px; }
+.calendar-widget-agenda > section + section { border-top: 1px solid var(--ui-border, rgba(255,255,255,.1)); padding-top: 8px; }
+.calendar-widget-body:not(:has(.calendar-widget-agenda)) { grid-template-columns: minmax(0, 1fr); }
