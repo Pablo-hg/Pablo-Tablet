@@ -1,0 +1,236 @@
+/* #72: approved appearance system. Geometry and behavior stay in component CSS. */
+.tablet-shell[data-theme] :is(.orb, .grid-glow) { display: none; }
+
+/* Include actual pages and their dialogs; tokens remain the single color source. */
+.tablet-shell[data-theme] :is(
+  .widget-card, .dashboard-empty-state, .settings-section,
+  .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel,
+  .calendar-three-day-panel, .calendar-connections,
+  .clock-workspace .focus-clock, .alarm-panel, .timer-panel, .clock-style-picker,
+  .weather-current-panel, .weather-hours-panel, .weather-forecast-panel, .weather-empty-state,
+  .notes-workspace, .gallery-panel, .assistant-confirmation,
+  .alarm-editor, .timer-editor, .calendar-event-editor
+) {
+  background: var(--ui-panel);
+  border-color: var(--ui-border);
+  border-radius: var(--ui-radius-panel);
+  border-width: var(--ui-outline-width);
+  box-shadow: var(--ui-shadow);
+  color: var(--ui-text);
+}
+
+.tablet-shell[data-theme] :is(
+  .welcome, .widget-title, .notes-widget-open strong,
+  .section-heading h2, .device-settings-heading h2,
+  .calendar-month-panel h2, .calendar-day-panel h2, .calendar-upcoming-panel h2,
+  .alarm-panel-heading h1, .clock-style-picker > h2,
+  .notes-title h1, .notes-editor-placeholder h2, .note-title-input,
+  .gallery-empty h2, .assistant-confirmation h2
+) {
+  color: var(--ui-text);
+  font-family: var(--ui-heading-font);
+  font-weight: var(--theme-heading-weight);
+}
+
+.tablet-shell[data-theme] :is(button, input, select, textarea) { font-family: inherit; }
+.tablet-shell[data-theme] :is(.time, .focus-clock time, .temperature, .alarm-summary > strong, .timer-summary strong, .stopwatch-panel > strong) { font-variant-numeric: tabular-nums; }
+.tablet-shell[data-theme] :is(.clock-card .time, .focus-clock time) { color: var(--ui-text); }
+.tablet-shell[data-theme] :is(.date, .focus-clock p, .focus-clock-kicker, .clock-card .time small) { color: var(--ui-text-muted); }
+.dashboard-page .clock-style-digital:not(.has-alarms) > .clock-face { font-size: clamp(2rem, min(22cqw, 36cqh), 8.5rem); }
+
+.tablet-shell[data-theme] :is(
+  .page-indicators, .page-indicators button, .text-action, .back-button,
+  .settings-row, .settings-select-row, .settings-select-row select,
+  .utility-tabs, .utility-tabs button, .alarm-row, .timer-row,
+  .note-filter, .note-list-item, .note-editor textarea,
+  .assistant-avatar, .assistant-message > div, .assistant-composer,
+  .clock-style-option, .calendar-toolbar button
+) { border-radius: var(--ui-radius-control); }
+
+.tablet-shell[data-theme] .page-indicators button { background: transparent; border-color: transparent; }
+.tablet-shell[data-theme] .page-indicators button.is-active { background: var(--ui-action); border-color: var(--ui-action); color: var(--ui-action-text); }
+.tablet-shell[data-theme] :is(.text-action.is-active, .primary-action, .alarm-done) { background: var(--ui-action); border-color: var(--ui-action); color: var(--ui-action-text); }
+.tablet-shell[data-theme] :is(.heading-icon, .weather-icon, .weather-current-icon, .settings-icon, .assistant-avatar) { background: transparent; color: var(--ui-action-label); }
+.tablet-shell[data-theme] :is(button, a, input, select, textarea, [tabindex]):focus-visible { outline-color: var(--ui-focus); }
+.tablet-shell[data-theme] .clock-style-option:has(input:focus-visible) { outline-color: var(--ui-focus); }
+.tablet-shell[data-theme] .clock-style-option.is-selected { border-color: var(--ui-focus); }
+.tablet-shell[data-theme] .clock-style-option input { accent-color: var(--ui-focus); }
+.tablet-shell[data-theme] .theme-option.is-selected { border-color: var(--ui-focus); }
+
+.tablet-shell[data-theme] .dashboard-widget-shell.is-editing > .widget-card { border-color: var(--ui-focus); outline: 2px solid var(--ui-focus); outline-offset: -4px; }
+.tablet-shell[data-theme] .dashboard-widget-shell.is-holding { outline-color: var(--ui-focus); }
+.tablet-shell[data-theme] :is(.widget-size-indicator, .widget-hold-hint) { background: var(--ui-panel-solid); border-color: var(--ui-focus); color: var(--ui-text); }
+.tablet-shell[data-theme] .widget-resize-handle { background: var(--ui-action); border-color: var(--ui-focus); color: var(--ui-action-text); }
+.tablet-shell[data-theme] .widget-resize-handle.shrink-only { background: var(--ui-control); color: var(--ui-text-muted); opacity: 1; }
+
+/* One reading surface; event hues retain their categorical meaning. */
+.tablet-shell[data-theme] .calendar-month-grid > button { background: transparent; border-color: transparent; border-radius: min(var(--ui-radius-control), 8px); }
+.tablet-shell[data-theme] .calendar-month-grid > button:nth-child(n + 8) { border-top-color: var(--ui-border); }
+.tablet-shell[data-theme] .calendar-month-grid > button:is(:hover, :focus-visible, .is-selected) { background: var(--ui-action-soft); border-color: var(--ui-focus); }
+.tablet-shell[data-theme] .calendar-month-grid > button.is-today { box-shadow: inset 0 0 0 1px var(--ui-focus); }
+.tablet-shell[data-theme] .calendar-month-grid > button.is-today strong { background: var(--ui-action); color: var(--ui-action-text); }
+.tablet-shell[data-theme] .calendar-widget-month-grid > button.is-today { border-color: var(--ui-focus); }
+.tablet-shell[data-theme] :is(.calendar-day-event, .calendar-upcoming-event) { background: var(--ui-control); border-color: var(--ui-border); border-radius: var(--ui-radius-control); }
+.tablet-shell[data-theme] .calendar-event-time { color: var(--ui-action-label); }
+
+/* Message contrast also works with lime, yellow and lavender action fills. */
+.tablet-shell[data-theme] .assistant-message > div { background: var(--ui-panel); border-color: var(--ui-border); box-shadow: none; }
+.tablet-shell[data-theme] .assistant-message.is-user > div { background: var(--ui-action); border-color: transparent; color: var(--ui-action-text); }
+.tablet-shell[data-theme] .assistant-message.is-user :is(p, button) { color: var(--ui-action-text); }
+.tablet-shell[data-theme] .assistant-composer { background: var(--ui-control); border-color: var(--ui-border); }
+.tablet-shell[data-theme] .assistant-send { background: var(--ui-action); color: var(--ui-action-text); }
+
+/* Paper and ink. Four corners fit inside the same editing and widget bounds. */
+.tablet-shell[data-theme="retro"] :is(
+  .widget-card, .dashboard-widget-shell, .settings-section, .notes-workspace,
+  .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel,
+  .clock-workspace .focus-clock, .alarm-panel, .timer-panel, .clock-style-picker,
+  .weather-current-panel, .weather-hours-panel, .weather-forecast-panel, .weather-empty-state,
+  .gallery-panel, .assistant-confirmation
+) { border-radius: 30px 8px 30px 8px; }
+
+.tablet-shell[data-theme="swiss"] :is(.welcome, .temperature, .focus-clock time, .clock-card .time) { font-weight: 750; }
+.tablet-shell[data-theme="swiss"] :is(.widget-card, .settings-section, .notes-workspace, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .clock-workspace .focus-clock, .alarm-panel, .timer-panel, .clock-style-picker, .weather-current-panel, .weather-hours-panel, .weather-forecast-panel, .gallery-panel) { box-shadow: inset 3px 0 0 var(--ui-action); }
+
+.tablet-shell[data-theme="mediterranean"] :is(.widget-card, .settings-section, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .clock-workspace .focus-clock, .alarm-panel, .timer-panel, .clock-style-picker, .weather-current-panel, .weather-hours-panel, .weather-forecast-panel, .notes-workspace, .gallery-panel) {
+  background-color: var(--ui-panel-solid);
+  background-image: radial-gradient(ellipse 16px 10px at calc(100% - 28px) 14px, transparent 75%, #b9623d 80% 95%, transparent 100%);
+  background-repeat: no-repeat;
+}
+
+/* The Nordic clock is a deliberately dark information block. Reset both
+   semantic and legacy roles locally so alarms and analog hands remain legible. */
+.tablet-shell[data-theme="nordic"] :is(.clock-card, .clock-workspace .focus-clock) {
+  --theme-text: #f5fbf0;
+  --theme-muted: #bdcbb7;
+  --theme-subtle: #bdcbb7;
+  --theme-surface: #182219;
+  --theme-surface-solid: #182219;
+  --theme-surface-soft: #293d2b;
+  --theme-border: #667d62;
+  --theme-action-label: #b5ef84;
+  --ui-text: #f5fbf0;
+  --ui-text-muted: #bdcbb7;
+  --ui-text-subtle: #bdcbb7;
+  --ui-panel: #182219;
+  --ui-panel-solid: #182219;
+  --ui-control: #293d2b;
+  --ui-border: #667d62;
+  --ui-border-strong: #9be25f;
+  --ui-action-label: #b5ef84;
+  --ui-focus: #9be25f;
+  background: var(--ui-panel-solid);
+}
+.tablet-shell[data-theme="nordic"] :is(.widget-card, .settings-section, .weather-current-panel, .weather-hours-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace, .gallery-panel) { border-color: transparent; }
+.tablet-shell[data-theme="nordic"] .clock-card { border-color: #182219; }
+
+.tablet-shell[data-theme="brutalist"] :is(.welcome, .temperature, .focus-clock time, .clock-card .time) { font-weight: 800; }
+.tablet-shell[data-theme="brutalist"] .page-indicators { box-shadow: 3px 3px 0 var(--ui-text); }
+
+.theme-option-preview > span { border-radius: min(var(--preview-radius, 4px), 4px); }
+[data-preview-theme="nordic"] > span:first-child { background: #182219; }
+[data-preview-theme="retro"] { border-radius: 10px 3px 10px 3px; }
+
+/* Shared fixes from the rendered reviews: inherited legacy colours must use
+   each theme's semantic roles on both light and dark surfaces. */
+.tablet-shell[data-theme] :is(
+  .calendar-weekdays,
+  .weather-card .weather-current > div:last-child > span,
+  .weather-card .weather-stats small,
+  .weather-card .weather-hours > p,
+  .weather-card .weather-forecast > p,
+  .gallery-toolbar > div > span
+) { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .calendar-weekdays { font-size: .75rem; }
+.tablet-shell[data-theme] .weather-card .weather-stats > span { grid-template-columns: auto minmax(0, 1fr); }
+.tablet-shell[data-theme] .weather-card .weather-stats small { font-size: .6875rem; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
+.tablet-shell[data-theme] .weather-card .weather-stats strong { font-size: .75rem; line-height: 1.2; }
+.tablet-shell[data-theme] .weather-card .weather-hours > p { font-size: .6875rem; }
+.tablet-shell[data-theme] .weather-location-search input::placeholder { color: var(--ui-text-muted); opacity: 1; }
+.tablet-shell[data-theme="warm"] .calendar-type-mark { color: #224690; }
+.tablet-shell[data-theme="warm"] .calendar-type-mark.kind-task { color: #70521d; }
+.tablet-shell[data-theme="warm"] .calendar-type-mark.kind-birthday { color: #8b382d; }
+.tablet-shell[data-theme="warm"] .calendar-type-mark.kind-native { color: #235c42; }
+/* Event hues stay categorical; pale dark-theme icons need deeper ink on light surfaces. */
+.tablet-shell:is([data-theme="retro"], [data-theme="nordic"], [data-theme="swiss"], [data-theme="mediterranean"], [data-theme="monochrome"], [data-theme="brutalist"]) .calendar-type-mark { color: #224690; }
+.tablet-shell:is([data-theme="retro"], [data-theme="nordic"], [data-theme="swiss"], [data-theme="mediterranean"], [data-theme="monochrome"], [data-theme="brutalist"]) .calendar-type-mark.kind-task { color: #70521d; }
+.tablet-shell:is([data-theme="retro"], [data-theme="nordic"], [data-theme="swiss"], [data-theme="mediterranean"], [data-theme="monochrome"], [data-theme="brutalist"]) .calendar-type-mark.kind-birthday { color: #8b382d; }
+.tablet-shell:is([data-theme="retro"], [data-theme="nordic"], [data-theme="swiss"], [data-theme="mediterranean"], [data-theme="monochrome"], [data-theme="brutalist"]) .calendar-type-mark.kind-native { color: #235c42; }
+.tablet-shell[data-theme] .calendar-upcoming-panel > header > svg { color: var(--ui-action-label); }
+.tablet-shell[data-theme] :is(.settings-header h1, .calendar-toolbar h1) { font-family: var(--ui-heading-font); font-weight: var(--theme-heading-weight); }
+.tablet-shell[data-theme] .note-format-badge { background: var(--ui-control); color: var(--ui-text); border: 1px solid var(--ui-border); }
+.tablet-shell[data-theme] .toggle:not(.is-on) { background: var(--ui-control); box-shadow: inset 0 0 0 1px var(--ui-focus); }
+.tablet-shell[data-theme] .toggle:not(.is-on) > span { background: var(--ui-text-muted); }
+.tablet-shell[data-theme] .widget-size-indicator strong { color: var(--ui-text); }
+.tablet-shell[data-theme] .widget-size-indicator small { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] :is(.notes-widget-note-title > svg, .note-list-item svg) { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .weather-inline-error {
+  color: var(--ui-danger) !important;
+  background: color-mix(in srgb, var(--ui-danger) 8%, var(--ui-panel-solid));
+  border-color: var(--ui-danger);
+}
+.tablet-shell[data-theme] :is(input, textarea)::placeholder { color: var(--ui-text-muted); opacity: 1; }
+.tablet-shell[data-theme] .notes-widget-checklist .is-checked > span:last-child { color: var(--ui-text-muted); opacity: 1; }
+.tablet-shell[data-theme="brutalist"] .clock-widget-alarms li > time { color: var(--ui-action-label); }
+/* Few photos must not stretch into full-height strips on a portrait screen. */
+.tablet-shell[data-theme] .gallery-grid { align-content: start; grid-auto-rows: auto; }
+.tablet-shell[data-theme] .gallery-thumbnail { aspect-ratio: 4 / 3; }
+.tablet-shell[data-theme] .gallery-thumbnail img { position: absolute; inset: 0; }
+
+/* Informative controls use a readable theme role, including empty states. */
+.tablet-shell[data-theme] { --ui-info: var(--ui-action-label); }
+.tablet-shell[data-theme="warm"] { --ui-info: #224690; }
+.tablet-shell[data-theme] :is(.note-create-menu button > svg, .notes-empty > svg, .notes-editor-placeholder > svg, .gallery-empty > span, .calendar-recurrence-mark) { color: var(--ui-info); }
+.tablet-shell[data-theme] .gallery-empty > span { background: color-mix(in srgb, var(--ui-info) 8%, var(--ui-panel-solid)); border-color: var(--ui-info); }
+.tablet-shell[data-theme] :is(.calendar-upcoming-empty, .notes-empty, .notes-editor-placeholder p, .note-create-menu small, .gallery-empty p) { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] :is(.notes-empty button, .notes-editor-placeholder button) { background: var(--ui-action); border-color: var(--ui-action); color: var(--ui-action-text); }
+.tablet-shell[data-theme="warm"] .gallery-thumbnail.is-selected { border-color: var(--ui-info); box-shadow: inset 0 0 0 3px var(--ui-info); }
+.tablet-shell[data-theme="warm"] .gallery-thumbnail.is-selected .gallery-selection-mark { background: var(--ui-info); border-color: var(--ui-info); color: white; }
+.tablet-shell[data-theme] :is(.alarm-time-stepper button, .sound-preview) { background: var(--ui-control); border-color: var(--ui-info); color: var(--ui-info); }
+.tablet-shell[data-theme] .alarm-time-stepper > b { color: var(--ui-text); }
+.tablet-shell[data-theme] :is(.alarm-time-stepper small, .alarm-enabled, .custom-duration, .custom-duration > span, .alarm-sound-field label > span) { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .timer-presets button:not(.is-selected) { background: var(--ui-control); border-color: var(--ui-border); color: var(--ui-text); }
+.tablet-shell[data-theme] .alarm-toggle:not(.is-on) { background: var(--ui-control); border-color: var(--ui-focus); }
+.tablet-shell[data-theme] .alarm-toggle:not(.is-on) > span { background: var(--ui-text-muted); }
+
+/* The hourly calendar shares the same semantic surfaces as the month view. */
+.tablet-shell[data-theme] .calendar-three-day-panel {
+  --calendar-grid-line: color-mix(in srgb, var(--ui-text-muted) 70%, var(--ui-panel-solid));
+  backdrop-filter: none;
+  margin-bottom: 5px;
+}
+.tablet-shell[data-theme] .calendar-three-day-toolbar { border-color: var(--ui-border); }
+.tablet-shell[data-theme] .calendar-three-day-toolbar button {
+  background: var(--ui-control);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+  border-radius: var(--ui-radius-control);
+}
+.tablet-shell[data-theme] .calendar-three-day-toolbar .primary-action {
+  background: var(--ui-action);
+  border-color: var(--ui-action);
+  color: var(--ui-action-text);
+}
+.tablet-shell[data-theme] .calendar-three-day-date-row { background: var(--ui-control); border-color: var(--ui-border); }
+.tablet-shell[data-theme] .calendar-three-day-date-row > button { border-color: var(--ui-border); color: var(--ui-text); }
+.tablet-shell[data-theme] .calendar-three-day-date-row > button.is-selected { background: var(--ui-action-soft); color: var(--ui-text); }
+.tablet-shell[data-theme] .calendar-three-day-date-row > button:is(.is-today) :is(span, small) { color: var(--ui-action-label); }
+.tablet-shell[data-theme] :is(.calendar-time-corner, .calendar-time-axis time) { color: var(--ui-text-muted); font-size: .6875rem; }
+.tablet-shell[data-theme] :is(.calendar-three-day-all-day, .calendar-three-day-all-day > div, .calendar-hour-cell) { border-color: var(--calendar-grid-line); }
+.tablet-shell[data-theme] .calendar-timeline-column.is-today .calendar-hour-cell { border-left-color: var(--ui-focus); }
+.tablet-shell[data-theme] .calendar-timeline-column.is-selected { background: color-mix(in srgb, var(--ui-action) 5%, var(--ui-panel-solid)); }
+.tablet-shell[data-theme] :is(.calendar-timeline-event, .calendar-timeline-all-day) { color: var(--ui-text); }
+.tablet-shell[data-theme] .calendar-timeline-event small { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .calendar-timeline-all-day > small { color: var(--ui-text); }
+
+@media (max-width: 1000px) {
+  .calendar-three-day-panel { flex: 0 0 auto; height: max(460px, calc(100svh - 210px)); }
+  .calendar-three-day-toolbar { grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding: 14px; }
+  .calendar-three-day-title { grid-column: 1 / -1; grid-row: 1; }
+  .calendar-three-day-actions { justify-content: flex-end; flex-wrap: wrap; }
+}
+
+/* Typography or theme changes never resize/animate the widget frame itself. */
+@media (prefers-reduced-motion: reduce) {
+  .tablet-shell[data-theme] { transition: none; }
+}

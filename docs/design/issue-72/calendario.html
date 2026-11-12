@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Calendario B · Tres ejemplos</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#101a32;color:#f7f8ff;font:16px/1.5 system-ui,sans-serif}main{max-width:1080px;margin:auto;padding:24px}h1{font-size:28px;line-height:1.2}p{color:#b8c5d9;max-width:72ch}.controls{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0}button,select{font:inherit;min-height:48px;padding:10px 16px;border:1px solid #7899ff;border-radius:10px;background:#1c2c43;color:#f7f8ff}button{cursor:pointer}button[aria-pressed=true]{background:#7899ff;color:#07142d}button:focus-visible,select:focus-visible{outline:3px solid #ffda8d;outline-offset:3px}label{display:flex;align-items:center;gap:10px}img{display:block;width:100%;height:auto}.compact{max-width:680px;margin:auto}.note{font-size:14px}a{color:#b4c9ff}@media(max-width:600px){main{padding:16px}.controls{align-items:stretch;flex-direction:column}}
+  </style>
+</head>
+<body>
+<main>
+  <p>Los bocetos se generan localmente y están excluidos de Git. <a href="README.md">Instrucciones de generación</a>.</p>
+  <h1>Calendario B: hoy destacado y eventos con color</h1>
+  <p>Tres ejemplos con la misma información. En todos, el día actual mantiene fondo, borde y número destacado; los eventos usan texto de menor tamaño.</p>
+  <div class="controls" aria-label="Elegir variante">
+    <button type="button" data-variant="1" aria-pressed="true">1 · Etiquetas suaves (elegida)</button>
+    <button type="button" data-variant="2" aria-pressed="false">2 · Líneas de color</button>
+    <button type="button" data-variant="3" aria-pressed="false">3 · Puntos y texto</button>
+    <label>Tamaño <select id="size"><option value="detail">Amplio</option><option value="compact">Compacto</option></select></label>
+  </div>
+  <div id="frame"><img id="preview" src="assets/calendar-b1-detail.svg" width="1000" height="760" alt="Ejemplo 1: día 10 destacado, eventos con fondos de color suave y próximos eventos más pequeños."></div>
+  <p id="caption" aria-live="polite">1 · Etiquetas suaves · Amplio</p>
+  <p class="note">Imágenes de los bocetos con datos ficticios. Pablo eligió la variante 1, aplicada al widget de Inicio en DEV; la revisión física está pendiente. En compacto se abrevian títulos y se indica +N. Los colores son los asignados a cada evento.</p>
+  <a href="CALENDARIO-VARIANTES.md">Ver criterios y diferencias</a>
+</main>
+<script>
+  let variant = '1';
+  const size = document.querySelector('#size');
+  const names = {'1':'Etiquetas suaves','2':'Líneas de color','3':'Puntos y texto'};
+  function update() {
+    const compact = size.value === 'compact';
+    const label = `${variant} · ${names[variant]} · ${compact ? 'Compacto' : 'Amplio'}`;
+    const preview = document.querySelector('#preview');
+    preview.src = `assets/calendar-b${variant}-${size.value}.svg`;
+    preview.width = compact ? 680 : 1000;
+    preview.height = compact ? 680 : 760;
+    preview.alt = `Calendario B: ${label}. Hoy destacado y eventos con color y texto más pequeño.`;
+    document.querySelector('#frame').classList.toggle('compact',compact);
+    document.querySelector('#caption').textContent = label;
+    document.querySelectorAll('[data-variant]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.variant===variant)));
+  }
+  document.querySelectorAll('[data-variant]').forEach(button=>button.addEventListener('click',()=>{variant=button.dataset.variant;update();}));
+  size.addEventListener('change',update);
+</script>
+</body>
+</html>

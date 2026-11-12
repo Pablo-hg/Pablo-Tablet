@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pablo Tablet · Diez apariencias #72</title>
+  <link rel="stylesheet" href="appearances.css">
+  <script src="appearances-data.js" defer></script>
+  <script src="appearances.js" defer></script>
+</head>
+<body>
+  <p>Los bocetos se generan localmente y están excluidos de Git. <a href="README.md">Instrucciones de generación</a>.</p>
+<main>
+  <header class="intro">
+    <p class="eyebrow">PABLO TABLET / ESTUDIO DE APARIENCIAS / #72</p>
+    <h1>Diez formas de sentirse en casa.</h1>
+    <p class="lead">La misma información, diez personalidades. Compara sus curvas, tipografía, superficies y estados en las ocho pantallas.</p>
+    <p class="notice"><strong>Propuestas aprobadas.</strong> Estas láminas conservan los ejemplos con datos ficticios y controles dibujados. La primera implementación ya se puede probar en <a href="/">la aplicación web</a>, desde Ajustes → Apariencia.</p>
+  </header>
+
+  <section class="chooser" aria-labelledby="themes-heading">
+    <div class="section-heading"><h2 id="themes-heading">Elige una apariencia</h2><span>10 temas existentes · nueva dirección visual</span></div>
+    <div id="theme-choices" class="theme-choices" role="group" aria-label="Apariencias"></div>
+  </section>
+
+  <section class="workbench" aria-label="Comparación visual">
+    <div class="controls">
+      <label>Pantalla<select id="page"><option value="dashboard">Inicio</option><option value="assistant">Asistente</option><option value="calendar">Calendario</option><option value="clock">Reloj</option><option value="weather">Tiempo</option><option value="notes">Notas</option><option value="gallery">Galería</option><option value="settings">Ajustes</option></select></label>
+      <label>Orientación<select id="orientation"><option value="landscape">Horizontal · 4 × 3</option><option value="portrait">Vertical · 3 × 4</option></select></label>
+      <label>Contenido<select id="language"><option value="es">Español</option><option value="en">English</option></select></label>
+      <label>Comparación<select id="mode"><option value="single">Una apariencia</option><option value="all">Las diez juntas</option></select></label>
+      <label class="check"><input type="checkbox" id="editing"> Mostrar edición de Inicio</label>
+    </div>
+    <p class="geometry" id="geometry">Los cuatro widgets mantienen sus posiciones y tamaños al cambiar de tema o activar la muestra de edición.</p>
+
+    <div id="single-view">
+      <div class="design-heading"><div><p id="concept" class="eyebrow"></p><h2 id="theme-name"></h2></div><a id="open-svg" class="control-link" href="assets/appearances/nordic-dashboard-es-landscape.svg" target="_blank" rel="noopener">Abrir a tamaño completo ↗</a></div>
+      <figure>
+        <div class="preview-frame" id="preview-frame"><img id="preview" src="assets/appearances/nordic-dashboard-es-landscape.svg" width="1280" height="800" alt="Propuesta Nórdico, Inicio horizontal, con datos ficticios."></div>
+        <figcaption id="caption" aria-live="polite"></figcaption>
+      </figure>
+      <div class="rationale">
+        <div><h3>Qué le da personalidad</h3><p id="detail"></p></div>
+        <div><h3>Beneficio a comprobar</h3><p id="benefit"></p></div>
+        <div><h3>Qué debemos cuidar</h3><p id="risk"></p></div>
+      </div>
+    </div>
+    <div id="all-view" hidden><p class="notice">La pantalla, el idioma y la orientación elegidos se aplican a las diez muestras. Pulsa una para verla en detalle.</p><div class="comparison-grid" id="comparison-grid"></div></div>
+  </section>
+
+  <section class="constraints" aria-labelledby="constraints-heading">
+    <h2 id="constraints-heading">Lo que comparten los diez diseños</h2>
+    <div class="constraint-grid">
+      <div><h3>Una estructura estable</h3><p>Cuadrícula fija, tamaños válidos por orientación y ocho destinos. Los bocetos no escriben una distribución nueva en tus widgets.</p></div>
+      <div><h3>Lectura antes que decoración</h3><p>Hoy destaca. Los eventos conservan colores y etiquetas; las curvas y las sombras se quedan fuera de los datos y controles.</p></div>
+      <div><h3>La misma interacción</h3><p>Las cajas no cambian de tamaño al editar. En vertical, Reloj coloca los estilos al final; Ajustes conserva continuidad de contenido.</p></div>
+      <div><h3>Validación por entrega</h3><p>La vista previa permite elegir una dirección. Accesibilidad, tamaños pequeños, gestos y fluidez se comprobarán en la aplicación al implementarla.</p></div>
+    </div>
+  </section>
+  <footer><a href="APARIENCIAS.md">Decisiones y límites del estudio</a><a href="DESIGN.md">Sistema visual de #72</a><a href="comparativa.html">Evaluación A/B/C anterior</a><a href="/">Volver a la aplicación web</a></footer>
+</main>
+</body>
+</html>

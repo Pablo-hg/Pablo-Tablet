@@ -1,37 +1,37 @@
 /* Theme system: visual tokens stay separate from layout so every theme preserves the 3 x 4 dashboard contract. */
 .tablet-shell[data-theme] {
-  --theme-bg: #101a32;
-  --theme-wallpaper: linear-gradient(135deg, #0f1830 0%, #172c4a 48%, #0a2135 100%);
-  --theme-orb-one: radial-gradient(circle, rgba(86, 129, 255, .55), rgba(86, 129, 255, 0) 70%);
-  --theme-orb-two: radial-gradient(circle, rgba(32, 211, 184, .35), rgba(32, 211, 184, 0) 68%);
-  --theme-grid: rgba(255,255,255,.18);
-  --theme-grid-opacity: .18;
-  --theme-text: #f7f8ff;
-  --theme-muted: #aebbd4;
-  --theme-subtle: #8f9db7;
-  --theme-surface: linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.07));
-  --theme-surface-solid: #233754;
-  --theme-surface-soft: rgba(255,255,255,.075);
-  --theme-surface-hover: rgba(255,255,255,.13);
-  --theme-border: rgba(255,255,255,.16);
-  --theme-border-strong: rgba(154,184,255,.48);
-  --theme-accent: #7899ff;
-  --theme-accent-soft: rgba(120,153,255,.2);
-  --theme-accent-contrast: #07142d;
-  --theme-secondary: #55d8b0;
-  --theme-warm: #ffcd74;
-  --theme-danger: #ff9e82;
-  --theme-shadow: 0 24px 55px rgba(0,8,27,.18);
-  --theme-radius: 28px;
-  --theme-control-radius: 14px;
+  --theme-bg: #101d32;
+  --theme-wallpaper: #101d32;
+  --theme-orb-one: none;
+  --theme-orb-two: none;
+  --theme-grid: transparent;
+  --theme-grid-opacity: 0;
+  --theme-text: #f5f7ff;
+  --theme-muted: #bccbdd;
+  --theme-subtle: #bccbdd;
+  --theme-surface: #1c3048;
+  --theme-surface-solid: #1c3048;
+  --theme-surface-soft: #29405a;
+  --theme-surface-hover: color-mix(in srgb, #a5b4fc 12%, #1c3048);
+  --theme-border: #526c88;
+  --theme-border-strong: #a5b4fc;
+  --theme-accent: #a5b4fc;
+  --theme-accent-soft: color-mix(in srgb, #a5b4fc 16%, #1c3048);
+  --theme-accent-contrast: #14203b;
+  --theme-secondary: #a1e7ca;
+  --theme-warm: #ffe0a8;
+  --theme-danger: #ffb8aa;
+  --theme-shadow: none;
+  --theme-radius: 20px;
+  --theme-control-radius: 12px;
   --theme-outline: 1px;
-  --theme-blur: 22px;
+  --theme-blur: 0px;
   --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --theme-inset: color-mix(in srgb, var(--theme-surface-solid) 78%, transparent);
-  --theme-inset-strong: color-mix(in srgb, var(--theme-surface-solid) 92%, transparent);
-  --theme-disabled: color-mix(in srgb, var(--theme-surface-solid) 62%, transparent);
-  --theme-drawing-paper: #14233e;
-  --theme-drawing-ink: #f4f7ff;
+  --theme-inset: #29405a;
+  --theme-inset-strong: #1c3048;
+  --theme-disabled: #29405a;
+  --theme-drawing-paper: #1c3048;
+  --theme-drawing-ink: #f5f7ff;
   --theme-overlay: rgba(2, 8, 20, .66);
   /* Stable semantic contract consumed by components. Theme definitions only
      change the values above; component CSS should prefer these aliases. */
@@ -47,6 +47,9 @@
   --ui-border: var(--theme-border);
   --ui-border-strong: var(--theme-border-strong);
   --ui-action: var(--theme-accent);
+  --ui-action-label: var(--theme-action-label);
+  --ui-focus: var(--theme-border-strong);
+  --ui-heading-font: var(--theme-heading-font);
   --ui-action-soft: var(--theme-accent-soft);
   --ui-action-text: var(--theme-accent-contrast);
   --ui-positive: var(--theme-secondary);
@@ -78,279 +81,385 @@
   --border: var(--theme-outline);
   --depth: 0;
   --noise: 0;
+  color-scheme: var(--theme-color-scheme);
   background: var(--theme-bg);
   color: var(--theme-text);
   font-family: var(--theme-font);
   transition: background .28s ease, color .2s ease;
+
+  --theme-action-label: #a5b4fc;
+  --theme-heading-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-weight: 650;
+  --theme-color-scheme: dark;
 }
 
 .tablet-shell[data-theme="warm"] {
-  --theme-bg: #f4efe6;
-  --theme-wallpaper: linear-gradient(145deg, #fbf8f2 0%, #efe7dc 58%, #e5eee6 100%);
-  --theme-orb-one: radial-gradient(circle, rgba(207,105,74,.16), transparent 70%);
-  --theme-orb-two: radial-gradient(circle, rgba(79,119,105,.15), transparent 68%);
-  --theme-grid: rgba(65,53,45,.08);
-  --theme-grid-opacity: .12;
-  --theme-text: #201e1c;
-  --theme-muted: #716a64;
-  --theme-subtle: #938a82;
-  --theme-surface: linear-gradient(145deg, rgba(255,253,249,.98), rgba(250,246,239,.94));
-  --theme-surface-solid: #fffaf3;
-  --theme-surface-soft: rgba(103,82,66,.055);
-  --theme-surface-hover: rgba(180,91,63,.1);
-  --theme-border: rgba(91,70,54,.14);
-  --theme-border-strong: rgba(190,91,61,.48);
-  --theme-accent: #c95f42;
-  --theme-accent-soft: rgba(201,95,66,.14);
-  --theme-accent-contrast: #fffaf4;
-  --theme-secondary: #55766b;
-  --theme-warm: #d49a29;
-  --theme-danger: #bd513e;
-  --theme-shadow: 0 15px 42px rgba(81,61,47,.1);
+  --theme-bg: #f3ede3;
+  --theme-wallpaper: #f3ede3;
+  --theme-orb-one: none;
+  --theme-orb-two: none;
+  --theme-grid: transparent;
+  --theme-grid-opacity: 0;
+  --theme-text: #30281f;
+  --theme-muted: #665b4e;
+  --theme-subtle: #665b4e;
+  --theme-surface: #fffcf5;
+  --theme-surface-solid: #fffcf5;
+  --theme-surface-soft: #eee4d6;
+  --theme-surface-hover: color-mix(in srgb, #9b4228 12%, #fffcf5);
+  --theme-border: #c3b4a2;
+  --theme-border-strong: #9b4228;
+  --theme-accent: #9b4228;
+  --theme-accent-soft: color-mix(in srgb, #9b4228 16%, #fffcf5);
+  --theme-accent-contrast: #ffffff;
+  --theme-secondary: #235c42;
+  --theme-warm: #8a5b13;
+  --theme-danger: #9a392e;
+  --theme-shadow: inset 0 -3px 0 #d2c3ab;
   --theme-radius: 26px;
-  --theme-control-radius: 13px;
+  --theme-control-radius: 12px;
   --theme-blur: 0px;
+
+  --theme-action-label: #9b4228;
+  --theme-outline: 1px;
+  --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-font: Georgia, "Times New Roman", serif;
+  --theme-heading-weight: 700;
+  --theme-inset: #eee4d6;
+  --theme-inset-strong: #fffcf5;
+  --theme-disabled: #eee4d6;
+  --theme-drawing-paper: #fffaf4;
+  --theme-drawing-ink: #30281f;
+  --theme-color-scheme: light;
 }
 
 .tablet-shell[data-theme="amoled"] {
-  --theme-bg: #000;
-  --theme-wallpaper: #000;
-  --theme-orb-one: radial-gradient(circle, rgba(0,218,239,.08), transparent 65%);
-  --theme-orb-two: radial-gradient(circle, rgba(255,188,44,.045), transparent 65%);
-  --theme-grid: rgba(69,225,242,.08);
-  --theme-grid-opacity: .08;
-  --theme-text: #f5f7f8;
-  --theme-muted: #a5b0ba;
-  --theme-subtle: #75818b;
-  --theme-surface: linear-gradient(145deg, #0b1013, #050708);
-  --theme-surface-solid: #080c0e;
-  --theme-surface-soft: rgba(218,240,245,.045);
-  --theme-surface-hover: rgba(15,218,238,.1);
-  --theme-border: rgba(57,215,235,.24);
-  --theme-border-strong: rgba(31,226,244,.72);
-  --theme-accent: #18d9ed;
-  --theme-accent-soft: rgba(24,217,237,.16);
-  --theme-accent-contrast: #001012;
-  --theme-secondary: #5be2bb;
-  --theme-warm: #ffbd32;
-  --theme-danger: #ff715f;
+  --theme-bg: #000000;
+  --theme-wallpaper: #000000;
+  --theme-orb-one: none;
+  --theme-orb-two: none;
+  --theme-grid: transparent;
+  --theme-grid-opacity: 0;
+  --theme-text: #edf9f8;
+  --theme-muted: #a4bbb9;
+  --theme-subtle: #a4bbb9;
+  --theme-surface: #0d1316;
+  --theme-surface-solid: #0d1316;
+  --theme-surface-soft: #152124;
+  --theme-surface-hover: color-mix(in srgb, #6be4df 12%, #0d1316);
+  --theme-border: #405a5b;
+  --theme-border-strong: #6be4df;
+  --theme-accent: #6be4df;
+  --theme-accent-soft: color-mix(in srgb, #6be4df 16%, #0d1316);
+  --theme-accent-contrast: #052321;
+  --theme-secondary: #a1e7ca;
+  --theme-warm: #ffe0a8;
+  --theme-danger: #ffb8aa;
   --theme-shadow: none;
-  --theme-radius: 25px;
-  --theme-control-radius: 12px;
+  --theme-radius: 12px;
+  --theme-control-radius: 7px;
   --theme-blur: 0px;
+
+  --theme-action-label: #6be4df;
+  --theme-outline: 1px;
+  --theme-font: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --theme-heading-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-weight: 650;
+  --theme-inset: #152124;
+  --theme-inset-strong: #0d1316;
+  --theme-disabled: #152124;
+  --theme-drawing-paper: #0d1316;
+  --theme-drawing-ink: #edf9f8;
+  --theme-color-scheme: dark;
 }
 
 .tablet-shell[data-theme="retro"] {
-  --theme-bg: #ead9b5;
-  --theme-wallpaper: linear-gradient(150deg, #f3e6c8 0%, #ddc38f 100%);
-  --theme-orb-one: radial-gradient(circle, rgba(198,83,31,.16), transparent 68%);
-  --theme-orb-two: radial-gradient(circle, rgba(86,91,43,.18), transparent 68%);
-  --theme-grid: rgba(74,45,24,.12);
-  --theme-grid-opacity: .16;
-  --theme-text: #3a1e10;
-  --theme-muted: #755f48;
-  --theme-subtle: #927a5d;
-  --theme-surface: linear-gradient(145deg, #f8eccc, #ead7ad);
-  --theme-surface-solid: #f2dfb9;
-  --theme-surface-soft: rgba(91,65,32,.075);
-  --theme-surface-hover: rgba(201,91,30,.12);
-  --theme-border: rgba(73,43,20,.55);
-  --theme-border-strong: #bd5b24;
-  --theme-accent: #c95a23;
-  --theme-accent-soft: rgba(201,90,35,.17);
-  --theme-accent-contrast: #fff2d3;
-  --theme-secondary: #656638;
-  --theme-warm: #d7961e;
-  --theme-danger: #bc4f31;
-  --theme-shadow: 4px 5px 0 rgba(69,43,21,.16);
-  --theme-radius: 22px;
-  --theme-control-radius: 9px;
+  --theme-bg: #e9dfc6;
+  --theme-wallpaper: #e9dfc6;
+  --theme-orb-one: none;
+  --theme-orb-two: none;
+  --theme-grid: transparent;
+  --theme-grid-opacity: 0;
+  --theme-text: #302e21;
+  --theme-muted: #665b3b;
+  --theme-subtle: #665b3b;
+  --theme-surface: #fbf1d6;
+  --theme-surface-solid: #fbf1d6;
+  --theme-surface-soft: #e9ddbb;
+  --theme-surface-hover: color-mix(in srgb, #984025 12%, #fbf1d6);
+  --theme-border: #968765;
+  --theme-border-strong: #984025;
+  --theme-accent: #984025;
+  --theme-accent-soft: color-mix(in srgb, #984025 16%, #fbf1d6);
+  --theme-accent-contrast: #fff9e9;
+  --theme-secondary: #235c42;
+  --theme-warm: #8a5b13;
+  --theme-danger: #9a392e;
+  --theme-shadow: inset 0 -3px 0 #d2c3ab;
+  --theme-radius: 30px;
+  --theme-control-radius: 10px;
   --theme-blur: 0px;
-  --theme-font: "Trebuchet MS", Inter, ui-sans-serif, system-ui, sans-serif;
+  --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --theme-action-label: #984025;
+  --theme-outline: 2px;
+  --theme-heading-font: Georgia, "Times New Roman", serif;
+  --theme-heading-weight: 700;
+  --theme-inset: #e9ddbb;
+  --theme-inset-strong: #fbf1d6;
+  --theme-disabled: #e9ddbb;
+  --theme-drawing-paper: #fffaf4;
+  --theme-drawing-ink: #302e21;
+  --theme-color-scheme: light;
 }
 
 .tablet-shell[data-theme="glass"] {
-  --theme-bg: #07142d;
-  --theme-wallpaper: radial-gradient(circle at 72% 16%, rgba(0,231,221,.28), transparent 31%), radial-gradient(circle at 18% 0%, rgba(83,84,255,.42), transparent 36%), linear-gradient(145deg, #07142d 0%, #092b3c 55%, #080c26 100%);
-  --theme-orb-one: radial-gradient(circle, rgba(91,112,255,.64), transparent 67%);
-  --theme-orb-two: radial-gradient(circle, rgba(28,236,219,.42), transparent 68%);
-  --theme-grid: rgba(161,225,255,.15);
-  --theme-grid-opacity: .13;
-  --theme-text: #f5fbff;
-  --theme-muted: #bdd1e8;
-  --theme-subtle: #8ca9c2;
-  --theme-surface: linear-gradient(145deg, rgba(151,194,255,.2), rgba(24,65,91,.21));
-  --theme-surface-solid: rgba(19,48,73,.86);
-  --theme-surface-soft: rgba(190,225,255,.1);
-  --theme-surface-hover: rgba(140,222,255,.2);
-  --theme-border: rgba(170,226,255,.52);
-  --theme-border-strong: rgba(115,239,255,.92);
-  --theme-accent: #78a3ff;
-  --theme-accent-soft: rgba(120,163,255,.24);
-  --theme-accent-contrast: #061129;
-  --theme-secondary: #54ead7;
-  --theme-warm: #ffd06f;
-  --theme-danger: #ff9e8f;
-  --theme-shadow: 0 18px 55px rgba(0,8,31,.32), inset 0 1px 0 rgba(255,255,255,.2);
+  --theme-bg: #162b47;
+  --theme-wallpaper: linear-gradient(135deg, #293f76 0%, #183346 55%, #252344 100%);
+  --theme-orb-one: none;
+  --theme-orb-two: none;
+  --theme-grid: transparent;
+  --theme-grid-opacity: 0;
+  --theme-text: #faf8ff;
+  --theme-muted: #d0d9ec;
+  --theme-subtle: #d0d9ec;
+  --theme-surface: linear-gradient(145deg, #304768, #2c4161);
+  --theme-surface-solid: #2c4161;
+  --theme-surface-soft: #3a5274;
+  --theme-surface-hover: color-mix(in srgb, #ddd2ff 12%, #2c4161);
+  --theme-border: #8297b7;
+  --theme-border-strong: #ddd2ff;
+  --theme-accent: #ddd2ff;
+  --theme-accent-soft: color-mix(in srgb, #ddd2ff 16%, #2c4161);
+  --theme-accent-contrast: #251b45;
+  --theme-secondary: #a1e7ca;
+  --theme-warm: #ffe0a8;
+  --theme-danger: #ffb8aa;
+  --theme-shadow: inset 0 1px 0 #8297b7;
   --theme-radius: 30px;
-  --theme-control-radius: 15px;
-  --theme-blur: 26px;
+  --theme-control-radius: 18px;
+  --theme-blur: 0px;
+
+  --theme-action-label: #ddd2ff;
+  --theme-outline: 1px;
+  --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-weight: 650;
+  --theme-inset: #3a5274;
+  --theme-inset-strong: #2c4161;
+  --theme-disabled: #3a5274;
+  --theme-drawing-paper: #2c4161;
+  --theme-drawing-ink: #faf8ff;
+  --theme-color-scheme: dark;
 }
 
 .tablet-shell[data-theme="nordic"] {
-  --theme-bg: #e8e9e3;
-  --theme-wallpaper: linear-gradient(150deg, #f5f4ef, #e4e5de 58%, #d5ddd4);
-  --theme-orb-one: radial-gradient(circle, rgba(112,133,117,.15), transparent 68%);
-  --theme-orb-two: radial-gradient(circle, rgba(157,111,75,.12), transparent 68%);
-  --theme-grid: rgba(48,62,53,.07);
-  --theme-grid-opacity: .1;
-  --theme-text: #263229;
-  --theme-muted: #68726b;
-  --theme-subtle: #87918a;
-  --theme-surface: linear-gradient(145deg, rgba(255,255,252,.96), rgba(241,241,235,.96));
-  --theme-surface-solid: #f7f7f1;
-  --theme-surface-soft: rgba(57,76,63,.055);
-  --theme-surface-hover: rgba(72,102,81,.1);
-  --theme-border: rgba(48,67,54,.13);
-  --theme-border-strong: rgba(64,94,73,.48);
-  --theme-accent: #4f6e59;
-  --theme-accent-soft: rgba(79,110,89,.15);
-  --theme-accent-contrast: #f8fbf7;
-  --theme-secondary: #a07250;
-  --theme-warm: #d49a29;
-  --theme-danger: #bb604d;
-  --theme-shadow: 0 14px 38px rgba(50,61,52,.09);
-  --theme-radius: 24px;
-  --theme-control-radius: 12px;
+  --theme-bg: #eceee8;
+  --theme-wallpaper: #eceee8;
+  --theme-orb-one: none;
+  --theme-orb-two: none;
+  --theme-grid: transparent;
+  --theme-grid-opacity: 0;
+  --theme-text: #182219;
+  --theme-muted: #53604f;
+  --theme-subtle: #53604f;
+  --theme-surface: #ffffff;
+  --theme-surface-solid: #ffffff;
+  --theme-surface-soft: #e9eee5;
+  --theme-surface-hover: color-mix(in srgb, #9be25f 12%, #ffffff);
+  --theme-border: #a6b39e;
+  --theme-border-strong: #42672a;
+  --theme-accent: #9be25f;
+  --theme-accent-soft: color-mix(in srgb, #9be25f 16%, #ffffff);
+  --theme-accent-contrast: #15270b;
+  --theme-secondary: #235c42;
+  --theme-warm: #8a5b13;
+  --theme-danger: #9a392e;
+  --theme-shadow: none;
+  --theme-radius: 32px;
+  --theme-control-radius: 18px;
   --theme-blur: 0px;
+
+  --theme-action-label: #42672a;
+  --theme-outline: 1px;
+  --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-weight: 650;
+  --theme-inset: #e9eee5;
+  --theme-inset-strong: #ffffff;
+  --theme-disabled: #e9eee5;
+  --theme-drawing-paper: #fffaf4;
+  --theme-drawing-ink: #182219;
+  --theme-color-scheme: light;
 }
 
 .tablet-shell[data-theme="swiss"] {
-  --theme-bg: #f5f4ef;
-  --theme-wallpaper: #f5f4ef;
+  --theme-bg: #eeefed;
+  --theme-wallpaper: #eeefed;
   --theme-orb-one: none;
   --theme-orb-two: none;
-  --theme-grid: rgba(0,0,0,.05);
-  --theme-grid-opacity: .12;
-  --theme-text: #080808;
-  --theme-muted: #5b6168;
-  --theme-subtle: #7d8287;
-  --theme-surface: #fff;
-  --theme-surface-solid: #fff;
-  --theme-surface-soft: #f1f1ed;
-  --theme-surface-hover: #e9efff;
-  --theme-border: #161616;
-  --theme-border-strong: #0058ff;
-  --theme-accent: #075bf7;
-  --theme-accent-soft: rgba(7,91,247,.12);
-  --theme-accent-contrast: #fff;
-  --theme-secondary: #17a76b;
-  --theme-warm: #f3b600;
-  --theme-danger: #f32f3c;
+  --theme-grid: transparent;
+  --theme-grid-opacity: 0;
+  --theme-text: #101923;
+  --theme-muted: #4b586b;
+  --theme-subtle: #4b586b;
+  --theme-surface: #ffffff;
+  --theme-surface-solid: #ffffff;
+  --theme-surface-soft: #e9edfa;
+  --theme-surface-hover: color-mix(in srgb, #2051e5 12%, #ffffff);
+  --theme-border: #a6b3c5;
+  --theme-border-strong: #2051e5;
+  --theme-accent: #2051e5;
+  --theme-accent-soft: color-mix(in srgb, #2051e5 16%, #ffffff);
+  --theme-accent-contrast: #ffffff;
+  --theme-secondary: #235c42;
+  --theme-warm: #8a5b13;
+  --theme-danger: #9a392e;
   --theme-shadow: none;
-  --theme-radius: 8px;
-  --theme-control-radius: 6px;
+  --theme-radius: 6px;
+  --theme-control-radius: 5px;
   --theme-blur: 0px;
-  --theme-font: Arial, Helvetica, ui-sans-serif, system-ui, sans-serif;
+  --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --theme-action-label: #2051e5;
+  --theme-outline: 1px;
+  --theme-heading-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-weight: 750;
+  --theme-inset: #e9edfa;
+  --theme-inset-strong: #ffffff;
+  --theme-disabled: #e9edfa;
+  --theme-drawing-paper: #fffaf4;
+  --theme-drawing-ink: #101923;
+  --theme-color-scheme: light;
 }
 
 .tablet-shell[data-theme="mediterranean"] {
-  --theme-bg: #eadbc4;
-  --theme-wallpaper: radial-gradient(circle at 80% 5%, rgba(255,255,255,.72), transparent 31%), linear-gradient(145deg, #f8efdF, #e8d4b4 64%, #d4c39f);
-  --theme-orb-one: radial-gradient(circle, rgba(36,86,132,.13), transparent 68%);
-  --theme-orb-two: radial-gradient(circle, rgba(212,103,55,.18), transparent 68%);
-  --theme-grid: rgba(28,71,108,.08);
-  --theme-grid-opacity: .11;
-  --theme-text: #133f68;
-  --theme-muted: #6d6d68;
-  --theme-subtle: #918b7f;
-  --theme-surface: linear-gradient(145deg, rgba(255,251,242,.97), rgba(247,237,218,.96));
-  --theme-surface-solid: #fff7e8;
-  --theme-surface-soft: rgba(22,62,97,.055);
-  --theme-surface-hover: rgba(42,89,133,.1);
-  --theme-border: rgba(35,78,112,.15);
-  --theme-border-strong: rgba(29,78,120,.5);
-  --theme-accent: #215b91;
-  --theme-accent-soft: rgba(33,91,145,.14);
-  --theme-accent-contrast: #fffaf0;
-  --theme-secondary: #74825a;
-  --theme-warm: #e0a018;
-  --theme-danger: #dc7044;
-  --theme-shadow: 0 16px 44px rgba(91,66,36,.1);
-  --theme-radius: 27px;
-  --theme-control-radius: 13px;
+  --theme-bg: #f3ebdc;
+  --theme-wallpaper: #f3ebdc;
+  --theme-orb-one: none;
+  --theme-orb-two: none;
+  --theme-grid: transparent;
+  --theme-grid-opacity: 0;
+  --theme-text: #20374b;
+  --theme-muted: #546572;
+  --theme-subtle: #546572;
+  --theme-surface: #fffdf7;
+  --theme-surface-solid: #fffdf7;
+  --theme-surface-soft: #e9e1cf;
+  --theme-surface-hover: color-mix(in srgb, #23559b 12%, #fffdf7);
+  --theme-border: #aca58f;
+  --theme-border-strong: #23559b;
+  --theme-accent: #23559b;
+  --theme-accent-soft: color-mix(in srgb, #23559b 16%, #fffdf7);
+  --theme-accent-contrast: #ffffff;
+  --theme-secondary: #235c42;
+  --theme-warm: #8a5b13;
+  --theme-danger: #9a392e;
+  --theme-shadow: none;
+  --theme-radius: 34px;
+  --theme-control-radius: 14px;
   --theme-blur: 0px;
+
+  --theme-action-label: #23559b;
+  --theme-outline: 1px;
+  --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-font: Georgia, "Times New Roman", serif;
+  --theme-heading-weight: 700;
+  --theme-inset: #e9e1cf;
+  --theme-inset-strong: #fffdf7;
+  --theme-disabled: #e9e1cf;
+  --theme-drawing-paper: #fffaf4;
+  --theme-drawing-ink: #20374b;
+  --theme-color-scheme: light;
 }
 
 .tablet-shell[data-theme="monochrome"] {
-  --theme-bg: #ededeb;
-  --theme-wallpaper: linear-gradient(145deg, #fafafa, #e9e9e7);
+  --theme-bg: #e9e9e6;
+  --theme-wallpaper: #e9e9e6;
   --theme-orb-one: none;
   --theme-orb-two: none;
-  --theme-grid: rgba(0,0,0,.06);
-  --theme-grid-opacity: .1;
-  --theme-text: #090909;
-  --theme-muted: #555;
-  --theme-subtle: #777;
-  --theme-surface: #fafafa;
-  --theme-surface-solid: #fff;
-  --theme-surface-soft: #ececeb;
-  --theme-surface-hover: #e4e4e2;
-  --theme-border: #292929;
-  --theme-border-strong: #000;
-  --theme-accent: #111;
-  --theme-accent-soft: rgba(0,0,0,.1);
-  --theme-accent-contrast: #fff;
-  --theme-secondary: #555;
-  --theme-warm: #ff6a00;
-  --theme-danger: #c93024;
+  --theme-grid: transparent;
+  --theme-grid-opacity: 0;
+  --theme-text: #171717;
+  --theme-muted: #575754;
+  --theme-subtle: #575754;
+  --theme-surface: #ffffff;
+  --theme-surface-solid: #ffffff;
+  --theme-surface-soft: #efefec;
+  --theme-surface-hover: color-mix(in srgb, #171717 12%, #ffffff);
+  --theme-border: #777773;
+  --theme-border-strong: #171717;
+  --theme-accent: #171717;
+  --theme-accent-soft: color-mix(in srgb, #171717 16%, #ffffff);
+  --theme-accent-contrast: #ffffff;
+  --theme-secondary: #235c42;
+  --theme-warm: #8a5b13;
+  --theme-danger: #9a392e;
   --theme-shadow: none;
-  --theme-radius: 18px;
-  --theme-control-radius: 10px;
+  --theme-radius: 2px;
+  --theme-control-radius: 2px;
   --theme-blur: 0px;
+
+  --theme-action-label: #171717;
+  --theme-outline: 1px;
+  --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-font: Georgia, "Times New Roman", serif;
+  --theme-heading-weight: 700;
+  --theme-inset: #efefec;
+  --theme-inset-strong: #ffffff;
+  --theme-disabled: #efefec;
+  --theme-drawing-paper: #fffaf4;
+  --theme-drawing-ink: #171717;
+  --theme-color-scheme: light;
 }
 
 .tablet-shell[data-theme="brutalist"] {
-  --theme-bg: #ffe52d;
-  --theme-wallpaper: #ffe52d;
+  --theme-bg: #d9e7f5;
+  --theme-wallpaper: #d9e7f5;
   --theme-orb-one: none;
   --theme-orb-two: none;
-  --theme-grid: rgba(0,0,0,.08);
-  --theme-grid-opacity: .14;
-  --theme-text: #070707;
-  --theme-muted: #353535;
-  --theme-subtle: #555;
-  --theme-surface: #7fe9bd;
-  --theme-surface-solid: #fffaf0;
-  --theme-surface-soft: rgba(255,255,255,.64);
-  --theme-surface-hover: #fff4a8;
-  --theme-border: #070707;
-  --theme-border-strong: #070707;
-  --theme-accent: #0758f8;
-  --theme-accent-soft: #c7b2ff;
-  --theme-accent-contrast: #fff;
-  --theme-secondary: #73e7b7;
-  --theme-warm: #ffdc2f;
-  --theme-danger: #ff756b;
-  --theme-shadow: 8px 9px 0 #070707;
-  --theme-radius: 20px;
-  --theme-control-radius: 10px;
-  --theme-outline: 4px;
+  --theme-grid: transparent;
+  --theme-grid-opacity: 0;
+  --theme-text: #111827;
+  --theme-muted: #3c485d;
+  --theme-subtle: #3c485d;
+  --theme-surface: #fffdf5;
+  --theme-surface-solid: #fffdf5;
+  --theme-surface-soft: #dce7fa;
+  --theme-surface-hover: color-mix(in srgb, #fee72a 12%, #fffdf5);
+  --theme-border: #111827;
+  --theme-border-strong: #1d3c9b;
+  --theme-accent: #fee72a;
+  --theme-accent-soft: color-mix(in srgb, #fee72a 16%, #fffdf5);
+  --theme-accent-contrast: #111827;
+  --theme-secondary: #235c42;
+  --theme-warm: #8a5b13;
+  --theme-danger: #9a392e;
+  --theme-shadow: 4px 4px 0 #111827;
+  --theme-radius: 0px;
+  --theme-control-radius: 0px;
+  --theme-outline: 3px;
   --theme-blur: 0px;
-  --theme-font: Arial, Helvetica, ui-sans-serif, system-ui, sans-serif;
-  --theme-inset: #fffaf0;
-  --theme-inset-strong: #fffdf6;
-  --theme-disabled: #f1e79c;
-  --theme-drawing-paper: #102242;
+  --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-inset: #dce7fa;
+  --theme-inset-strong: #fffdf5;
+  --theme-disabled: #dce7fa;
+  --theme-drawing-paper: #fffaf4;
   --theme-overlay: rgba(7, 7, 7, .64);
+
+  --theme-action-label: #1d3c9b;
+  --theme-heading-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --theme-heading-weight: 800;
+  --theme-drawing-ink: #111827;
+  --theme-color-scheme: light;
 }
 
-.tablet-shell:is([data-theme="warm"], [data-theme="retro"], [data-theme="nordic"], [data-theme="swiss"], [data-theme="mediterranean"], [data-theme="monochrome"]) {
+.tablet-shell:is([data-theme="warm"], [data-theme="retro"], [data-theme="nordic"], [data-theme="swiss"], [data-theme="mediterranean"], [data-theme="monochrome"], [data-theme="brutalist"]) {
   --theme-drawing-paper: #fffaf4;
   --theme-drawing-ink: #25211f;
 }
 
-.tablet-shell:is([data-theme="warm"], [data-theme="retro"], [data-theme="nordic"], [data-theme="swiss"], [data-theme="mediterranean"], [data-theme="monochrome"]) :is(.note-preview-drawing, .note-drawing-canvas) path[stroke="#f4f7ff"] {
+.tablet-shell:is([data-theme="warm"], [data-theme="retro"], [data-theme="nordic"], [data-theme="swiss"], [data-theme="mediterranean"], [data-theme="monochrome"], [data-theme="brutalist"]) :is(.note-preview-drawing, .note-drawing-canvas) path[stroke="#f4f7ff"] {
   stroke: var(--theme-drawing-ink);
 }
 
@@ -449,20 +558,20 @@
   .weather-current-main p
 ) { color: var(--theme-text); }
 
-.tablet-shell[data-theme] :is(.section-heading, .settings-icon, .heading-icon.blue, .reminder-list time, .weather-stats > div) { color: var(--theme-accent); }
+.tablet-shell[data-theme] :is(.section-heading, .settings-icon, .heading-icon.blue, .reminder-list time, .weather-stats > div) { color: var(--theme-action-label, var(--theme-accent)); }
 .tablet-shell[data-theme] :is(.settings-icon, .heading-icon.blue) { background: var(--theme-accent-soft); }
 .tablet-shell[data-theme] :is(.primary-action, .alarm-done, .icon-button, .toggle.is-on, .alarm-toggle.is-on, .timer-presets button.is-selected, .weekday-picker button.is-selected) {
   background: var(--theme-accent);
   color: var(--theme-accent-contrast);
 }
-.tablet-shell[data-theme] :is(.interactive-card:focus-visible, .page-indicators button:focus-visible, .toggle-row:focus-visible, .theme-option:focus-visible) { outline-color: var(--theme-accent); }
+.tablet-shell[data-theme] :is(.interactive-card:focus-visible, .page-indicators button:focus-visible, .toggle-row:focus-visible, .theme-option:focus-visible) { outline-color: var(--theme-action-label, var(--theme-accent)); }
 .tablet-shell[data-theme] :is(.weather-icon, .weather-current-icon, .hourly-forecast svg, .daily-icon) { color: var(--theme-warm); }
 .tablet-shell[data-theme] :is(.bottom-navigation, .navigation-reveal) { background: color-mix(in srgb, var(--theme-surface-solid) 91%, transparent); border-color: var(--theme-border); color: var(--theme-text); }
 .tablet-shell[data-theme] .bottom-navigation button { color: var(--theme-muted); }
 .tablet-shell[data-theme] .bottom-navigation button.is-active { background: var(--theme-accent-soft); color: var(--theme-text); }
 .tablet-shell[data-theme] .page-indicators { background: color-mix(in srgb, var(--theme-surface-solid) 96%, transparent); border-color: var(--theme-border); }
 .tablet-shell[data-theme] .page-indicators button { background: color-mix(in srgb, var(--theme-muted) 12%, transparent); border-color: var(--theme-border); color: var(--theme-muted); }
-.tablet-shell[data-theme] .page-indicators button.is-active { background: var(--theme-accent); border-color: var(--theme-accent); color: var(--theme-accent-contrast); }
+.tablet-shell[data-theme] .page-indicators button.is-active { background: var(--theme-accent); border-color: var(--theme-action-label, var(--theme-accent)); color: var(--theme-accent-contrast); }
 
 .tablet-shell[data-theme] :is(.calendar-widget-month-grid > button, .calendar-month-grid > button) { background: var(--theme-surface-soft); border-color: color-mix(in srgb, var(--theme-border) 62%, transparent); }
 .tablet-shell[data-theme] .calendar-widget-month-grid > button > strong { color: var(--theme-text); }
@@ -470,15 +579,15 @@
 .tablet-shell[data-theme] .responsive-calendar-widget .calendar-widget-month-grid > button.is-muted { opacity: .72; }
 .tablet-shell[data-theme] :is(.calendar-widget-month-grid > button.is-today, .calendar-month-grid > button.is-selected) { background: var(--theme-accent-soft); border-color: var(--theme-border-strong); }
 .tablet-shell[data-theme] :is(.calendar-widget-month-grid > button.is-today > strong, .calendar-month-grid > button.is-today strong) { background: var(--theme-accent); color: var(--theme-accent-contrast); }
-.tablet-shell[data-theme] .calendar-widget-month-grid small { background: var(--theme-accent-soft); border-left-color: var(--theme-accent); color: var(--theme-text); }
+.tablet-shell[data-theme] .calendar-widget-month-grid small { background: var(--theme-accent-soft); border-left-color: var(--theme-action-label, var(--theme-accent)); color: var(--theme-text); }
 
 .tablet-shell[data-theme] :is(.settings-select-row select, .timeout-select-row select, .night-schedule input, .note-editor-footer input, .note-stroke-width select) {
   background: var(--theme-surface-solid);
   border-color: var(--theme-border);
   color: var(--theme-text);
-  color-scheme: light dark;
+  color-scheme: var(--theme-color-scheme);
 }
-.tablet-shell[data-theme] :is(.settings-select-row select option, .timeout-select-row select option) { color: #111; }
+.tablet-shell[data-theme] :is(.settings-select-row select option, .timeout-select-row select option) { background: var(--theme-surface-solid); color: var(--theme-text); }
 .tablet-shell[data-theme] :is(.notes-workspace textarea, .note-editor textarea) { background: var(--theme-surface-soft); border-color: var(--theme-border); color: var(--theme-text); }
 .tablet-shell[data-theme] .note-drawing-toolbar { background: color-mix(in srgb, var(--theme-surface-solid) 92%, transparent); border-color: var(--theme-border); }
 .tablet-shell[data-theme] .note-drawing-toolbar :is(button, .note-stroke-width) { background: var(--theme-surface-soft); border-color: var(--theme-border); color: var(--theme-muted); }
@@ -585,12 +694,12 @@
 .tablet-shell[data-theme] .calendar-cell-events > span.event-sun { background: color-mix(in srgb, #f7c76e 24%, var(--theme-surface-solid)); }
 .tablet-shell[data-theme] :is(.calendar-day-event, .calendar-upcoming-event) strong { color: var(--theme-text); }
 .tablet-shell[data-theme] :is(.calendar-day-event, .calendar-upcoming-event) small { color: var(--theme-muted); }
-.tablet-shell[data-theme] .calendar-event-time { color: var(--theme-accent); font-weight: 750; }
+.tablet-shell[data-theme] .calendar-event-time { color: var(--theme-action-label, var(--theme-accent)); font-weight: 750; }
 .tablet-shell[data-theme] .calendar-recurrence-mark { color: var(--theme-muted); }
 .tablet-shell[data-theme] :is(.calendar-cell-events > span.is-completed, .calendar-cell-events > span.is-past, .calendar-day-event.is-completed, .calendar-day-event.is-past, .calendar-upcoming-event.is-completed) { opacity: 1; }
 .tablet-shell[data-theme] .calendar-toolbar .calendar-hide-completed.is-active {
   background: var(--theme-accent);
-  border-color: var(--theme-accent);
+  border-color: var(--theme-action-label, var(--theme-accent));
   color: var(--theme-accent-contrast);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-accent) 22%, transparent);
 }
@@ -610,7 +719,7 @@
 /* Weather: full-page controls and forecast copy use semantic contrast roles. */
 .tablet-shell[data-theme] .weather-location-chip button { color: var(--theme-text); }
 .tablet-shell[data-theme] .weather-location-chip.is-active { background: var(--theme-accent-soft); border-color: var(--theme-border-strong); }
-.tablet-shell[data-theme] .weather-location-chip small { background: var(--theme-accent-soft); color: var(--theme-accent); }
+.tablet-shell[data-theme] .weather-location-chip small { background: var(--theme-accent-soft); color: var(--theme-action-label, var(--theme-accent)); }
 .tablet-shell[data-theme] .weather-location-chip .weather-chip-action { border-color: var(--theme-border); color: var(--theme-muted); }
 .tablet-shell[data-theme] .weather-location-chip .weather-chip-action:hover { background: var(--theme-surface-hover); color: var(--theme-text); }
 .tablet-shell[data-theme] .weather-search-results > button { color: var(--theme-text); }
@@ -619,7 +728,7 @@
 .tablet-shell[data-theme] .weather-current-main > div > strong { color: var(--theme-text); }
 .tablet-shell[data-theme] .weather-current-main p { color: var(--theme-text); }
 .tablet-shell[data-theme] .weather-current-main span { color: var(--theme-muted); }
-.tablet-shell[data-theme] .weather-stats > div { background: var(--theme-inset); border-color: var(--theme-border); color: var(--theme-accent); }
+.tablet-shell[data-theme] .weather-stats > div { background: var(--theme-inset); border-color: var(--theme-border); color: var(--theme-action-label, var(--theme-accent)); }
 .tablet-shell[data-theme] .weather-stats span { color: var(--theme-muted); }
 .tablet-shell[data-theme] .weather-stats strong { color: var(--theme-text); }
 .tablet-shell[data-theme] .hourly-forecast > div { color: var(--theme-muted); }
@@ -644,12 +753,12 @@
 }
 .tablet-shell[data-theme] .mobile-server-status.is-online .mobile-status-icon {
   background: var(--theme-accent-soft);
-  color: var(--theme-accent);
+  color: var(--theme-action-label, var(--theme-accent));
 }
 .tablet-shell[data-theme] .authorized-devices-heading { color: var(--theme-text); }
 .tablet-shell[data-theme] .authorized-devices-heading span {
   background: var(--theme-accent-soft);
-  color: var(--theme-accent);
+  color: var(--theme-action-label, var(--theme-accent));
 }
 .tablet-shell[data-theme] .authorized-device-copy input {
   background: var(--theme-inset-strong);
@@ -664,7 +773,7 @@
 .tablet-shell[data-theme] .pairing-panel-header small { color: var(--theme-muted); }
 .tablet-shell[data-theme] .pairing-address {
   background: var(--theme-inset-strong);
-  color: var(--theme-accent);
+  color: var(--theme-action-label, var(--theme-accent));
 }
 .tablet-shell[data-theme] .pairing-request {
   background: color-mix(in srgb, var(--theme-warm) 12%, var(--theme-surface-solid));
@@ -678,7 +787,7 @@
 .tablet-shell[data-theme] .pairing-request-actions .is-primary,
 .tablet-shell[data-theme] .mobile-pair-button {
   background: var(--theme-accent);
-  border-color: var(--theme-accent);
+  border-color: var(--theme-action-label, var(--theme-accent));
   color: var(--theme-accent-contrast);
 }
 .tablet-shell[data-theme] .mobile-admin-message {
@@ -701,7 +810,7 @@
   border-color: var(--theme-border);
   color: var(--theme-text);
 }
-.tablet-shell[data-theme] .app-update-ok { color: var(--theme-accent); }
+.tablet-shell[data-theme] .app-update-ok { color: var(--theme-action-label, var(--theme-accent)); }
 .tablet-shell[data-theme] .app-update-notes {
   background: var(--theme-inset);
   border-color: var(--theme-border);
@@ -723,7 +832,7 @@
 }
 .tablet-shell[data-theme] .app-update-actions button.is-primary {
   background: var(--theme-accent);
-  border-color: var(--theme-accent);
+  border-color: var(--theme-action-label, var(--theme-accent));
   color: var(--theme-accent-contrast);
 }
 .tablet-shell[data-theme] .exit-app-row {
@@ -763,7 +872,7 @@
   box-shadow: var(--theme-shadow);
   color: var(--theme-text);
 }
-.tablet-shell[data-theme] .gallery-screensaver-agenda header { color: var(--theme-accent); }
+.tablet-shell[data-theme] .gallery-screensaver-agenda header { color: var(--theme-action-label, var(--theme-accent)); }
 .tablet-shell[data-theme] .gallery-screensaver-agenda > div {
   background: color-mix(in srgb, var(--theme-surface-soft) 92%, transparent);
   border: 1px solid var(--theme-border);
@@ -817,7 +926,7 @@
 }
 .tablet-shell[data-theme] .night-mode-settings.is-active > .settings-row .settings-icon {
   background: var(--theme-accent-soft);
-  color: var(--theme-accent);
+  color: var(--theme-action-label, var(--theme-accent));
 }
 
 .tablet-shell[data-theme] .note-preview-drawing,
@@ -846,130 +955,6 @@
   color: var(--theme-text);
 }
 
-/* Each direction has one deliberately distinctive structural treatment without changing widget placement. */
-.tablet-shell[data-theme="glass"] :is(.widget-card, .weather-current-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace) { box-shadow: 0 18px 55px rgba(0,8,31,.32), inset 0 1px 0 rgba(255,255,255,.26), 0 0 0 1px rgba(97,225,255,.12); }
-.tablet-shell[data-theme="retro"] :is(.widget-card, .weather-current-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace) { border-width: 2px; }
-.tablet-shell[data-theme="swiss"] :is(.welcome, .temperature, .focus-clock time, .clock-card .time) { font-weight: 800; letter-spacing: -.075em; }
-.tablet-shell[data-theme="swiss"] :is(.widget-card, .weather-current-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace) { border-width: 1.5px; }
-.tablet-shell[data-theme="monochrome"] :is(.widget-card, .weather-current-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace) { border-width: 1.5px; }
-.tablet-shell[data-theme="monochrome"] :is(.calendar-event-line i, .calendar-upcoming-event > i, .note-preview > i) { background: var(--theme-warm); }
-.tablet-shell[data-theme="glass"] .gallery-screensaver-agenda { box-shadow: 0 18px 55px rgba(0,8,31,.38), inset 0 1px 0 rgba(255,255,255,.26), 0 0 0 1px rgba(97,225,255,.14); }
-.tablet-shell[data-theme="retro"] .gallery-screensaver-agenda,
-.tablet-shell[data-theme="swiss"] .gallery-screensaver-agenda,
-.tablet-shell[data-theme="monochrome"] .gallery-screensaver-agenda { border-width: 2px; }
-.tablet-shell[data-theme="brutalist"] :is(.widget-card, .weather-current-panel, .weather-forecast-panel, .calendar-month-panel, .calendar-day-panel, .calendar-upcoming-panel, .notes-workspace) { border-width: var(--theme-outline); }
-.tablet-shell[data-theme="brutalist"] .agenda-card { background: #0758f8; color: #fff; }
-.tablet-shell[data-theme="brutalist"] .weather-card { background: #ff756b; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .clock-card { background: #73e7b7; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .note-card { background: #c7b2ff; color: #070707; }
-.tablet-shell[data-theme="brutalist"] :is(.agenda-card, .weather-card, .clock-card, .note-card):hover { transform: translateY(-2px); }
-
-.tablet-shell[data-theme="brutalist"] .agenda-card :is(.widget-title, .widget-subtitle, .calendar-widget-header > span, .calendar-widget-agenda > p) { color: #fff; }
-.tablet-shell[data-theme="brutalist"] .dashboard-widget-shell > .agenda-card .calendar-widget-header > span { color: #fff; }
-.tablet-shell[data-theme="brutalist"] .agenda-card .heading-icon { background: #ff756b; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-widget-month { background: transparent; border: 0; }
-.tablet-shell[data-theme="brutalist"] .calendar-widget-weekdays { color: #070707; gap: 0; }
-.tablet-shell[data-theme="brutalist"] .calendar-widget-weekdays > span { background: #c7b2ff; border: 2px solid #070707; border-right: 0; padding: 5px 0; }
-.tablet-shell[data-theme="brutalist"] .calendar-widget-weekdays > span:first-child { border-radius: 9px 0 0 0; }
-.tablet-shell[data-theme="brutalist"] .calendar-widget-weekdays > span:last-child { border-right: 2px solid #070707; border-radius: 0 9px 0 0; }
-.tablet-shell[data-theme="brutalist"] .calendar-widget-month-grid { gap: 3px; }
-.tablet-shell[data-theme="brutalist"] .calendar-widget-month-grid > button { background: #fffaf0; border: 2px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-widget-month-grid > button.is-today { background: #0758f8; border-color: #070707; color: #fff; }
-.tablet-shell[data-theme="brutalist"] .calendar-widget-month-grid > button.is-today > strong { background: transparent; color: inherit; }
-.tablet-shell[data-theme="brutalist"] .calendar-widget-month-grid small { background: #c7b2ff; border-left: 4px solid #ff756b; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-event-line { background: #fffaf0; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-event-line time { color: #353535; }
-
-.tablet-shell[data-theme="brutalist"] .weather-card :is(.weather-copy, .location, .weather-stats small, .weather-widget-hours small) { color: #353535; }
-.tablet-shell[data-theme="brutalist"] .weather-card .weather-icon { background: #ffdc2f; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-card .weather-stats > div { background: #73e7b7; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-card .weather-stats > div:nth-child(even) { background: #c7b2ff; }
-.tablet-shell[data-theme="brutalist"] .weather-card .weather-tall-stats > span { background: #73e7b7; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-card .weather-tall-stats > span:nth-child(even) { background: #c7b2ff; }
-.tablet-shell[data-theme="brutalist"] .weather-card :is(.weather-current > div:last-child > span, .weather-stats span, .weather-stats strong, .weather-tall-stats small, .weather-tall-stats strong, .weather-widget-hours > p, .weather-tall-hours > p, .weather-hours > p, .weather-forecast > p) { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-card .weather-widget-hours > span { background: #fffaf0; border: 3px solid #070707; color: #070707; }
-
-.tablet-shell[data-theme="brutalist"] .clock-card :is(.widget-label, .date, .clock-details) { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .note-card :is(.widget-title, .widget-subtitle, .note-preview strong, .note-preview small) { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .note-card .heading-icon { background: #ff756b; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .note-preview { background: #fffaf0; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .note-preview-drawing { border: 2px solid #070707; }
-
-.tablet-shell[data-theme="brutalist"] .navigation-reveal { background: #0758f8; color: #fff; }
-.tablet-shell[data-theme="brutalist"] .bottom-navigation { background: #fffaf0; }
-.tablet-shell[data-theme="brutalist"] .page-indicators button { background: #fffaf0; border-color: #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .page-indicators button.is-active { background: #0758f8; color: #fff; }
-
-.tablet-shell[data-theme="brutalist"] .calendar-month-panel { background: #0758f8; color: #fff; }
-.tablet-shell[data-theme="brutalist"] .calendar-day-panel { background: #ff756b; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-upcoming-panel { background: #c7b2ff; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-month-panel :is(.eyebrow, h2) { color: #fff; }
-.tablet-shell[data-theme="brutalist"] .calendar-weekdays { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-weekdays > span { background: #c7b2ff; border: 2px solid #070707; padding: 6px 0; }
-.tablet-shell[data-theme="brutalist"] .calendar-month-grid > button { background: #fffaf0; border: 2px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-month-grid > button.is-selected { background: #73e7b7; border-color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-month-grid > button.is-today strong { background: #0758f8; color: #fff; }
-.tablet-shell[data-theme="brutalist"] .calendar-day-empty :is(strong, span, svg) { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-day-empty button { background: #fffaf0; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-cell-events > span { background: #ffe5dc; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .calendar-upcoming-panel > header > svg { color: #070707; }
-
-.tablet-shell[data-theme="brutalist"] .clock-workspace .focus-clock { background: #73e7b7; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .clock-workspace .focus-clock :is(.focus-clock-kicker, p) { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .alarm-panel { background: #0758f8; color: #fff; }
-.tablet-shell[data-theme="brutalist"] .timer-panel { background: #c7b2ff; color: #070707; }
-.tablet-shell[data-theme="brutalist"] :is(.alarm-row, .timer-row) { background: #fffaf0; border: 2px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] :is(.alarm-row, .timer-row) :is(strong, b, small, input) { color: #070707; }
-.tablet-shell[data-theme="brutalist"] :is(.alarm-summary, .alarm-summary small, .alarm-summary > svg, .timer-summary, .timer-summary span, .timer-summary strong) { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .utility-tabs { background: #fffaf0; border: 2px solid #070707; }
-.tablet-shell[data-theme="brutalist"] .utility-tabs button { color: #353535; }
-.tablet-shell[data-theme="brutalist"] .utility-tabs button.is-active { background: #0758f8; color: #fff; }
-
-.tablet-shell[data-theme="brutalist"] .weather-current-panel { background: #ff756b; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-forecast-panel { background: #73e7b7; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-location-search { background: #fffaf0; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-location-search input { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-location-search input::placeholder { color: #555; }
-.tablet-shell[data-theme="brutalist"] .weather-location-chip { background: #fffaf0; border: 2px solid #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-location-chip.is-active { background: #fff4a8; border-color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-location-chip :is(button, small, .weather-chip-action) { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-refresh { background: #fffaf0; border: 2px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-current-panel .weather-stats > div { background: #73e7b7; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-current-panel .weather-stats > div:nth-child(even) { background: #c7b2ff; }
-.tablet-shell[data-theme="brutalist"] .weather-current-panel :is(.weather-current-main span, .weather-stats span, .weather-stats strong, .hourly-forecast > div, .hourly-forecast span, .hourly-forecast strong, .hourly-forecast small) { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .weather-forecast-panel :is(.forecast-heading small, .daily-copy small, .daily-copy strong, .daily-forecast-row > strong, .weather-source-note) { color: #070707; }
-
-.tablet-shell[data-theme="brutalist"] .notes-workspace { background: #c7b2ff; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .notes-sidebar { border-color: #070707; }
-.tablet-shell[data-theme="brutalist"] .note-list-item { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .note-list-item.is-selected { background: #fffaf0; border: 3px solid #070707; }
-.tablet-shell[data-theme="brutalist"] .note-list-item :is(strong, small) { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .notes-workspace textarea { background: #fffaf0; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .note-format-badge { background: #73e7b7; border: 3px solid #070707; color: #070707; }
-
-.tablet-shell[data-theme="brutalist"] .gallery-panel { background: #73e7b7; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .gallery-toolbar > div:first-child > span { color: #353535; }
-.tablet-shell[data-theme="brutalist"] .gallery-actions button { border-width: 3px; }
-.tablet-shell[data-theme="brutalist"] .gallery-actions .gallery-add-button { background: #0758f8; border-color: #070707; color: #fff; }
-.tablet-shell[data-theme="brutalist"] .gallery-screensaver-agenda { background: #ffdc2f; border: 4px solid #070707; border-radius: 18px; box-shadow: 9px 10px 0 #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .gallery-screensaver-agenda header { color: #070707; }
-.tablet-shell[data-theme="brutalist"] .gallery-screensaver-agenda > div { background: #fffaf0; border: 3px solid #070707; }
-.tablet-shell[data-theme="brutalist"] .gallery-screensaver-agenda :is(strong, small, p) { color: #070707; }
-
-.tablet-shell[data-theme="brutalist"] .settings-section { background: #73e7b7; }
-.tablet-shell[data-theme="brutalist"] :is(.mobile-server-status, .authorized-device, .pairing-request, .pairing-panel) { background: #fffaf0; border: 3px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .mobile-server-status.is-online .mobile-status-icon { background: #73e7b7; border: 2px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .authorized-devices-heading span { background: #ffdc2f; border: 2px solid #070707; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .night-mode-settings.is-active { background: transparent; border: 0; box-shadow: none; }
-.tablet-shell[data-theme="brutalist"] .night-mode-settings::before { background: #070707; width: 4px; }
-.tablet-shell[data-theme="brutalist"] .night-mode-settings.is-active > .settings-row { background: #fffaf0; }
-.tablet-shell[data-theme="brutalist"] .settings-list > .settings-row { background: #fffaf0; }
-.tablet-shell[data-theme="brutalist"] .settings-row { border-color: #070707; }
-.tablet-shell[data-theme="brutalist"] .theme-option { background: #fffaf0; color: #070707; }
-.tablet-shell[data-theme="brutalist"] .theme-option.is-selected { background: #c7b2ff; border-color: #0758f8; }
-.tablet-shell[data-theme="brutalist"] :is(.welcome, .temperature, .focus-clock time, .clock-card .time) { font-weight: 900; letter-spacing: -.07em; }
-.tablet-shell[data-theme="brutalist"] :is(.back-button, .bottom-navigation, .navigation-reveal, .settings-row, .theme-option, .primary-action, .text-action) { border-width: 3px; box-shadow: 4px 5px 0 #070707; }
-
 /* Theme picker */
 .settings-subheading { align-items: center; border-top: 1px solid var(--theme-border, rgba(255,255,255,.12)); color: var(--theme-accent, #bcd0ff); display: flex; justify-content: space-between; margin-top: 18px; padding-top: 17px; }
 .app-update-settings .app-update-heading { border-top: 0; margin-top: 0; padding-top: 0; }
@@ -979,7 +964,7 @@
 .theme-option { align-items: center; background: var(--theme-surface-soft, rgba(255,255,255,.075)); border: 1px solid var(--theme-border, rgba(255,255,255,.14)); border-radius: 15px; color: var(--theme-text, #f7f8ff); cursor: pointer; display: grid; font: inherit; gap: 9px; grid-template-columns: 42px minmax(0, 1fr) 19px; min-width: 0; padding: 8px; text-align: left; }
 .theme-option:hover { background: var(--theme-surface-hover, rgba(255,255,255,.13)); border-color: var(--theme-border-strong, rgba(154,184,255,.48)); }
 .theme-option.is-selected { background: var(--theme-accent-soft, rgba(120,153,255,.2)); border-color: var(--theme-accent, #7899ff); }
-.theme-option-preview { background: var(--preview-bg); border: 1px solid var(--preview-line); border-radius: 10px; box-sizing: border-box; display: grid; gap: 3px; grid-template-columns: 1.4fr .8fr; grid-template-rows: 1fr .55fr; height: 42px; overflow: hidden; padding: 4px; place-self: center; width: 42px; }
+.theme-option-preview { background: var(--preview-bg); border: 1px solid var(--preview-line); border-radius: var(--preview-radius, 10px); box-sizing: border-box; display: grid; gap: 3px; grid-template-columns: 1.4fr .8fr; grid-template-rows: 1fr .55fr; height: 42px; overflow: hidden; padding: 4px; place-self: center; width: 42px; }
 .theme-option-preview > span { background: var(--preview-card); border: 1px solid var(--preview-line); border-radius: 4px; }
 .theme-option-preview > span:first-child { grid-row: 1 / -1; }
 .theme-option-preview > span:last-child { background: var(--preview-accent); }
@@ -989,16 +974,16 @@
 .theme-option-check { align-items: center; color: var(--theme-accent, #7899ff); display: flex; justify-content: center; }
 .theme-option.is-selected .theme-option-check { background: var(--theme-accent, #7899ff); border-radius: 50%; color: var(--theme-accent-contrast, #07142d); height: 19px; width: 19px; }
 
-[data-preview-theme="original"] { --preview-bg: #101a32; --preview-card: #334763; --preview-accent: #7899ff; --preview-line: rgba(255,255,255,.25); }
-[data-preview-theme="warm"] { --preview-bg: #f4efe6; --preview-card: #fffaf3; --preview-accent: #c95f42; --preview-line: #c9b9aa; }
-[data-preview-theme="amoled"] { --preview-bg: #000; --preview-card: #0b1013; --preview-accent: #18d9ed; --preview-line: #21707a; }
-[data-preview-theme="retro"] { --preview-bg: #ead9b5; --preview-card: #f8eccc; --preview-accent: #c95a23; --preview-line: #65442a; }
-[data-preview-theme="glass"] { --preview-bg: #07142d; --preview-card: #315777; --preview-accent: #54ead7; --preview-line: #8bd9ff; }
-[data-preview-theme="nordic"] { --preview-bg: #e8e9e3; --preview-card: #fafaf5; --preview-accent: #4f6e59; --preview-line: #aeb9af; }
-[data-preview-theme="swiss"] { --preview-bg: #f5f4ef; --preview-card: #fff; --preview-accent: #075bf7; --preview-line: #111; }
-[data-preview-theme="mediterranean"] { --preview-bg: #eadbc4; --preview-card: #fff7e8; --preview-accent: #dc7044; --preview-line: #215b91; }
-[data-preview-theme="monochrome"] { --preview-bg: #ededeb; --preview-card: #fafafa; --preview-accent: #111; --preview-line: #292929; }
-[data-preview-theme="brutalist"] { --preview-bg: #ffe52d; --preview-card: #73e7b7; --preview-accent: #0758f8; --preview-line: #070707; }
+[data-preview-theme="original"] { --preview-bg: #101d32; --preview-card: #1c3048; --preview-accent: #a5b4fc; --preview-line: #526c88; --preview-radius: 10px; }
+[data-preview-theme="warm"] { --preview-bg: #f3ede3; --preview-card: #fffcf5; --preview-accent: #9b4228; --preview-line: #c3b4a2; --preview-radius: 10px; }
+[data-preview-theme="amoled"] { --preview-bg: #000000; --preview-card: #0d1316; --preview-accent: #6be4df; --preview-line: #405a5b; --preview-radius: 10px; }
+[data-preview-theme="retro"] { --preview-bg: #e9dfc6; --preview-card: #fbf1d6; --preview-accent: #984025; --preview-line: #968765; --preview-radius: 10px; }
+[data-preview-theme="glass"] { --preview-bg: #162b47; --preview-card: #2c4161; --preview-accent: #ddd2ff; --preview-line: #8297b7; --preview-radius: 10px; }
+[data-preview-theme="nordic"] { --preview-bg: #eceee8; --preview-card: #ffffff; --preview-accent: #9be25f; --preview-line: #a6b39e; --preview-radius: 10px; }
+[data-preview-theme="swiss"] { --preview-bg: #eeefed; --preview-card: #ffffff; --preview-accent: #2051e5; --preview-line: #a6b3c5; --preview-radius: 6px; }
+[data-preview-theme="mediterranean"] { --preview-bg: #f3ebdc; --preview-card: #fffdf7; --preview-accent: #23559b; --preview-line: #aca58f; --preview-radius: 10px; }
+[data-preview-theme="monochrome"] { --preview-bg: #e9e9e6; --preview-card: #ffffff; --preview-accent: #171717; --preview-line: #777773; --preview-radius: 2px; }
+[data-preview-theme="brutalist"] { --preview-bg: #d9e7f5; --preview-card: #fffdf5; --preview-accent: #fee72a; --preview-line: #111827; --preview-radius: 0px; }
 
 @media (orientation: portrait) {
   .theme-picker { gap: 10px; }

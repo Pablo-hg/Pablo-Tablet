@@ -98,6 +98,9 @@ import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, nextCa
 import { formatCountdown, pauseTimer, resetTimer, startTimer, timerHasFinished, timerRemainingSeconds } from './timerLogic'
 import { isNightModeActive } from './nightMode'
 import { ClockWidgetAlarms } from './components/ClockWidgetAlarms'
+import { ClockFace } from './components/ClockFace'
+import { ClockStylePicker } from './components/ClockStylePicker'
+import type { ClockWidgetStyle } from './clockStyles'
 import { NotesWidget } from './components/NotesWidget'
 import { parseNoteList, type NoteListItem } from './noteList'
 import { useDashboardPersistence } from './hooks/useDashboardPersistence'
@@ -120,6 +123,9 @@ import './components/DashboardWidgetDetails.css'
 import './components/NotesWidget.css'
 import './interactions.css'
 import './navigationLayout.css'
+import './dashboardVisual.css'
+import './components/ClockStyles.css'
+import './appearanceSystem.css'
 
 type SimulatedAlert = { title: string; body: string }
 type RingingAlert = { kind: 'alarm' | 'timer' | 'calendar'; sourceId: string; title: string; subtitle: string; soundUri: string | null }
@@ -982,7 +988,9 @@ function App() {
     }
 
     pointerStart.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId }
-    event.currentTarget.setPointerCapture(event.pointerId)
+    // Capturing a button's pointer here retargets its click to the page.
+    // Swipe-surface buttons keep normal clicks until an actual drag starts.
+    if (!swipeSurfaceButton) event.currentTarget.setPointerCapture(event.pointerId)
     registerInteraction()
   }
 
@@ -991,7 +999,13 @@ function App() {
     if (!start || start.pointerId !== event.pointerId) return
     const deltaX = event.clientX - start.x
     const deltaY = event.clientY - start.y
-    if (Math.abs(deltaY) > 14 && Math.abs(deltaY) > Math.abs(deltaX) * 1.2) handlePointerCancel(event)
+    if (Math.abs(deltaY) > 14 && Math.abs(deltaY) > Math.abs(deltaX) * 1.2) {
+      handlePointerCancel(event)
+      return
+    }
+    if (Math.abs(deltaX) > 14 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && !event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
   }
 
   const handlePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
@@ -1116,7 +1130,7 @@ function App() {
       onClickCapture={handleClickCapture}
       onClick={handleClick}
     >
-      <section className={`tablet-content ${screen === 'settings' ? 'is-settings' : ''} ${screen === 'home' && activePage?.id === 'calendar' ? 'is-calendar' : ''} ${screen === 'home' && activePage?.id === 'weather' ? 'is-weather' : ''}`} aria-label="Pablo Tablet">
+      <section className={`tablet-content ${screen === 'settings' ? 'is-settings' : ''} ${screen === 'home' && activePage?.id === 'calendar' ? 'is-calendar' : ''} ${screen === 'home' && activePage?.id === 'weather' ? 'is-weather' : ''} ${screen === 'home' && activePage?.id === 'clock' ? 'is-clock' : ''}`} aria-label="Pablo Tablet">
         {screen === 'home' && activePage?.id === 'assistant' ? (
           <AssistantPage
             enabled={dashboardState.preferences.assistantEnabled}
@@ -1137,6 +1151,8 @@ function App() {
             time={time}
             date={date}
             widgets={dashboardState.widgets}
+            clockWidgetStyle={dashboardState.preferences.clockWidgetStyle}
+            onClockWidgetStyleChange={(clockWidgetStyle) => updatePreferences({ clockWidgetStyle })}
             notes={dashboardState.notes}
             calendarEvents={calendarEvents}
             calendarAccounts={dashboardState.calendarAccounts}
@@ -1272,6 +1288,8 @@ function DashboardPage({
   time,
   date,
   widgets,
+  clockWidgetStyle,
+  onClockWidgetStyleChange,
   notes,
   calendarEvents,
   calendarAccounts,
@@ -1333,6 +1351,8 @@ function DashboardPage({
   time: string
   date: string
   widgets: import('./widgetLayout').DashboardWidget[]
+  clockWidgetStyle: ClockWidgetStyle
+  onClockWidgetStyleChange: (style: ClockWidgetStyle) => void
   notes: Note[]
   calendarEvents: CalendarEvent[]
   calendarAccounts: CalendarAccount[]
@@ -1389,12 +1409,12 @@ function DashboardPage({
   onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void
   onEditingChange: (isEditing: boolean) => void
 }) {
-  if (page.id === 'clock') return <ClockPage time={time} date={date} now={now} alarms={alarms} timers={timers} stopwatch={stopwatch} onCreateAlarm={onCreateAlarm} onUpdateAlarm={onUpdateAlarm} onDeleteAlarm={onDeleteAlarm} onCreateTimer={onCreateTimer} onUpdateTimer={onUpdateTimer} onDeleteTimer={onDeleteTimer} onToggleStopwatch={onToggleStopwatch} onResetStopwatch={onResetStopwatch} onPreviewNotification={onPreviewNotification} />
+  if (page.id === 'clock') return <ClockPage clockWidgetStyle={clockWidgetStyle} onClockWidgetStyleChange={onClockWidgetStyleChange} time={time} date={date} now={now} alarms={alarms} timers={timers} stopwatch={stopwatch} onCreateAlarm={onCreateAlarm} onUpdateAlarm={onUpdateAlarm} onDeleteAlarm={onDeleteAlarm} onCreateTimer={onCreateTimer} onUpdateTimer={onUpdateTimer} onDeleteTimer={onDeleteTimer} onToggleStopwatch={onToggleStopwatch} onResetStopwatch={onResetStopwatch} onPreviewNotification={onPreviewNotification} />
   if (page.id === 'calendar') return <CalendarPage now={now} initialDate={calendarInitialDate} events={calendarEvents} accounts={calendarAccounts} calendars={externalCalendars} hideCompletedTasks={hideCompletedCalendarTasks} onHideCompletedTasksChange={onHideCompletedCalendarTasksChange} onCreate={onCreateCalendarEvent} onUpdate={onUpdateCalendarEvent} onDelete={onDeleteCalendarEvent} onSetDestination={onSetCalendarEventDestination} onConnected={onConnectCalendarAccount} onSync={onSyncCalendarAccount} onDisconnect={onDisconnectCalendarAccount} onEditingChange={onEditingChange} />
   if (page.id === 'gallery') return <GalleryPage photos={galleryPhotos} onAddPhotos={onAddGalleryPhotos} onMoveToTrash={onMoveGalleryPhotoToTrash} onMoveSelectionToTrash={onMoveGalleryPhotosToTrash} onRestore={onRestoreGalleryPhoto} onPermanentlyDelete={onPermanentlyDeleteGalleryPhoto} onEditingChange={onEditingChange} />
   if (page.id === 'weather') return <WeatherPage locations={weatherLocations} homeLocationId={homeWeatherLocationId} selectedLocationId={selectedWeatherLocationId} forecasts={weatherForecasts} loading={weatherLoading} errors={weatherErrors} onAddLocation={onAddWeatherLocation} onRemoveLocation={onRemoveWeatherLocation} onSetHomeLocation={onSetHomeWeatherLocation} onSelectLocation={onSelectWeatherLocation} onRefresh={onRefreshWeather} onEditingChange={onEditingChange} />
   if (page.id === 'notes') return <NotesPage notes={notes} onCreateNote={onCreateNote} onUpdateNote={onUpdateNote} onArchiveNote={onArchiveNote} onRestoreNote={onRestoreNote} onDeleteNote={onDeleteNote} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} />
-  return <GridDashboard now={now} time={time} date={date} widgets={widgets} notes={notes} alarms={alarms} calendarEvents={calendarEvents} calendars={externalCalendars} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
+  return <GridDashboard clockWidgetStyle={clockWidgetStyle} now={now} time={time} date={date} widgets={widgets} notes={notes} alarms={alarms} calendarEvents={calendarEvents} calendars={externalCalendars} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
 }
 
 function GalleryScreensaver({ photo, now, time, date, calendarEvents, calendars, onDismiss }: { photo: GalleryPhoto | undefined; now: Date; time: string; date: string; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; onDismiss: () => void }) {
@@ -1599,7 +1619,7 @@ function resizeWidgetFromEdge(initial: WidgetPosition, direction: WidgetResizeDi
   return { ...initial, height: initial.height + delta }
 }
 
-function GridDashboard({ now, time, date, widgets, notes, alarms, calendarEvents, calendars, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; alarms: Alarm[]; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; showUpcomingCalendarHolidays: boolean; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: (date?: string) => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
+function GridDashboard({ clockWidgetStyle, now, time, date, widgets, notes, alarms, calendarEvents, calendars, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { clockWidgetStyle: ClockWidgetStyle; now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; alarms: Alarm[]; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; showUpcomingCalendarHolidays: boolean; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: (date?: string) => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
   const orientation = useDashboardOrientation()
   const [isEditing, setIsEditing] = useState(false)
   const [selectedWidgetId, setSelectedWidgetId] = useState<DashboardWidgetId | null>(null)
@@ -1852,7 +1872,7 @@ function GridDashboard({ now, time, date, widgets, notes, alarms, calendarEvents
       {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>{tx('Arrastra para mover · arrastra los bordes para ajustar')}</span><button type="button" onClick={finishEditing}><Check size={17} />{tx('Listo')}</button></div> : null}
       <div ref={gridRef} className={`dashboard-grid is-${orientation}`}>
         {displayedWidgets.length > 0
-          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} now={now} time={time} date={date} notes={visibleDashboardNotes} alarms={alarms} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} upcomingHolidays={upcomingHolidays} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
+          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} clockWidgetStyle={clockWidgetStyle} now={now} date={date} notes={visibleDashboardNotes} alarms={alarms} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} upcomingHolidays={upcomingHolidays} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
           : <DashboardEmptyState time={time} date={date} />}
       </div>
     </div>
@@ -1911,10 +1931,10 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
   </div>
 }
 
-function DashboardWidgetCard({ widget, now, time, date, notes, alarms, calendarEvents, upcomingEvents, upcomingHolidays, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
+function DashboardWidgetCard({ widget, clockWidgetStyle, now, date, notes, alarms, calendarEvents, upcomingEvents, upcomingHolidays, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
   widget: PlacedWidget
+  clockWidgetStyle: ClockWidgetStyle
   now: Date
-  time: string
   date: string
   notes: Note[]
   calendarEvents: CalendarEvent[]
@@ -1958,9 +1978,9 @@ function DashboardWidgetCard({ widget, now, time, date, notes, alarms, calendarE
     <ChevronRight size={18} />
   </button></DashboardWidgetFrame>
 
-  if (widget.id === 'clock') return <DashboardWidgetFrame {...frameProps}><article className={`clock-card responsive-clock-widget widget-card ${alarms.some(alarm => alarm.enabled) ? 'has-alarms' : ''}`}>
+  if (widget.id === 'clock') return <DashboardWidgetFrame {...frameProps}><article className={`clock-card responsive-clock-widget widget-card clock-style-${clockWidgetStyle} ${alarms.some(alarm => alarm.enabled) ? 'has-alarms' : ''}`}>
     <div className="widget-label"><span>{tx('Ahora')}</span></div>
-    <time className="time">{time}{area > 1 ? <small>:{String(now.getSeconds()).padStart(2, '0')}</small> : null}</time>
+    <ClockFace now={now} style={clockWidgetStyle} showSeconds={area > 1} />
     <p className="date">{date}</p>
     <ClockWidgetAlarms alarms={alarms} now={now} />
     {widget.layout.height >= 2 && area >= 4 ? <div className="clock-details"><span><SunMedium size={20} />{tx('Que tengas un día estupendo')}</span><strong>{new Intl.DateTimeFormat(activeLocale(), { weekday: 'long' }).format(now)}</strong></div> : null}
@@ -1987,6 +2007,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, alarms, calendarE
   }
 
   const firstWeekday = (new Date(now.getFullYear(), now.getMonth(), 1).getDay() + 6) % 7
+  const weekdayFormatter = new Intl.DateTimeFormat(activeLocale(), { weekday: 'narrow' })
   const dayCount: Record<string, number> = { '1x1': 7, '1x2': 14, '1x3': 21, '1x4': 42, '2x1': 7, '2x2': 28, '2x3': 42, '2x4': 42, '3x1': 7, '3x2': 35, '3x3': 42, '3x4': 42, '4x1': 7, '4x2': 42, '4x3': 42, '4x4': 42 }
   const visibleDayCount = dayCount[sizeKey] ?? 7
   const showWholeMonth = visibleDayCount === 42
@@ -2001,7 +2022,7 @@ function DashboardWidgetCard({ widget, now, time, date, notes, alarms, calendarE
       const occurrence = calendarOccurrenceForDate(event, key)
       return occurrence ? [eventForOccurrence(event, occurrence)] : []
     })
-    return { key, day: value.getDate(), muted: value.getMonth() !== now.getMonth(), events }
+    return { key, day: value.getDate(), muted: value.getMonth() !== now.getMonth(), events: summarizeCalendarCellEvents(events, key) }
   })
   const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 1, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 2, '3x2': 3, '3x3': 5, '3x4': 6, '4x1': 2, '4x2': 4, '4x3': 6, '4x4': 6 }
   const showHolidaySection = showUpcomingCalendarHolidays && area >= 6 && upcomingHolidays.length > 0
@@ -2019,10 +2040,21 @@ function DashboardWidgetCard({ widget, now, time, date, notes, alarms, calendarE
     </button>
     <div className="calendar-widget-body">
       <section className="calendar-widget-month">
-        <div className="calendar-widget-weekdays">{['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => <span key={day}>{day}</span>)}</div>
-        <div className="calendar-widget-month-grid">{monthCells.map((cell) => <button key={cell.key} type="button" aria-label={tx('Abrir {{name}}', { name: formatCalendarDay(new Date(`${cell.key}T12:00:00`)) })} className={`${cell.key === toLocalDateKey(now) ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(cell.key))}><strong>{cell.day}</strong>{summarizeCalendarCellEvents(cell.events, cell.key).slice(0, area >= 6 ? 2 : 1).map((event) => <small key={event.id} className={`event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || tx('Evento')}</small>)}</button>)}</div>
+        <div className="calendar-widget-weekdays">{Array.from({ length: 7 }, (_, index) => <span key={index}>{weekdayFormatter.format(new Date(2026, 0, 5 + index))}</span>)}</div>
+        <div className="calendar-widget-month-grid">{monthCells.map((cell) => {
+          const isToday = cell.key === toLocalDateKey(now)
+          // Una etiqueta y +N en compacto; en grande caben las dos si solo hay dos.
+          const showSecondEvent = area >= 6 && cell.events.length === 2
+          const remaining = Math.max(0, cell.events.length - 1)
+          return <button key={cell.key} type="button" aria-label={tx('Abrir {{name}}', { name: formatCalendarDay(new Date(`${cell.key}T12:00:00`)) })} aria-current={isToday ? 'date' : undefined} className={`${isToday ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(cell.key))}>
+            <strong>{cell.day}</strong>
+            {isToday ? <span className="calendar-widget-today" aria-hidden="true">{tx('Hoy')}</span> : null}
+            {cell.events.slice(0, showSecondEvent ? 2 : 1).map((event, index) => <small key={event.id} title={event.title || tx('Evento')} className={`calendar-widget-event ${index === 1 ? 'calendar-widget-second-event' : ''} event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || tx('Evento')}</small>)}
+            {remaining > 0 ? <span className={`calendar-widget-more ${showSecondEvent ? 'calendar-widget-second-count' : ''}`} aria-label={tx(remaining === 1 ? '{{count}} evento más' : '{{count}} eventos más', { count: remaining })}>+{remaining}</span> : null}
+          </button>
+        })}</div>
       </section>
-      {(agendaCount[sizeKey] ?? 0) > 0 ? <aside className={`calendar-widget-agenda ${showHolidaySection ? 'has-holidays' : ''}`}>
+      {(agendaCount[sizeKey] ?? 0) > 0 ? <aside className={`calendar-widget-agenda ${showHolidaySection ? 'has-holidays' : ''}`} aria-label={tx('Calendario')} tabIndex={0} data-swipe-block>
         <div className="calendar-widget-upcoming"><p>{tx('Próximos eventos')}</p>{upcomingEvents.length > 0 ? upcomingEvents.slice(0, visibleAgendaCount).map((event) => <button type="button" key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><CalendarEventTypeMark type={event.type} source={event.source} /><span>{event.title || tx('Evento')}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>) : <span className="calendar-widget-empty"><Compass size={19} />{tx('Sin eventos próximos')}</span>}</div>
         {showHolidaySection ? <div className="calendar-widget-holidays"><p><Sparkles size={12} />{tx('Próximos festivos')}</p>{upcomingHolidays.slice(0, 2).map((event) => <button type="button" key={event.id} className={`calendar-event-line is-holiday event-${event.color} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><Sparkles size={13} /><span>{event.title || tx('Festivo')}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>)}</div> : null}
       </aside> : null}
@@ -2171,11 +2203,6 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
   const visibleCalendarIds = new Set(calendars.map((calendar) => `${calendar.provider}:${calendar.accountId}:${calendar.remoteId}`))
   const sourceVisibleEvents = pageEvents.filter((event) => event.source === 'local' || event.source === 'native' || (event.calendarId !== null && event.accountId !== null && visibleCalendarIds.has(`${event.source}:${event.accountId}:${event.calendarId}`)))
   const visibleEvents = hideCompletedTasks ? sourceVisibleEvents.filter((event) => event.type !== 'task' || !event.completed) : sourceVisibleEvents
-  const selectedEvents = visibleEvents.flatMap((event) => {
-    const occurrence = calendarOccurrenceForDate(event, selectedDate)
-    return occurrence ? [eventForOccurrence(event, occurrence)] : []
-  }).filter((event) => !hideCompletedTasks || !isCalendarEventPast(event, now))
-    .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.startTime.localeCompare(b.startTime))
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   const currentHour = now.getHours()
   const upcomingEvents = getUpcomingCalendarEvents(visibleEvents, now, currentTime, 5, calendars)
@@ -2266,7 +2293,7 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
       <section className="calendar-month-panel">
         <header className="calendar-toolbar">
           <div><p className="eyebrow">{tx('Agenda unificada')}</p><h1>{formatCalendarMonth(visibleMonth)}</h1></div>
-          <div><button type="button" className={`calendar-hide-completed ${hideCompletedTasks ? 'is-active' : ''}`} onClick={() => onHideCompletedTasksChange(!hideCompletedTasks)} aria-pressed={hideCompletedTasks}><EyeOff size={17} /><span>{tx('Ocultar finalizados')}</span></button><button type="button" onClick={() => changeMonth(-1)} aria-label={tx('Mes anterior')}><ChevronLeft size={20} /></button><button type="button" className="calendar-today-button" onClick={goToToday}>{tx('Hoy')}</button><button type="button" onClick={() => changeMonth(1)} aria-label={tx('Mes siguiente')}><ChevronRight size={20} /></button></div>
+          <div><button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />{tx('Nuevo')}</button><button type="button" className={`calendar-hide-completed ${hideCompletedTasks ? 'is-active' : ''}`} onClick={() => onHideCompletedTasksChange(!hideCompletedTasks)} aria-pressed={hideCompletedTasks}><EyeOff size={17} /><span>{tx('Ocultar finalizados')}</span></button><button type="button" onClick={() => changeMonth(-1)} aria-label={tx('Mes anterior')}><ChevronLeft size={20} /></button><button type="button" className="calendar-today-button" onClick={goToToday}>{tx('Hoy')}</button><button type="button" onClick={() => changeMonth(1)} aria-label={tx('Mes siguiente')}><ChevronRight size={20} /></button></div>
         </header>
         <div className="calendar-weekdays">{Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(activeLocale(), { weekday: 'short' }).format(new Date(2026, 0, 5 + index)).replace('.', '')).map((day) => <span key={day}>{day}</span>)}</div>
         <div className="calendar-month-grid" data-page-swipe-surface>{monthCells.map((day, index) => {
@@ -2281,13 +2308,6 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
         })}</div>
       </section>
       <div className="calendar-side-column">
-        <aside className="calendar-day-panel">
-          <header><div><p className="eyebrow">{tx('Agenda del día')}</p><h2>{formatCalendarDay(new Date(`${selectedDate}T12:00:00`))}</h2></div><button type="button" className="btn btn-primary primary-action" onClick={createEvent}><Plus size={18} />{tx('Nuevo')}</button></header>
-          <div className="calendar-day-events">{selectedEvents.length > 0 ? selectedEvents.map((event) => {
-            const isPast = isCalendarEventPast(event, now)
-            return <button key={event.id} type="button" disabled={event.source === 'native'} className={`calendar-day-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isPast ? 'is-past' : ''}`} onClick={() => openEditor(event.id)}><span className="calendar-event-time">{formatCalendarEventTimeForDay(event, selectedDate)}</span><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || tx('Evento')}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? tx('Tarea completada') : isPast ? tx('Finalizado · {{time}}', { time: formatCalendarEventTime(event) }) : event.location || event.notes || (event.date !== event.endDate ? `${formatCalendarEventTime(event)}` : tx('Sin detalles'))}</small></span>{event.source !== 'native' ? <ChevronRight size={18} /> : null}</button>
-          }) : <div className="calendar-day-empty"><CalendarDays size={27} /><strong>{tx('Este día está libre')}</strong><span>{tx('Añade una cita o recordatorio.')}</span><button type="button" onClick={createEvent}><Plus size={17} />{tx('Crear evento')}</button></div>}</div>
-        </aside>
         <aside className="calendar-upcoming-panel">
           <header><div><p className="eyebrow">{tx('Tu agenda')}</p><h2>{tx('Próximos eventos')}</h2></div><CalendarDays size={21} /></header>
           <div className="calendar-upcoming-list">{upcomingEvents.length > 0 ? upcomingEvents.map((event, index) => {
@@ -2456,20 +2476,30 @@ function WeatherIcon({ code, size, isDay = true }: { code: number; size: number;
 function WeatherTemperatureTrend({ hours }: { hours: WeatherForecast['hourly'] }) {
   if (hours.length < 2) return null
   const temperatures = hours.map((hour) => hour.temperature)
-  const low = Math.min(...temperatures) - 2
-  const high = Math.max(...temperatures) + 2
+  const low = Math.min(...temperatures)
+  const high = Math.max(...temperatures)
+  const range = high - low
   const points = hours.map((hour, index) => ({
-    x: 8 + (index / (hours.length - 1)) * 584,
-    y: 12 + ((high - hour.temperature) / (high - low)) * 76,
+    x: 20 + (index / (hours.length - 1)) * 560,
+    y: range === 0 ? 78 : 40 + ((high - hour.temperature) / range) * 76,
   }))
   const line = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
-  return <svg className="weather-temperature-trend" viewBox="0 0 600 100" preserveAspectRatio="none" role="img" aria-label={tx('Evolución de la temperatura')}>
-    {[25, 50, 75].map((y) => <line key={y} x1="0" y1={y} x2="600" y2={y} className="weather-trend-guide" />)}
-    {points.map((point, index) => <line key={hours[index].time} x1={point.x} y1="0" x2={point.x} y2="100" className="weather-trend-hour-guide" />)}
-    <path d={`${line} L 592 100 L 8 100 Z`} className="weather-trend-area" />
-    <path d={line} className="weather-trend-line" />
-    {points.map((point, index) => <circle key={hours[index].time} cx={point.x} cy={point.y} r="3.5" />)}
-  </svg>
+  const extremes = range === 0
+    ? [{ index: Math.floor(hours.length / 2), kind: 'flat', label: tx('Mín./máx. {{temperature}}°', { temperature: Math.round(low) }) }]
+    : [
+      { index: temperatures.indexOf(high), kind: 'high', label: tx('Máx. {{temperature}}°', { temperature: Math.round(high) }) },
+      { index: temperatures.indexOf(low), kind: 'low', label: tx('Mín. {{temperature}}°', { temperature: Math.round(low) }) },
+    ]
+  return <div className="weather-temperature-trend" role="img" aria-label={tx('Evolución de la temperatura: mínima de {{minimum}}° y máxima de {{maximum}}° en las próximas horas.', { minimum: Math.round(low), maximum: Math.round(high) })}>
+    <svg className="weather-trend-chart" viewBox="0 0 600 160" preserveAspectRatio="none" aria-hidden="true">
+      {[40, 78, 116].map((y) => <line key={y} x1="0" y1={y} x2="600" y2={y} className="weather-trend-guide" />)}
+      {points.map((point, index) => <line key={hours[index].time} x1={point.x} y1="32" x2={point.x} y2="130" className="weather-trend-hour-guide" />)}
+      <path d={`${line} L 580 130 L 20 130 Z`} className="weather-trend-area" />
+      <path d={line} className="weather-trend-line" />
+    </svg>
+    {points.map((point, index) => <span key={hours[index].time} aria-hidden="true" className="weather-trend-point" style={{ left: `${point.x / 6}%`, top: `${point.y / 1.6}%` }} />)}
+    {extremes.map(({ index, kind, label }) => <span key={kind} aria-hidden="true" className={`weather-trend-extreme is-${kind}`} style={{ left: `clamp(58px, ${points[index].x / 6}%, calc(100% - 58px))`, top: `${points[index].y / 1.6}%` }}><strong>{label}</strong><small>{formatWeatherHour(hours[index].time)}</small></span>)}
+  </div>
 }
 
 function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts, loading, errors, onAddLocation, onRemoveLocation, onSetHomeLocation, onSelectLocation, onRefresh, onEditingChange }: {
@@ -2602,6 +2632,8 @@ function WeatherPage({ locations, homeLocationId, selectedLocationId, forecasts,
 }
 
 function ClockPage({
+  clockWidgetStyle,
+  onClockWidgetStyleChange,
   now,
   time,
   date,
@@ -2618,6 +2650,8 @@ function ClockPage({
   onResetStopwatch,
   onPreviewNotification,
 }: {
+  clockWidgetStyle: ClockWidgetStyle
+  onClockWidgetStyleChange: (style: ClockWidgetStyle) => void
   now: Date
   time: string
   date: string
@@ -2691,6 +2725,7 @@ function ClockPage({
             })}</div> : <div className="alarm-empty"><Clock3 size={22} /><span>{tx('No hay temporizadores activos.')}</span></div>) : <StopwatchPanel stopwatch={stopwatch} now={now} onToggle={onToggleStopwatch} onReset={onResetStopwatch} />}
           </section>
         </div>
+        <ClockStylePicker value={clockWidgetStyle} onChange={onClockWidgetStyleChange} />
       </div>
       {editingAlarm ? <AlarmEditor alarm={editingAlarm} sounds={alarmSounds} onUpdate={onUpdateAlarm} onDelete={() => { onDeleteAlarm(editingAlarm.id); closeAlarmEditor() }} onClose={closeAlarmEditor} onPreviewNotification={onPreviewNotification} /> : null}
       {editingTimer ? <TimerEditor timer={editingTimer} sounds={alarmSounds} onUpdate={onUpdateTimer} onDelete={() => { onDeleteTimer(editingTimer.id); closeTimerEditor() }} onClose={closeTimerEditor} onPreviewNotification={onPreviewNotification} /> : null}

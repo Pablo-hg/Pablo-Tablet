@@ -1,0 +1,227 @@
+/* Clock tools share the available viewport; the style picker spans both columns. */
+.clock-page .clock-workspace {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, .6fr) minmax(0, 1.4fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: visible;
+  padding: 0;
+}
+
+.clock-page .clock-workspace > .focus-clock {
+  box-sizing: border-box;
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 0;
+  min-width: 0;
+  padding: 16px;
+}
+
+.clock-page .clock-workspace > .focus-clock time {
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  letter-spacing: -.06em;
+  line-height: 1;
+  margin: 10px 0;
+  max-width: 100%;
+}
+.clock-page .clock-workspace > .focus-clock p { font-size: .875rem; line-height: 1.4; overflow-wrap: anywhere; }
+.clock-page .clock-management {
+  display: grid;
+  gap: 12px;
+  grid-column: 2;
+  grid-row: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  overflow: visible;
+}
+.clock-page .clock-management :is(.alarm-panel, .timer-panel) { min-width: 0; overflow: hidden; }
+.clock-page :is(.alarm-panel-heading, .utility-heading) { flex-wrap: wrap; gap: 6px 12px; }
+.clock-page .clock-management .alarm-empty { flex: 1 1 0; line-height: 1.4; min-height: 0; }
+.clock-page .clock-management .alarm-empty svg { flex: 0 0 auto; }
+.clock-page .utility-tabs { min-width: 0; }
+.clock-page .utility-tabs button { padding-inline: 8px; }
+.clock-page .stopwatch-panel { align-content: center; flex-direction: row; flex-wrap: wrap; gap: 8px 12px; }
+.clock-page .stopwatch-panel > svg { display: none; }
+.clock-page .stopwatch-panel > strong { font-size: clamp(1.75rem, 4vw, 2.5rem); line-height: 1.1; margin: 0; }
+.clock-page .stopwatch-panel > div { flex-wrap: wrap; justify-content: center; }
+
+.clock-style-picker {
+  background: var(--ui-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-panel, 20px);
+  box-sizing: border-box;
+  color: var(--ui-text);
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin: 0;
+  min-width: 0;
+  padding: 8px 14px 12px;
+}
+
+.clock-style-picker > h2 { font-size: 1rem; font-weight: 650; line-height: 1.3; margin: 0 0 4px; max-width: 100%; overflow-wrap: anywhere; }
+.clock-style-picker > p { color: var(--ui-text-muted); font-size: .8125rem; line-height: 1.4; margin: 0 0 8px; }
+.clock-style-options { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.clock-style-option {
+  align-items: center;
+  background: var(--ui-control);
+  border: 2px solid var(--ui-border);
+  border-radius: var(--ui-radius-control, 12px);
+  box-sizing: border-box;
+  container-type: inline-size;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 56px auto;
+  min-height: 100px;
+  min-width: 0;
+  padding: 8px;
+  position: relative;
+}
+.clock-style-option.is-selected { border-color: var(--ui-action); }
+.clock-style-option:has(input:focus-visible) { outline: 3px solid var(--ui-action); outline-offset: 3px; }
+.clock-style-option input { accent-color: var(--ui-action); height: 20px; margin: 0; position: absolute; right: 8px; top: 8px; width: 20px; }
+.clock-style-name { font-size: .8125rem; font-weight: 600; grid-column: 1; grid-row: 2; line-height: 1.35; min-width: 0; overflow-wrap: anywhere; text-align: center; }
+.clock-style-preview { align-items: center; box-sizing: border-box; display: flex; grid-column: 1; grid-row: 1; height: 56px; justify-content: center; min-width: 0; padding-inline: 22px; }
+.clock-style-preview .clock-face { color: var(--ui-text); font-size: clamp(1rem, 15cqw, 2rem); font-variant-numeric: tabular-nums; letter-spacing: -.04em; line-height: 1; margin: 0; white-space: nowrap; }
+.clock-style-preview .clock-face--digital-blocks { font-size: clamp(.875rem, 11cqw, 1.5rem); }
+.clock-style-preview .clock-face--analog,
+.clock-style-preview .clock-face--analog-minimal { aspect-ratio: 1; display: block; flex: 0 1 56px; height: auto; max-height: 56px; max-width: 100%; width: 56px; }
+
+.clock-face svg { display: block; height: 100%; width: 100%; }
+.clock-dial { fill: var(--ui-panel-solid); stroke: var(--ui-border-strong); stroke-width: 1.5; }
+.clock-tick { stroke: var(--ui-text-muted); stroke-width: 1; }
+.clock-tick.is-hour { stroke: var(--ui-text); stroke-width: 2; }
+.clock-numeral { dominant-baseline: central; fill: var(--ui-text); font-family: inherit; font-size: 15px; font-weight: 600; text-anchor: middle; }
+.clock-hand { stroke: var(--ui-text); stroke-linecap: round; }
+.clock-hand-hour { stroke-width: 6; }
+.clock-hand-minute { stroke-width: 4; }
+.clock-hand-second { stroke: var(--ui-action); stroke-width: 1.5; }
+.clock-pivot { fill: var(--ui-text); }
+.clock-face--analog-minimal .clock-dial { fill: none; }
+.clock-face--analog-minimal .clock-tick:not(.is-hour) { display: none; }
+.clock-digit-blocks { align-items: center; display: flex; gap: .1em; max-width: 100%; }
+.clock-digit-blocks > span { background: var(--ui-control); border: 1px solid var(--ui-border); border-radius: min(var(--ui-radius-control, 12px), .18em); font-weight: 550; letter-spacing: -.04em; padding: .15em .12em; }
+.clock-digit-blocks > b { font-size: .65em; font-weight: 400; }
+
+.dashboard-page .responsive-clock-widget:not(.clock-style-digital) {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+.dashboard-page .responsive-clock-widget:not(.clock-style-digital) .widget-label { grid-column: 1; grid-row: 1; margin: 0; }
+.dashboard-page .responsive-clock-widget:not(.clock-style-digital) > .clock-face {
+  align-items: center;
+  align-self: stretch;
+  font-size: clamp(1.5rem, min(17cqw, 28cqh), 6rem);
+  grid-column: 1;
+  grid-row: 2;
+  justify-content: center;
+  letter-spacing: -.04em;
+  line-height: 1;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+}
+.dashboard-page .responsive-clock-widget:not(.clock-style-digital) > .date { grid-column: 1; grid-row: 3; margin: 0; overflow-wrap: anywhere; }
+.dashboard-page .responsive-clock-widget:not(.clock-style-digital) > .clock-widget-alarms { grid-column: 1; grid-row: 4; margin: 0; padding-top: 0; }
+.dashboard-page .responsive-clock-widget:not(.clock-style-digital) :is(.clock-details, .clock-day-progress) { display: none; }
+.dashboard-page .responsive-clock-widget > :is(.clock-face--analog, .clock-face--analog-minimal) { justify-self: center; max-width: 280px; position: relative; width: 100%; }
+.dashboard-page .responsive-clock-widget > :is(.clock-face--analog, .clock-face--analog-minimal) svg { inset: 0; position: absolute; }
+.dashboard-page .responsive-clock-widget .clock-digit-blocks small { margin-left: 0; }
+
+@container dashboard-widget (min-width: 500px) and (max-height: 299px) {
+  .dashboard-page .responsive-clock-widget:not(.clock-style-digital) {
+    column-gap: 18px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  .dashboard-page .responsive-clock-widget:not(.clock-style-digital) > .date { align-self: end; grid-column: 2; grid-row: 3; }
+  .dashboard-page .responsive-clock-widget:not(.clock-style-digital) > .clock-face { font-size: clamp(1.5rem, min(9cqw, 25cqh), 5rem); grid-row: 2 / 4; }
+  .dashboard-page .responsive-clock-widget:not(.clock-style-digital) > .clock-widget-alarms { grid-column: 2; grid-row: 1 / 3; }
+}
+
+@container dashboard-widget (max-height: 190px) {
+  .dashboard-page .responsive-clock-widget:not(.clock-style-digital) { gap: 4px; }
+  .dashboard-page .responsive-clock-widget:not(.clock-style-digital) > .date { font-size: .75rem; line-height: 1.2; }
+}
+
+/* Portrait scrolls the entire page, like Settings. Natural heights prevent
+   the time/date and tools from shrinking beneath their own content. */
+@media (orientation: portrait) {
+  .tablet-content.is-clock {
+    -ms-overflow-style: none;
+    height: 100svh;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tablet-content.is-clock::-webkit-scrollbar { display: none; height: 0; width: 0; }
+  .tablet-content.is-clock .clock-page { box-sizing: border-box; height: auto; min-height: 100%; overflow: visible; }
+  .clock-page .clock-workspace {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    min-height: auto;
+    overflow: visible;
+    padding: 0;
+  }
+  .clock-page .clock-workspace > .focus-clock { flex: 0 0 auto; gap: 4px; min-height: 148px; order: 0; padding: 16px; }
+  .clock-page .clock-workspace > .focus-clock time { flex: 0 0 auto; font-size: clamp(2.5rem, 12vw, 4rem); margin: 8px 0; }
+  .clock-page .clock-workspace > .focus-clock p { flex: 0 0 auto; }
+  .clock-page .clock-management { display: flex; flex: 0 0 auto; flex-direction: column; order: 1; }
+  .clock-page .clock-management :is(.alarm-panel, .timer-panel) { flex: 0 0 auto; min-height: 180px; overflow: visible; }
+  .clock-page .clock-management :is(.alarm-list, .timer-list) { flex: 0 0 auto; max-height: none; overflow: visible; }
+  .clock-page .clock-style-picker { flex: 0 0 auto; order: 2; }
+
+  /* Only the end of the document reserves the dock: content can continue
+     behind it while scrolling, without a horizontal clipping edge. */
+  .tablet-shell.page-nav-style-dock.page-nav-position-bottom .tablet-content.is-clock { padding-bottom: 0; }
+  .tablet-shell.page-nav-style-dock.page-nav-position-bottom .clock-page { padding-bottom: var(--bottom-nav-space); }
+}
+
+@media (max-width: 600px) {
+  .clock-style-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Compact landscape keeps the chooser on one row and reserves space for tools. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .clock-page .compact-header { margin-bottom: 8px; }
+  .clock-page .clock-workspace,
+  .clock-page .clock-management { gap: 8px; }
+  .clock-page .clock-workspace > .focus-clock { padding: 10px; }
+  .clock-page .clock-workspace > .focus-clock time { font-size: clamp(2rem, 6vw, 3rem); margin: 6px 0; }
+  .clock-page .clock-workspace > .focus-clock p { font-size: .8125rem; }
+  .clock-page .clock-management :is(.alarm-panel, .timer-panel) { padding: 10px 12px; }
+  .clock-style-picker { padding: 6px 10px 10px; }
+  .clock-style-picker > p { margin-bottom: 6px; }
+  .clock-style-option { gap: 4px; grid-template-rows: 44px auto; min-height: 86px; padding: 6px; }
+  .clock-style-preview { height: 44px; }
+  .clock-style-preview :is(.clock-face--analog, .clock-face--analog-minimal) { flex-basis: 44px; max-height: 44px; width: 44px; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .tablet-content.is-clock { padding-top: 10px; }
+  .clock-page .compact-header .eyebrow { display: none; }
+  .clock-page .compact-header .welcome { font-size: 1.5rem; }
+}
+
+@media (orientation: landscape) and (min-width: 601px) and (max-width: 900px) and (max-height: 600px) {
+  .clock-page .clock-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+  .clock-page .clock-workspace > .focus-clock { flex-direction: row; gap: 10px; justify-content: space-between; padding: 6px 10px; }
+  .clock-page .clock-workspace > .focus-clock time { font-size: 2rem; margin: 0; }
+  .clock-page .clock-workspace > .focus-clock p { font-size: .75rem; text-align: right; }
+  .clock-page .focus-clock-kicker { font-size: .65rem; }
+  .clock-page .clock-management { grid-column: 1; grid-row: 2; }
+  .clock-page .clock-management :is(.alarm-panel, .timer-panel) { padding: 6px 10px; }
+  .clock-page .clock-management .alarm-panel-heading .eyebrow { display: none; }
+  .clock-page .clock-management .alarm-empty { font-size: .8125rem; margin-top: 6px; }
+  .clock-page .clock-style-picker { grid-row: 3; }
+}
+

@@ -1,6 +1,7 @@
 import { DEFAULT_WIDGETS, readWidgets, type DashboardWidget } from './widgetLayout'
 import type { WeatherLocation } from './weather'
 import type { SupportedLanguage } from './i18n'
+import { readClockWidgetStyle, type ClockWidgetStyle } from './clockStyles'
 
 export type DashboardPageId = 'dashboard' | 'assistant' | 'calendar' | 'clock' | 'weather' | 'notes' | 'gallery'
 
@@ -28,6 +29,7 @@ export interface DashboardPageDefinition {
 
 export interface DashboardPreferences {
   language: SupportedLanguage
+  clockWidgetStyle: ClockWidgetStyle
   themeId: DashboardThemeId
   navigationSeconds: number
   pageNavigationStyle: PageNavigationStyle
@@ -197,16 +199,16 @@ export const DASHBOARD_PAGES: DashboardPageDefinition[] = [
 ]
 
 export const DASHBOARD_THEMES: DashboardThemeDefinition[] = [
-  { id: 'warm', label: 'Cálido', detail: 'Claro y minimalista' },
-  { id: 'amoled', label: 'AMOLED', detail: 'Negro para la noche' },
-  { id: 'retro', label: 'Retro', detail: 'Crema y tonos setenta' },
-  { id: 'glass', label: 'Cristal', detail: 'Luminoso y futurista' },
-  { id: 'original', label: 'Original', detail: 'Azul profundo actual' },
-  { id: 'nordic', label: 'Nórdico', detail: 'Piedra, salvia y calma' },
-  { id: 'swiss', label: 'Suizo', detail: 'Geométrico y editorial' },
-  { id: 'mediterranean', label: 'Mediterráneo', detail: 'Sol, cal y terracota' },
-  { id: 'monochrome', label: 'Monocromo', detail: 'Máxima legibilidad' },
-  { id: 'brutalist', label: 'Brutalista', detail: 'Color y contornos' },
+  { id: 'warm', label: 'Cálido', detail: 'Papel y terracota' },
+  { id: 'amoled', label: 'AMOLED', detail: 'Instrumentos nocturnos' },
+  { id: 'retro', label: 'Retro', detail: 'Estudio de los setenta' },
+  { id: 'glass', label: 'Cristal', detail: 'Vidrio y luz' },
+  { id: 'original', label: 'Original', detail: 'Azul en calma' },
+  { id: 'nordic', label: 'Nórdico', detail: 'Claro y botánico' },
+  { id: 'swiss', label: 'Suizo', detail: 'Precisión azul' },
+  { id: 'mediterranean', label: 'Mediterráneo', detail: 'Cal y cerámica' },
+  { id: 'monochrome', label: 'Monocromo', detail: 'Tinta y papel' },
+  { id: 'brutalist', label: 'Brutalista', detail: 'Bloques expresivos' },
 ]
 
 export const DEFAULT_DASHBOARD_STATE: DashboardState = {
@@ -225,6 +227,7 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
   widgets: DEFAULT_WIDGETS,
   preferences: {
     language: 'es',
+    clockWidgetStyle: 'digital',
     themeId: 'original',
     navigationSeconds: 5,
     pageNavigationStyle: 'dock',
@@ -666,6 +669,7 @@ export function loadDashboardState(serializedState?: string): DashboardState {
       widgets,
       preferences: {
         language: parsedPreferences.language === 'en' ? 'en' : 'es',
+        clockWidgetStyle: readClockWidgetStyle(parsedPreferences.clockWidgetStyle),
         themeId: isThemeId(parsedPreferences.themeId)
           ? parsedPreferences.themeId
           : DEFAULT_DASHBOARD_STATE.preferences.themeId,

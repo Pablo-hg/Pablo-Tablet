@@ -44,7 +44,6 @@
 .weather-page .forecast-heading > span { color: var(--ui-text); font-size: 1.05rem; }
 .weather-page .forecast-heading small { color: var(--ui-text-muted); font-size: .75rem; text-align: right; }
 .weather-page .weather-temperature-trend { color: var(--ui-highlight); flex: 1 0 60px; height: 60px; min-height: 26px; overflow: visible; width: 100%; }
-.weather-temperature-trend circle { fill: currentColor; }
 .weather-trend-guide { stroke: var(--ui-border); stroke-dasharray: 3 5; }
 .weather-trend-hour-guide { stroke: var(--ui-border-strong); stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
 .weather-trend-area { fill: currentColor; opacity: .1; }
@@ -187,7 +186,7 @@
 }
 
 /* On very short landscape screens, let all forecast panels grow and scroll. */
-@media (max-height: 600px) and (orientation: landscape) {
+@media (max-height: 740px) and (orientation: landscape) {
   .tablet-shell .tablet-content.is-weather { overflow-y: auto; }
   .weather-page { height: auto; min-height: 100%; overflow: visible; }
   .weather-page .weather-layout { display: flex; flex: 0 0 auto; flex-direction: column; min-height: min-content; }
@@ -199,3 +198,17 @@
 
 /* Negative temperatures must fit even in narrow, large-text monospace themes. */
 @container weather-current (max-width: 17rem) { .weather-page .weather-current-main .weather-current-copy > strong { font-size: clamp(2rem, 24cqw, 4rem); } }
+
+/* Give the temperature curve the available height instead of stretching the
+   hourly cards. HTML annotations keep their type size when the SVG scales. */
+.weather-page .weather-temperature-trend { flex: 1 1 180px; height: 180px; min-height: 120px; position: relative; }
+.weather-trend-chart { height: 100%; inset: 0; position: absolute; width: 100%; }
+.weather-trend-point { background: currentColor; border-radius: 50%; height: 7px; position: absolute; transform: translate(-50%, -50%); width: 7px; }
+.weather-trend-extreme { align-items: baseline; background: var(--ui-panel-solid); border: 1px solid var(--ui-border); border-radius: 8px; color: var(--ui-text); display: flex; font-size: .75rem; gap: 5px; line-height: 1.2; padding: 3px 6px; position: absolute; text-align: center; transform: translate(-50%, 8px); white-space: nowrap; }
+.weather-trend-extreme:is(.is-high, .is-flat) { transform: translate(-50%, calc(-100% - 8px)); }
+.weather-trend-extreme small { color: var(--ui-text-muted); font-size: .6875rem; }
+.weather-page .hourly-forecast { flex: 0 0 auto; grid-auto-rows: auto; grid-template-rows: none; }
+.weather-page .hourly-forecast > div { box-sizing: border-box; gap: 3px; min-height: 0; padding: 7px 4px; }
+@media (orientation: portrait), (max-height: 740px) {
+  .weather-page .weather-temperature-trend { flex: 0 0 200px; height: 200px; }
+}

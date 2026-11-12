@@ -3596,8 +3596,12 @@
 }
 .calendar-toolbar > div:last-child {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  justify-content: flex-end;
 }
+.calendar-toolbar { flex-wrap: wrap; }
+.calendar-toolbar .primary-action { gap: 5px; white-space: nowrap; }
 .calendar-toolbar button {
   align-items: center;
   background: rgba(255, 255, 255, 0.08);
@@ -8252,13 +8256,6 @@
 }
 .assistant-composer {
   flex: 0 0 auto;
-}
-.assistant-composer > label {
-  color: var(--ui-text-muted);
-  display: block;
-  font-size: 0.68rem;
-  font-weight: 700;
-  margin: 0 0 6px 5px;
 }
 .assistant-composer > div {
   align-items: center;

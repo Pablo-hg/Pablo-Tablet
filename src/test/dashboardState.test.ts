@@ -4,6 +4,12 @@ import { DASHBOARD_PAGES, DASHBOARD_THEMES, loadDashboardState, saveDashboardSta
 describe('migraciones del estado', () => {
   beforeEach(() => window.localStorage.clear())
 
+  it('mantiene el reloj clásico en configuraciones anteriores o con un estilo desconocido', () => {
+    for (const clockWidgetStyle of [undefined, null, 'unknown', {}, 42]) {
+      expect(loadDashboardState(JSON.stringify({ preferences: { clockWidgetStyle } })).preferences.clockWidgetStyle).toBe('digital')
+    }
+  })
+
   it('migra una nota simple de v1 y habilita las páginas añadidas después', () => {
     window.localStorage.setItem('pablo-tablet.dashboard.v1', JSON.stringify({
       note: 'Comprar pan',

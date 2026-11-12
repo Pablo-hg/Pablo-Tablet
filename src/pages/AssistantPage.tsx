@@ -365,9 +365,8 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     </div> : null}
 
     {!compact ? <form className="assistant-composer" data-swipe-block onSubmit={onSubmit}>
-      <label htmlFor={inputId}>{tx('Escribe o dicta una petición')}</label>
       <div>
-        <textarea id={inputId} value={input} onChange={(event) => setInput(event.target.value)} placeholder={tx('Ej.: Temporizador de 20 minutos')} rows={2} disabled={!enabled || processing || pending !== null} />
+        <textarea id={inputId} aria-label={tx('Escribe o dicta una petición')} value={input} onChange={(event) => setInput(event.target.value)} placeholder={tx('Escribe o dicta una petición')} rows={2} disabled={!enabled || processing || pending !== null} />
         {voiceEnabled ? <button type="button" className={listening ? 'is-listening' : ''} onClick={() => void toggleListening()} disabled={!enabled || (processing && pending === null && !listening)} aria-label={listening ? tx('Detener dictado') : tx('Iniciar dictado')}>{listening ? <MicOff size={21} /> : <Mic size={21} />}</button> : null}
         <button type="submit" className="assistant-send" disabled={!input.trim() || !enabled || processing || pending !== null} aria-label={tx('Enviar petición')}><Send size={21} /></button>
       </div>

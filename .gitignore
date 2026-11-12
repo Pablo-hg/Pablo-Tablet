@@ -3,6 +3,11 @@ dist/
 coverage/
 .playwright-cli/
 output/playwright/
+output/issue72/
+# Regenerable design studies; keep generators and decisions in Git.
+/docs/design/issue-72/assets/
+/docs/design/issue-72/appearances-data.js
+/docs/design/issue-72/__pycache__/
 .DS_Store
 android/.gradle/
 android/build/

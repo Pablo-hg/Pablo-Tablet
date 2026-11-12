@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pablo Tablet · Direcciones visuales #72</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f3f2ee;color:#242b2f;font:16px/1.6 system-ui,sans-serif}main{max-width:1400px;margin:auto;padding:32px clamp(16px,4vw,56px) 60px}h1{font-size:clamp(28px,4vw,44px);line-height:1.16;letter-spacing:-.035em;margin:8px 0 16px}h2{font-size:22px;margin:0 0 8px}p{max-width:80ch;margin:8px 0}.kicker{font-size:13px;letter-spacing:.1em;font-weight:700;color:#5a625f}header{border-bottom:1px solid #cecfc6;padding-bottom:24px}.options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:28px 0}article{display:flex;flex-direction:column;border:1px solid #c7ccc3;background:#fffefb;border-radius:16px;padding:22px}article.chosen{border:2px solid #315c48;padding:21px}.badge{font-size:12px;font-weight:700;color:#315c48}article p{font-size:15px}article .cost{margin-top:auto;padding-top:16px;font-weight:600}button,select,a.control{font:inherit;min-height:48px;border:1px solid #a8b4aa;border-radius:10px;padding:10px 16px;background:#fffefb;color:#26392e}button{cursor:pointer}article button{margin-top:14px;text-align:left}button[aria-pressed=true]{background:#244a39;color:#fff;border-color:#244a39}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #1c6f9b;outline-offset:3px}.toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:20px 0}label{display:flex;align-items:center;gap:10px}.pages{display:flex;flex-wrap:wrap;gap:8px}.pages[hidden]{display:none}.notice{border-left:3px solid #7a8778;padding:6px 14px;font-size:14px;color:#4a534c}.frame{background:#101a32;border-radius:16px;overflow:hidden;margin:20px 0 10px}.frame img{display:block;width:100%;height:auto}figure{margin:0}.portrait{max-width:680px;margin-inline:auto}figcaption{font-size:14px;color:#465149;margin-bottom:24px}.links{display:flex;gap:24px;flex-wrap:wrap;border-top:1px solid #cecfc6;padding-top:22px}a{color:#244f65}.criteria{padding:22px;background:#e5e9df;border-radius:12px;margin:26px 0}.criteria h2{font-size:18px}.criteria ul{margin:8px 0;padding-left:22px}@media(max-width:800px){.options{grid-template-columns:1fr}article{padding:18px}.toolbar{align-items:stretch;flex-direction:column}.toolbar select{flex:1}.pages button{flex:1}main{padding-top:22px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p>Los bocetos se generan localmente y están excluidos de Git. <a href="README.md">Instrucciones de generación</a>.</p>
+    <div class="kicker">PABLO TABLET / EVALUACIÓN #72 / 10 NOV 2026</div>
+    <h1>La misma tablet.<br>Una lectura más clara.</h1>
+    <p>Tres direcciones para distinguir contenido, acciones y estados sin cambiar la cuadrícula, los módulos ni los datos. Pablo ha elegido B; su primera entrega se limita a Inicio.</p>
+    <p class="notice">Estos son los bocetos de la propuesta, con datos ficticios y botones dibujados. Inicio B1 se ha implementado para revisión en DEV; las otras pantallas de B siguen siendo propuestas.</p>
+    <p><a href="apariencias.html">Nueva comparativa: los diez temas con personalidad propia →</a></p>
+  </header>
+  <section class="options" aria-label="Alternativas comparables">
+    <article data-option="a">
+      <span class="badge">A / MENOR CAMBIO</span><h2>Continuidad pulida</h2>
+      <p>Conserva el fondo y las tarjetas actuales. Ordena títulos, reduce adornos y unifica separaciones.</p>
+      <p><strong>Beneficio:</strong> familiaridad y menor recorrido de revisión.<br><strong>Riesgo:</strong> persiste la competencia entre superficies.</p>
+      <p class="cost">3–5 jornadas estimadas</p>
+      <button type="button" data-direction="a" aria-pressed="false">Ver alternativa A</button>
+    </article>
+    <article class="chosen" data-option="b">
+      <span class="badge">B / RECOMENDADA</span><h2>Lectura clara</h2>
+      <p>Superficies más estables, menos cajas dentro de cajas y jerarquía clara entre título, contenido y metadatos.</p>
+      <p><strong>Beneficio:</strong> facilita encontrar información de un vistazo.<br><strong>Riesgo:</strong> exige revisar contraste y densidad en cada tema.</p>
+      <p class="cost">5–8 jornadas estimadas</p>
+      <button type="button" data-direction="b" aria-pressed="true">Ver alternativa B</button>
+    </article>
+    <article data-option="c">
+      <span class="badge">C / MAYOR CAMBIO</span><h2>Jerarquía editorial</h2>
+      <p>Bloques más definidos, títulos fuertes y nombre visible en los ocho destinos del dock.</p>
+      <p><strong>Beneficio:</strong> hace explícita la navegación.<br><strong>Riesgo:</strong> consume más espacio y obliga a revisar todas las variantes del paginador.</p>
+      <p class="cost">7–11 jornadas estimadas</p>
+      <button type="button" data-direction="c" aria-pressed="false">Ver alternativa C</button>
+    </article>
+  </section>
+  <p class="notice">Estimaciones de trabajo concentrado, incluidas regresiones y una ronda de ajustes. No incluyen esperas de aprobación ni de prueba física. Las tres opciones se muestran en tema Original; su adaptación a los diez temas forma parte de la implementación.</p>
+  <div class="toolbar">
+    <label>Orientación <select id="orientation"><option value="landscape">Horizontal · 4 × 3</option><option value="portrait">Vertical · 3 × 4</option></select></label>
+    <div class="pages" id="pages" aria-label="Pantallas de la alternativa B">
+      <button type="button" data-page="dashboard" aria-pressed="true">Inicio</button>
+      <button type="button" data-page="calendar" aria-pressed="false">Calendario</button>
+      <button type="button" data-page="notes" aria-pressed="false">Notas</button>
+      <button type="button" data-page="settings" aria-pressed="false">Ajustes</button>
+    </div>
+  </div>
+  <figure>
+    <div class="frame" id="frame"><img id="preview" src="assets/b-dashboard-landscape.svg" width="1280" height="800" alt="Propuesta B: Inicio horizontal. Calendario a la izquierda, reloj arriba y notas y tiempo a la derecha."></div>
+    <figcaption id="caption" aria-live="polite">B · Lectura clara · Inicio horizontal. Misma información y geometría de widgets que A y C.</figcaption>
+  </figure>
+  <div class="criteria">
+    <h2>Qué aprobar en esta fase</h2>
+    <p>Recomendación: B, en tres entregas separadas: sistema visual + Inicio; Calendario + Notas; resto de pantallas. Los gestos y controles de edición de #71 se conservan. Puedes aprobar solo la primera entrega.</p>
+    <ul>
+      <li>Los tamaños y posiciones guardados de tus widgets se respetan.</li>
+      <li>Se mantienen los temas, el orden del dock y las opciones existentes.</li>
+      <li>Ajustes sigue desplazándose por detrás del dock hasta el borde de pantalla.</li>
+      <li>La comparación real antes/después y las pruebas táctiles se harán sobre la versión implementada y autorizada.</li>
+    </ul>
+  </div>
+  <nav class="links" aria-label="Documentación de la propuesta">
+    <a href="README.md">Auditoría y alcance por entrega</a>
+    <a href="DESIGN.md">Sistema visual propuesto</a>
+    <a href="assets/b-dashboard-landscape.svg">Abrir boceto B a tamaño completo</a>
+  </nav>
+</main>
+<script>
+  const preview = document.querySelector('#preview');
+  const orientation = document.querySelector('#orientation');
+  const names = {a:'Continuidad pulida', b:'Lectura clara', c:'Jerarquía editorial'};
+  const pages = {dashboard:'Inicio', calendar:'Calendario', notes:'Notas', settings:'Ajustes'};
+  let direction = 'b';
+  let page = 'dashboard';
+  function update() {
+    const portrait = orientation.value === 'portrait';
+    if (direction !== 'b' || portrait) page = 'dashboard';
+    document.querySelector('#pages').hidden = direction !== 'b' || portrait;
+    const label = `${direction.toUpperCase()} · ${names[direction]} · ${pages[page]} ${portrait ? 'vertical' : 'horizontal'}`;
+    preview.src = `assets/${direction}-${page}-${orientation.value}.svg`;
+    preview.width = portrait ? 800 : 1280;
+    preview.height = portrait ? 1200 : 800;
+    preview.alt = `Boceto ${label}. Contenido ficticio; conserva los módulos y destinos existentes.`;
+    document.querySelector('#frame').classList.toggle('portrait', portrait);
+    document.querySelector('#caption').textContent = label + (page === 'dashboard' ? '. Misma información y geometría de widgets que las otras direcciones.' : '. Exploración visual; no implementada.');
+    document.querySelectorAll('[data-direction]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.direction === direction)));
+    document.querySelectorAll('[data-option]').forEach(card => card.classList.toggle('chosen', card.dataset.option === direction));
+    document.querySelectorAll('[data-page]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.page === page)));
+  }
+  document.querySelectorAll('[data-direction]').forEach(button => button.addEventListener('click', () => { direction = button.dataset.direction; page = 'dashboard'; update(); }));
+  document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => { page = button.dataset.page; update(); }));
+  orientation.addEventListener('change', update);
+</script>
+</body>
+</html>

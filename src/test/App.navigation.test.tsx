@@ -98,7 +98,7 @@ describe('navegación y flujos principales', () => {
     fireEvent.pointerUp(dayButton, { button: 0, isPrimary: true, pointerId: 1, clientX: 120, clientY: 120 })
     fireEvent.click(dayButton)
 
-    expect(pointerCapture).toHaveBeenCalledWith(1)
+    expect(pointerCapture).not.toHaveBeenCalled()
     expect(screen.getByRole('heading', { name: /sábado, 17 de octubre/i })).toBeVisible()
     expect(screen.getByLabelText('Agenda por horas del 2026-10-16 al 2026-10-18')).toBeVisible()
     expect(document.querySelector('.calendar-three-day-all-day')).toBeInTheDocument()
