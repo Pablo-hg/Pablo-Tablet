@@ -1,3 +1,5 @@
+import { deliveredCalendarReminders } from './calendarReminderDelivery'
+import { calendarReminderKey, dueCalendarReminders } from './calendarReminderSchedule'
 import { checkNotificationPermissionStatus } from './notificationPermissions'
 import { CALENDAR_CATEGORY_ORDER, CALENDAR_CATEGORY_LABELS, getUpcomingCalendarGroups, getUpcomingCalendarEvents, isCalendarHoliday } from './calendarUpcoming'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
@@ -83,7 +85,7 @@ import {
 import type { AssistantCommand } from './assistant/contracts'
 import { executeAssistantCommand } from './assistant/executor'
 import { DEFAULT_ALARM_SOUND, getDeviceAlarmSounds, previewAlarmSound, stopAlarmSoundPreview, type DeviceAlarmSound } from './alarmSounds'
-import { snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
+import { notificationId, snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
 import { arrangeWidgets, DASHBOARD_COLUMNS, DASHBOARD_ROWS, DEFAULT_WIDGETS, placeWidgets, resizeWidgets, type DashboardOrientation, type DashboardWidgetId, type PlacedWidget, type WidgetPosition } from './widgetLayout'
 import { playInteractionSound } from './deviceSettings'
 import { shouldPlayInteractionSoundOnClick } from './interactionSoundEvents'
@@ -129,7 +131,7 @@ import './components/ClockStyles.css'
 import './appearanceSystem.css'
 
 type SimulatedAlert = { title: string; body: string }
-type RingingAlert = { kind: 'alarm' | 'timer' | 'calendar'; sourceId: string; title: string; subtitle: string; soundUri: string | null }
+type RingingAlert = { kind: 'alarm' | 'timer' | 'calendar'; sourceId: string; title: string; subtitle: string; soundUri: string | null; notificationId?: number }
 type TimerPatch = Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt' | 'soundName' | 'soundUri'>>
 type CalendarEventPatch = Partial<Pick<CalendarEvent, 'type' | 'recurrence' | 'completed' | 'title' | 'date' | 'endDate' | 'startTime' | 'endTime' | 'allDay' | 'location' | 'notes' | 'color' | 'reminders'>>
 type NotePatch = Partial<Pick<Note, 'title' | 'content' | 'drawing' | 'color' | 'pinned' | 'reminderAt'>>
@@ -170,6 +172,9 @@ function App() {
   const lastScreensaverPhotoId = useRef<string | null>(null)
   const suppressClick = useRef(false)
   const deliveredSimulationIds = useRef(new Set<string>())
+  const shownCalendarAlerts = useRef(new Set<string>())
+  const pendingCalendarAlerts = useRef<RingingAlert[]>([])
+  const ringingAlertRef = useRef<RingingAlert | null>(null)
   const calendarSyncInFlight = useRef(new Set<string>())
   const dashboardStateRef = useRef(dashboardState)
   const dashboardReady = useDashboardPersistence({ state: dashboardState, stateRef: dashboardStateRef, setState: setDashboardState })
@@ -266,7 +271,12 @@ function App() {
 
   const startRinging = useCallback((alert: RingingAlert) => {
     setScreensaverVisible(false)
+    if (alert.kind !== 'calendar' && ringingAlertRef.current?.kind === 'calendar') pendingCalendarAlerts.current.unshift(ringingAlertRef.current)
+    ringingAlertRef.current = alert
     setRingingAlert(alert)
+    if (alert.kind === 'calendar' && alert.notificationId !== undefined && Capacitor.isNativePlatform()) {
+      void LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: alert.notificationId, title: alert.title, body: alert.subtitle }] }).catch(() => undefined)
+    }
     setScreen('home')
     const destination = alert.kind === 'calendar' ? 'calendar' : 'clock'
     setDashboardState((current) => current.preferences.enabledPageIds.includes(destination) ? current : {
@@ -282,11 +292,42 @@ function App() {
   }, [])
 
   const stopRinging = useCallback(() => {
+    const current = ringingAlertRef.current
+    if (current?.kind === 'calendar' && current.notificationId !== undefined && Capacitor.isNativePlatform()) {
+      void LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: current.notificationId, title: current.title, body: current.subtitle }] }).catch(() => undefined)
+    }
+    ringingAlertRef.current = null
     setRingingAlert(null)
     setInteractionLocked(false)
     navigator.vibrate?.(0)
     void stopAlarmSoundPreview()
-  }, [])
+    let next = pendingCalendarAlerts.current.shift()
+    while (next) {
+      const event = dashboardStateRef.current.calendarEvents.find(event => event.id === next?.sourceId)
+      if (event && !(event.type === 'task' && event.completed)) { startRinging(next); break }
+      next = pendingCalendarAlerts.current.shift()
+    }
+  }, [startRinging])
+
+  const enqueueCalendarAlert = useCallback((key: string, alert: RingingAlert) => {
+    if (shownCalendarAlerts.current.has(key)) return
+    shownCalendarAlerts.current.add(key)
+    if (ringingAlertRef.current) pendingCalendarAlerts.current.push(alert)
+    else startRinging(alert)
+  }, [startRinging])
+
+  useEffect(() => {
+    if (!dashboardReady) return
+    const due = dueCalendarReminders(dashboardState.calendarEvents, now)
+    if (!due.length) return
+    const timeout = window.setTimeout(() => {
+      for (const { key, event } of due) enqueueCalendarAlert(key, {
+        kind: 'calendar', sourceId: event.id, notificationId: notificationId(key), title: event.title || tx('Recordatorio del calendario'),
+        subtitle: formatCalendarEventTime(event, toLocalDateKey(now)), soundUri: null,
+      })
+    }, 0)
+    return () => window.clearTimeout(timeout)
+  }, [dashboardReady, dashboardState.calendarEvents, now, enqueueCalendarAlert])
 
   useEffect(() => {
     if (!dashboardReady) return
@@ -354,9 +395,13 @@ function App() {
         if (typeof calendarEventId !== 'string') return false
         const calendarEvent = dashboardStateRef.current.calendarEvents.find((item) => item.id === calendarEventId)
         if (!calendarEvent || (calendarEvent.type === 'task' && calendarEvent.completed)) return false
-        void LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: notification.id, title: notification.title || '', body: notification.body || '' }] })
-        startRinging({
+        const reminderId = notification.extra?.calendarReminderId
+        const index = notification.extra?.recurrenceIndex
+        const key = typeof reminderId === 'string' && typeof index === 'number'
+          ? calendarReminderKey(calendarEventId, reminderId, index) : `notification:${notification.id}`
+        enqueueCalendarAlert(key, {
           kind: 'calendar',
+          notificationId: notification.id,
           sourceId: calendarEventId,
           title: calendarEvent?.title || notification.title || 'Recordatorio del calendario',
           subtitle: notification.body || (calendarEvent ? formatCalendarEventTime(calendarEvent, toLocalDateKey(new Date())) : 'Tienes un aviso del calendario.'),
@@ -366,6 +411,17 @@ function App() {
       }
       return false
     }
+
+    const recoverDelivered = async () => {
+      try {
+        const notifications = await deliveredCalendarReminders()
+        if (disposed) return
+        for (const notification of notifications) showNotificationAlert(notification)
+      } catch (error) { console.warn('No se pudieron recuperar los recordatorios pendientes.', error) }
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') void recoverDelivered() }
+    document.addEventListener('visibilitychange', onVisible)
+    void recoverDelivered()
 
     void LocalNotifications.addListener('localNotificationActionPerformed', ({ notification }) => {
       if (showNotificationAlert(notification)) return
@@ -396,8 +452,8 @@ function App() {
       showNotificationAlert(notification)
     }).then(registerListener)
 
-    return () => { disposed = true; removers.forEach((remove) => remove()) }
-  }, [registerInteraction, startRinging, dashboardReady])
+    return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); removers.forEach((remove) => remove()) }
+  }, [registerInteraction, startRinging, enqueueCalendarAlert, dashboardReady])
 
   useEffect(() => {
     const preferences = dashboardState.preferences
