@@ -234,3 +234,20 @@
 @media (prefers-reduced-motion: reduce) {
   .tablet-shell[data-theme] { transition: none; }
 }
+
+/* Reminder controls share the active theme instead of dark-only text colours. */
+.tablet-shell[data-theme] :is(.calendar-reminder-presets button, .calendar-reminder-row, .calendar-reminder-row select) {
+  background: var(--ui-control);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+.tablet-shell[data-theme] .calendar-reminder-presets button:is(:hover, :focus-visible) {
+  background: var(--ui-action-soft);
+  border-color: var(--ui-focus);
+}
+.tablet-shell[data-theme] :is(.calendar-reminders-empty, .calendar-reminders-empty span, .calendar-reminder-row label > span, .calendar-reminders-help, .calendar-reminder-count) {
+  color: var(--ui-text-muted);
+}
+.tablet-shell[data-theme] .calendar-reminders-empty strong { color: var(--ui-text); }
+.tablet-shell[data-theme] .calendar-reminder-row option { background: var(--ui-panel-solid); color: var(--ui-text); }
+.tablet-shell[data-theme] .calendar-reminder-delete { background: var(--ui-control); border-color: var(--ui-border); color: var(--ui-danger); }
