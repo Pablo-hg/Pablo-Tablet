@@ -156,11 +156,11 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         setPending(proposal)
         processingRef.current = false
         setProcessing(false)
-        if (voiceRequest) {
-          onVoiceResponseReady?.()
-          const review = assistantCommandSummary(plan.command, assistantLanguage)
+        if (voiceRequest || readAloud) {
+          if (voiceRequest) onVoiceResponseReady?.()
+          const review = assistantCommandSummary(plan.command, assistantLanguage, now)
           await speakResponse(`${review.title}. ${review.details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`)
-          if (!controller.signal.aborted && pendingRef.current === proposal) await listenForPendingDecision(proposal)
+          if (voiceRequest && !controller.signal.aborted && pendingRef.current === proposal) await listenForPendingDecision(proposal)
         }
       } else {
         const result = await executeAssistantPlan(plan, { execute: onExecute }) as AssistantExecutionResult
@@ -296,8 +296,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       const text = await recognizeAssistantSpeech(controller.signal, assistantLanguage)
       if (controller.signal.aborted) return
       if (listeningControllerRef.current === controller) { listeningControllerRef.current = null; setListening(false) }
-      if (text && onVoiceModeStart) await submit(text, true)
-      else if (text) setInput(text)
+      if (text) await submit(text, true)
       else onVoiceResponseReady?.()
     } catch (error) {
       if (!controller.signal.aborted) {
@@ -331,7 +330,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     },
   }))
 
-  const summary = pending ? assistantCommandSummary(pending.plan.command, assistantLanguage) : null
+  const summary = pending ? assistantCommandSummary(pending.plan.command, assistantLanguage, now) : null
 
   return <div className={`assistant-page fullscreen-page page-enter ${pending ? 'has-pending' : ''}`}>
     {!compact ? <PageHeader pageLabel="¿En qué te ayudo?" /> : null}

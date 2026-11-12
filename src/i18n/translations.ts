@@ -1,4 +1,11 @@
 const english = {
+  '{{weekday}}, día {{day}}': '{{weekday}}, day {{day}}',
+  'hoy': 'today',
+  'mañana': 'tomorrow',
+  'pasado mañana': 'the day after tomorrow',
+  'el mes que viene': 'next month',
+  'la semana que viene': 'next week',
+
   'Próximas tareas': 'Upcoming tasks',
   'Próximos cumpleaños': 'Upcoming birthdays',
 

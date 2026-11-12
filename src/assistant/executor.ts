@@ -1,3 +1,4 @@
+import { assistantDateText } from './dateText'
 import type { AssistantCommand } from './contracts'
 import { DEFAULT_ALARM_SOUND } from '../alarmSounds'
 import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, toLocalDateKey } from '../calendarRecurrence'
@@ -187,7 +188,7 @@ export function executeAssistantCommand(
         startTime: '00:00', endTime: '23:59', allDay: true, timeZone: command.args.timeZone,
         location: '', notes: '', color: 'mint', reminders: [], createdAt: timestamp, updatedAt: timestamp,
       }
-      return { state: { ...state, calendarEvents: [...state.calendarEvents, task] }, response: tx('Tarea «{{title}}» creada en el calendario local para {{date}}.', { title: task.title, date: task.date }), openPage: 'calendar' }
+      return { state: { ...state, calendarEvents: [...state.calendarEvents, task] }, response: tx('Tarea «{{title}}» creada en el calendario local para {{date}}.', { title: task.title, date: assistantDateText(task.date, now, task.timeZone, language) }), openPage: 'calendar' }
     }
     case 'create_note': {
       const timestamp = now.toISOString()
@@ -239,11 +240,11 @@ export function executeAssistantCommand(
   }
 }
 
-export function assistantCommandSummary(command: AssistantCommand, language?: SupportedLanguage) {
+export function assistantCommandSummary(command: AssistantCommand, language?: SupportedLanguage, now = new Date()) {
   const tx = translateFor(language)
   switch (command.type) {
     case 'create_task':
-      return { title: tx('Crear tarea local'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: command.args.date }), tx('Todo el día · sin aviso'), tx('Destino: calendario local de esta tablet')] }
+      return { title: tx('Crear tarea local'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: assistantDateText(command.args.date, now, command.args.timeZone, language) }), tx('Todo el día · sin aviso'), tx('Destino: calendario local de esta tablet')] }
     case 'create_note':
       return { title: tx('Crear nota'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Contenido: {{value}}', { value: command.args.content }), command.args.reminderAt ? tx('Aviso: {{value}}', { value: formatDateTime(command.args.reminderAt, language) }) : tx('Sin aviso')] }
     case 'create_alarm':

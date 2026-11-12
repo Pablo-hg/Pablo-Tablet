@@ -102,10 +102,10 @@ export class LocalAssistantProvider implements AssistantProvider {
     // Formato acotado para no inventar fechas ni interpretar el título como una orden.
     const taskPrefix = /^(?:(?:crea|añade|anade|apunta) una tarea|(?:create|add) a task)\b/i
     if (taskPrefix.test(request.text.trim())) {
-      const task = request.text.trim().match(/^(?:(?:crea|añade|anade|apunta) una tarea para (hoy|mañana|manana|\d{4}-\d{2}-\d{2})|(?:create|add) a task for (today|tomorrow|\d{4}-\d{2}-\d{2}))(?:\s*:\s*|\s+)(.+)$/i)
+      const task = request.text.trim().match(/^(?:(?:crea|añade|anade|apunta) una tarea para (hoy|mañana|manana|pasado mañana|pasado manana|\d{4}-\d{2}-\d{2})|(?:create|add) a task for (today|tomorrow|the day after tomorrow|\d{4}-\d{2}-\d{2}))(?:\s*:\s*|\s+)(.+)$/i)
       if (!task) throw new InvalidAssistantCommandError(tx('Indica la fecha y el título. Ejemplo: «Crea una tarea para mañana: comprar pilas».'))
       const day = normalize(task[1] ?? task[2])
-      const date = day === 'hoy' || day === 'today' ? today : day === 'manana' || day === 'tomorrow' ? tomorrow : day
+      const date = day === 'hoy' || day === 'today' ? today : day === 'manana' || day === 'tomorrow' ? tomorrow : day === 'pasado manana' || day === 'the day after tomorrow' ? addLocalDays(today, 2) : day
       return proposal({ type: 'create_task', args: { title: task[3].trim(), date, timeZone: request.timeZone } }, tx('Preparar una tarea en el calendario local. Revisa sus datos antes de confirmar.'))
     }
 

@@ -51,22 +51,30 @@ describe('pantalla del asistente', () => {
     expect(onVoiceResponseReady).toHaveBeenCalledOnce()
     expect(screen.getByRole('status', { name: 'Lumi preparada' })).toBeInTheDocument()
   })
-  it('dicta una tarea, lee sus datos y espera confirmación hablada', async () => {
+  it.each([false, true])('dicta una tarea y espera confirmación hablada (flotante: %s)', async (floating) => {
     let decide!: (text: string) => void
     vi.mocked(recognizeAssistantSpeech)
       .mockResolvedValueOnce('Crea una tarea para mañana comprar pilas')
       .mockImplementationOnce(() => new Promise<string>((resolve) => { decide = resolve }))
     const onExecute = vi.fn().mockResolvedValue({ state: {} as never, response: 'Tarea creada.' })
-    render(<AssistantPage enabled voiceEnabled readAloud={false} voiceMode onVoiceModeStart={vi.fn()} now={new Date('2026-11-12T09:00:00Z')} onExecute={onExecute} onOpenPage={vi.fn()} onEditingChange={vi.fn()} />)
+    render(<AssistantPage enabled voiceEnabled readAloud={false} voiceMode={floating} onVoiceModeStart={floating ? vi.fn() : undefined} now={new Date('2026-11-12T09:00:00Z')} onExecute={onExecute} onOpenPage={vi.fn()} onEditingChange={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: 'Iniciar dictado' }))
     await waitFor(() => expect(recognizeAssistantSpeech).toHaveBeenCalledTimes(2))
     expect(onExecute).not.toHaveBeenCalled()
     expect(speakAssistantText).toHaveBeenCalledWith(expect.stringContaining('Título: comprar pilas'), '', 'es')
-    expect(speakAssistantText).toHaveBeenCalledWith(expect.stringContaining('Fecha: 2026-11-13'), '', 'es')
+    expect(speakAssistantText).toHaveBeenCalledWith(expect.stringContaining('Fecha: mañana, viernes, día 13'), '', 'es')
     expect(speakAssistantText).not.toHaveBeenCalledWith(expect.stringContaining('Zona horaria:'), expect.anything(), expect.anything())
     decide('confirmar')
     expect(await screen.findByText('Tarea creada.')).toBeInTheDocument()
     expect(onExecute).toHaveBeenCalledOnce()
+  })
+
+  it('lee también la propuesta escrita cuando la lectura automática está activada', async () => {
+    render(<AssistantPage enabled voiceEnabled={false} readAloud now={new Date('2026-11-12T09:00:00Z')} onExecute={vi.fn()} onOpenPage={vi.fn()} onEditingChange={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText('Escribe o dicta una petición'), { target: { value: 'Crea una tarea para mañana comprar pilas' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar petición' }))
+    await waitFor(() => expect(speakAssistantText).toHaveBeenCalledWith(expect.stringContaining('Fecha: mañana, viernes, día 13'), '', 'es'))
+    expect(recognizeAssistantSpeech).not.toHaveBeenCalled()
   })
 
   it('no ejecuta una escritura antes de la confirmación explícita', async () => {
@@ -107,7 +115,7 @@ describe('pantalla del asistente', () => {
     send()
     expect(await screen.findByRole('heading', { name: 'Crear tarea local' })).toBeInTheDocument()
     expect(screen.getByText('Destino: calendario local de esta tablet')).toBeInTheDocument()
-    expect(screen.getByText('Fecha: 2026-11-13')).toBeInTheDocument()
+    expect(screen.getByText('Fecha: mañana, viernes, día 13')).toBeInTheDocument()
     expect(screen.queryByText(/Zona horaria:/)).not.toBeInTheDocument()
     expect(onExecute).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))

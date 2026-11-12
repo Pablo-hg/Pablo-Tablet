@@ -51,6 +51,11 @@ describe('piloto local de Lumi', () => {
     expect(plan.requiresConfirmation).toBe(true)
   })
 
+  it.each(['Crea una tarea para pasado mañana comprar pilas', 'Create a task for the day after tomorrow buy batteries'])('interpreta pasado mañana sin inventar la fecha: %s', async (text) => {
+    const plan = await planAssistantRequest(provider, request(text))
+    expect(plan.command).toMatchObject({ type: 'create_task', args: { date: '2026-11-15' } })
+  })
+
   it('admite inglés y una fecha explícita', async () => {
     const plan = await planAssistantRequest(provider, { ...request('Create a task for 2026-12-01: buy batteries'), locale: 'en-GB' })
     expect(plan.command).toEqual({ type: 'create_task', args: { title: 'buy batteries', date: '2026-12-01', timeZone: 'Europe/Madrid' } })
