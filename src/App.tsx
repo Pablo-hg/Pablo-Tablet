@@ -1,4 +1,4 @@
-import { CALENDAR_CATEGORY_LABELS, getUpcomingCalendarGroups, getUpcomingCalendarEvents, isCalendarHoliday, type CalendarCategory } from './calendarUpcoming'
+import { CALENDAR_CATEGORY_LABELS, getUpcomingCalendarGroups, getUpcomingCalendarEvents, isCalendarHoliday } from './calendarUpcoming'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { Capacitor } from '@capacitor/core'
@@ -1165,7 +1165,7 @@ function App() {
             weatherLoading={weatherLoading}
             weatherErrors={weatherErrors}
             hideCompletedCalendarTasks={dashboardState.preferences.hideCompletedCalendarTasks}
-            calendarWidgetCategories={dashboardState.preferences.calendarWidgetCategories}
+            showUpcomingCalendarHolidays={dashboardState.preferences.showUpcomingCalendarHolidays}
             alarms={dashboardState.alarms}
             timers={dashboardState.timers}
             stopwatch={dashboardState.stopwatch}
@@ -1302,7 +1302,7 @@ function DashboardPage({
   weatherLoading,
   weatherErrors,
   hideCompletedCalendarTasks,
-  calendarWidgetCategories,
+  showUpcomingCalendarHolidays,
   alarms,
   timers,
   stopwatch,
@@ -1365,7 +1365,7 @@ function DashboardPage({
   weatherLoading: Record<string, boolean>
   weatherErrors: Record<string, string>
   hideCompletedCalendarTasks: boolean
-  calendarWidgetCategories: CalendarCategory[]
+  showUpcomingCalendarHolidays: boolean
   alarms: Alarm[]
   timers: Timer[]
   stopwatch: StopwatchState
@@ -1414,7 +1414,7 @@ function DashboardPage({
   if (page.id === 'gallery') return <GalleryPage photos={galleryPhotos} onAddPhotos={onAddGalleryPhotos} onMoveToTrash={onMoveGalleryPhotoToTrash} onMoveSelectionToTrash={onMoveGalleryPhotosToTrash} onRestore={onRestoreGalleryPhoto} onPermanentlyDelete={onPermanentlyDeleteGalleryPhoto} onEditingChange={onEditingChange} />
   if (page.id === 'weather') return <WeatherPage locations={weatherLocations} homeLocationId={homeWeatherLocationId} selectedLocationId={selectedWeatherLocationId} forecasts={weatherForecasts} loading={weatherLoading} errors={weatherErrors} onAddLocation={onAddWeatherLocation} onRemoveLocation={onRemoveWeatherLocation} onSetHomeLocation={onSetHomeWeatherLocation} onSelectLocation={onSelectWeatherLocation} onRefresh={onRefreshWeather} onEditingChange={onEditingChange} />
   if (page.id === 'notes') return <NotesPage notes={notes} onCreateNote={onCreateNote} onUpdateNote={onUpdateNote} onArchiveNote={onArchiveNote} onRestoreNote={onRestoreNote} onDeleteNote={onDeleteNote} onPreviewNotification={onPreviewNotification} onEditingChange={onEditingChange} />
-  return <GridDashboard clockWidgetStyle={clockWidgetStyle} now={now} time={time} date={date} widgets={widgets} notes={notes} alarms={alarms} calendarEvents={calendarEvents} calendars={externalCalendars} calendarWidgetCategories={calendarWidgetCategories} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
+  return <GridDashboard clockWidgetStyle={clockWidgetStyle} now={now} time={time} date={date} widgets={widgets} notes={notes} alarms={alarms} calendarEvents={calendarEvents} calendars={externalCalendars} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={weatherLocations.find((location) => location.id === homeWeatherLocationId) ?? weatherLocations[0] ?? null} homeWeatherForecast={weatherForecasts[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''] ?? null} weatherLoading={Boolean(weatherLoading[homeWeatherLocationId ?? weatherLocations[0]?.id ?? ''])} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} onChangeWidgetLayout={onChangeWidgetLayout} onEditingChange={onEditingChange} />
 }
 
 function GalleryScreensaver({ photo, now, time, date, calendarEvents, calendars, onDismiss }: { photo: GalleryPhoto | undefined; now: Date; time: string; date: string; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; onDismiss: () => void }) {
@@ -1619,7 +1619,7 @@ function resizeWidgetFromEdge(initial: WidgetPosition, direction: WidgetResizeDi
   return { ...initial, height: initial.height + delta }
 }
 
-function GridDashboard({ clockWidgetStyle, now, time, date, widgets, notes, alarms, calendarEvents, calendars, calendarWidgetCategories, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { clockWidgetStyle: ClockWidgetStyle; now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; alarms: Alarm[]; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; calendarWidgetCategories: CalendarCategory[]; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: (date?: string) => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
+function GridDashboard({ clockWidgetStyle, now, time, date, widgets, notes, alarms, calendarEvents, calendars, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant, onChangeWidgetLayout, onEditingChange }: { clockWidgetStyle: ClockWidgetStyle; now: Date; time: string; date: string; widgets: import('./widgetLayout').DashboardWidget[]; notes: Note[]; alarms: Alarm[]; calendarEvents: CalendarEvent[]; calendars: SyncedCalendar[]; showUpcomingCalendarHolidays: boolean; homeWeatherLocation: WeatherLocation | null; homeWeatherForecast: WeatherForecast | null; weatherLoading: boolean; onOpenNotes: (noteId?: string) => void; onOpenWeather: () => void; onOpenCalendar: (date?: string) => void; onOpenAssistant: () => void; onChangeWidgetLayout: (widgetId: DashboardWidgetId, orientation: DashboardOrientation, patch: Partial<WidgetPosition>) => void; onEditingChange: (isEditing: boolean) => void }) {
   const orientation = useDashboardOrientation()
   const [isEditing, setIsEditing] = useState(false)
   const [selectedWidgetId, setSelectedWidgetId] = useState<DashboardWidgetId | null>(null)
@@ -1871,7 +1871,7 @@ function GridDashboard({ clockWidgetStyle, now, time, date, widgets, notes, alar
       {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>{tx('Arrastra para mover · arrastra los bordes para ajustar')}</span><button type="button" onClick={finishEditing}><Check size={17} />{tx('Listo')}</button></div> : null}
       <div ref={gridRef} className={`dashboard-grid is-${orientation}`}>
         {displayedWidgets.length > 0
-          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} clockWidgetStyle={clockWidgetStyle} now={now} date={date} notes={visibleDashboardNotes} alarms={alarms} calendarEvents={calendarEvents} upcomingGroups={upcomingGroups} calendarWidgetCategories={calendarWidgetCategories} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
+          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} clockWidgetStyle={clockWidgetStyle} now={now} date={date} notes={visibleDashboardNotes} alarms={alarms} calendarEvents={calendarEvents} upcomingGroups={upcomingGroups} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
           : <DashboardEmptyState time={time} date={date} />}
       </div>
     </div>
@@ -1930,7 +1930,7 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
   </div>
 }
 
-function DashboardWidgetCard({ widget, clockWidgetStyle, now, date, notes, alarms, calendarEvents, upcomingGroups, calendarWidgetCategories, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
+function DashboardWidgetCard({ widget, clockWidgetStyle, now, date, notes, alarms, calendarEvents, upcomingGroups, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
   widget: PlacedWidget
   clockWidgetStyle: ClockWidgetStyle
   now: Date
@@ -1939,7 +1939,7 @@ function DashboardWidgetCard({ widget, clockWidgetStyle, now, date, notes, alarm
   calendarEvents: CalendarEvent[]
   upcomingGroups: ReturnType<typeof getUpcomingCalendarGroups>
   alarms: Alarm[]
-  calendarWidgetCategories: CalendarCategory[]
+  showUpcomingCalendarHolidays: boolean
   homeWeatherLocation: WeatherLocation | null
   homeWeatherForecast: WeatherForecast | null
   weatherLoading: boolean
@@ -2024,7 +2024,7 @@ function DashboardWidgetCard({ widget, clockWidgetStyle, now, date, notes, alarm
   })
   const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 1, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 2, '3x2': 3, '3x3': 5, '3x4': 6, '4x1': 2, '4x2': 4, '4x3': 6, '4x4': 6 }
   const agendaBudget = agendaCount[sizeKey] ?? 0
-  const selectedGroups = calendarWidgetCategories.filter(category => upcomingGroups[category].length > 0).slice(0, Math.min(2, agendaBudget))
+  const selectedGroups = agendaBudget > 0 ? (['event', 'holiday', 'birthday', 'task'] as const).filter(category => (category !== 'holiday' || showUpcomingCalendarHolidays) && upcomingGroups[category].length > 0) : []
   const visibleAgendaCount = Math.min(3, Math.max(1, Math.floor(agendaBudget / Math.max(1, selectedGroups.length))))
   const calendarSubtitle = visibleDayCount === 7
     ? tx('Esta semana')

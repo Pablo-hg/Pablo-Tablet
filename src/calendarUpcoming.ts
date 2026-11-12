@@ -36,17 +36,9 @@ export function getUpcomingCalendarHolidays(calendarEvents: CalendarEvent[], now
   return getUpcomingCalendarItems(calendarEvents, now, time, limit, calendars, true)
 }
 
-export const CALENDAR_CATEGORIES = ['event', 'task', 'birthday', 'holiday'] as const
-export type CalendarCategory = typeof CALENDAR_CATEGORIES[number]
 export const CALENDAR_CATEGORY_LABELS = {
   event: 'Próximos eventos', task: 'Próximas tareas', birthday: 'Próximos cumpleaños', holiday: 'Próximos festivos',
 } as const
-
-export function readCalendarWidgetCategories(value: unknown, showHolidays = true): CalendarCategory[] {
-  const fallback: CalendarCategory[] = showHolidays ? ['event', 'holiday'] : ['event', 'task']
-  if (!Array.isArray(value) || value.length !== 2 || value[0] === value[1] || !value.every(item => CALENDAR_CATEGORIES.includes(item))) return fallback
-  return [...value]
-}
 
 export function getUpcomingCalendarGroups(events: CalendarEvent[], now: Date, time: string, limit: number, calendars: SyncedCalendar[] = []) {
   const regular = getUpcomingCalendarItems(events, now, time, events.length, calendars, false)

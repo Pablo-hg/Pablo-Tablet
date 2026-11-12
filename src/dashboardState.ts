@@ -1,4 +1,3 @@
-import { readCalendarWidgetCategories, type CalendarCategory } from './calendarUpcoming'
 import { DEFAULT_WIDGETS, readWidgets, type DashboardWidget } from './widgetLayout'
 import type { WeatherLocation } from './weather'
 import type { SupportedLanguage } from './i18n'
@@ -46,7 +45,6 @@ export interface DashboardPreferences {
   keepScreenAwake: boolean
   screenTimeoutSeconds: number
   hideCompletedCalendarTasks: boolean
-  calendarWidgetCategories: CalendarCategory[]
   showUpcomingCalendarHolidays: boolean
   screensaverEnabled: boolean
   screensaverDelaySeconds: number
@@ -245,7 +243,6 @@ export const DEFAULT_DASHBOARD_STATE: DashboardState = {
     keepScreenAwake: true,
     screenTimeoutSeconds: 60,
     hideCompletedCalendarTasks: false,
-    calendarWidgetCategories: ['event', 'holiday'],
     showUpcomingCalendarHolidays: true,
     screensaverEnabled: true,
     screensaverDelaySeconds: 180,
@@ -715,7 +712,6 @@ export function loadDashboardState(serializedState?: string): DashboardState {
         hideCompletedCalendarTasks: typeof parsedPreferences.hideCompletedCalendarTasks === 'boolean'
           ? parsedPreferences.hideCompletedCalendarTasks
           : DEFAULT_DASHBOARD_STATE.preferences.hideCompletedCalendarTasks,
-        calendarWidgetCategories: readCalendarWidgetCategories(parsedPreferences.calendarWidgetCategories, parsedPreferences.showUpcomingCalendarHolidays !== false),
         showUpcomingCalendarHolidays: typeof parsedPreferences.showUpcomingCalendarHolidays === 'boolean'
           ? parsedPreferences.showUpcomingCalendarHolidays
           : DEFAULT_DASHBOARD_STATE.preferences.showUpcomingCalendarHolidays,

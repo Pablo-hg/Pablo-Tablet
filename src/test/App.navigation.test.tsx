@@ -188,9 +188,7 @@ describe('navegación y flujos principales', () => {
     expect(normalAllDay).not.toHaveClass('is-holiday')
 
     fireEvent.click(screen.getByRole('button', { name: 'Ir a Ajustes' }))
-    const secondSection = screen.getByRole('combobox', { name: 'Segunda sección del calendario' })
-    expect(secondSection).toHaveValue('holiday')
-    fireEvent.change(secondSection, { target: { value: 'task' } })
+    fireEvent.click(screen.getByRole('switch', { name: /Próximos festivos/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Volver al inicio' }))
     expect(document.querySelector('.calendar-widget-holidays')).not.toBeInTheDocument()
   })

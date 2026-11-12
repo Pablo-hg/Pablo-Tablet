@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { getUpcomingCalendarGroups, readCalendarWidgetCategories } from '../calendarUpcoming'
-import { DEFAULT_DASHBOARD_STATE, loadDashboardState, type CalendarEvent } from '../dashboardState'
+import { getUpcomingCalendarGroups } from '../calendarUpcoming'
+import { type CalendarEvent } from '../dashboardState'
 
 const now = new Date(2026, 10, 12, 10)
 const event = (id: string, patch: Partial<CalendarEvent> = {}): CalendarEvent => ({
@@ -26,13 +26,4 @@ describe('categorías próximas del calendario', () => {
     expect(recurring.birthday[0].date).toBe('2026-11-14')
   })
 
-  it('migra las preferencias antiguas y rechaza selecciones duplicadas o desconocidas', () => {
-    const state = JSON.parse(JSON.stringify(DEFAULT_DASHBOARD_STATE))
-    delete state.preferences.calendarWidgetCategories
-    state.preferences.showUpcomingCalendarHolidays = false
-    expect(loadDashboardState(JSON.stringify(state)).preferences.calendarWidgetCategories).toEqual(['event', 'task'])
-    expect(readCalendarWidgetCategories(['birthday', 'task'])).toEqual(['birthday', 'task'])
-    expect(readCalendarWidgetCategories(['task', 'task'])).toEqual(['event', 'holiday'])
-    expect(readCalendarWidgetCategories(['unknown', 'task'])).toEqual(['event', 'holiday'])
-  })
 })
