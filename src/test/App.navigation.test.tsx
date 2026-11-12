@@ -126,7 +126,7 @@ describe('navegación y flujos principales', () => {
     expect(screen.getByRole('button', { name: 'Volver al mes' })).toBeVisible()
   })
 
-  it('mantiene las fechas nativas en el calendario pero no en Próximos eventos', () => {
+  it('mantiene las fechas nativas en una categoría de festivos separada de los eventos', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-16T10:00:00'))
     render(<App />)
@@ -134,8 +134,9 @@ describe('navegación y flujos principales', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
 
     expect(screen.getByRole('button', { name: /25.*Cambio al horario de invierno/ })).toBeVisible()
-    expect(document.querySelector('.calendar-upcoming-panel')).not.toHaveTextContent('Cambio al horario de invierno')
-    expect(document.querySelector('.calendar-upcoming-panel')).not.toHaveTextContent('Todos los Santos')
+    expect(document.querySelector('.calendar-upcoming-panel')).toHaveTextContent('Próximos festivos')
+    expect(document.querySelector('.calendar-upcoming-panel')).toHaveTextContent('Cambio al horario de invierno')
+    expect(document.querySelector('.calendar-upcoming-panel')).toHaveTextContent('Todos los Santos')
     expect(screen.queryByText('Tablet')).not.toBeInTheDocument()
   })
 
@@ -176,7 +177,7 @@ describe('navegación y flujos principales', () => {
     expect(widget.querySelector('.calendar-widget-holidays')).toHaveTextContent('Festivo sincronizado')
 
     fireEvent.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
-    expect(document.querySelector('.calendar-upcoming-panel')).not.toHaveTextContent('Festivo sincronizado')
+    expect(document.querySelector('.calendar-upcoming-category[aria-label="Próximos festivos"]')).toHaveTextContent('Festivo sincronizado')
     expect(document.querySelector('.calendar-upcoming-panel')).toHaveTextContent('Evento normal de todo el día')
     fireEvent.click(screen.getByRole('button', { name: /^17.*Festivo sincronizado/ }))
 

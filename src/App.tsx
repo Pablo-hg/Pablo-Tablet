@@ -1,4 +1,4 @@
-import { CALENDAR_CATEGORY_LABELS, getUpcomingCalendarGroups, getUpcomingCalendarEvents, isCalendarHoliday } from './calendarUpcoming'
+import { CALENDAR_CATEGORY_ORDER, CALENDAR_CATEGORY_LABELS, getUpcomingCalendarGroups, getUpcomingCalendarEvents, isCalendarHoliday } from './calendarUpcoming'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { Capacitor } from '@capacitor/core'
@@ -2024,8 +2024,8 @@ function DashboardWidgetCard({ widget, clockWidgetStyle, now, date, notes, alarm
   })
   const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 1, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 2, '3x2': 3, '3x3': 5, '3x4': 6, '4x1': 2, '4x2': 4, '4x3': 6, '4x4': 6 }
   const agendaBudget = agendaCount[sizeKey] ?? 0
-  const selectedGroups = agendaBudget > 0 ? (['event', 'holiday', 'birthday', 'task'] as const).filter(category => (category !== 'holiday' || showUpcomingCalendarHolidays) && upcomingGroups[category].length > 0) : []
-  const visibleAgendaCount = Math.min(3, Math.max(1, Math.floor(agendaBudget / Math.max(1, selectedGroups.length))))
+  const selectedGroups = agendaBudget > 0 ? CALENDAR_CATEGORY_ORDER.filter(category => (category !== 'holiday' || showUpcomingCalendarHolidays) && upcomingGroups[category].length > 0) : []
+  const visibleAgendaCount = 3
   const calendarSubtitle = visibleDayCount === 7
     ? tx('Esta semana')
     : showWholeMonth
@@ -2278,7 +2278,7 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
       <div className="calendar-side-column">
         <aside className="calendar-upcoming-panel">
           <header><div><p className="eyebrow">{tx('Tu agenda')}</p><h2>{tx('Calendario')}</h2></div><CalendarDays size={21} /></header>
-          {(['event', 'birthday', 'task'] as const).filter(category => upcomingGroups[category].length > 0).map(category => <section key={category} className="calendar-upcoming-category" aria-label={tx(CALENDAR_CATEGORY_LABELS[category])}>
+          {CALENDAR_CATEGORY_ORDER.filter(category => upcomingGroups[category].length > 0).map(category => <section key={category} className="calendar-upcoming-category" aria-label={tx(CALENDAR_CATEGORY_LABELS[category])}>
             <h3>{tx(CALENDAR_CATEGORY_LABELS[category])}</h3>
             <div className="calendar-upcoming-list">{upcomingGroups[category].map((event, index) => {
             const eventMonthKey = event.date.slice(0, 7)

@@ -22,13 +22,16 @@ it('muestra las cuatro categorías del widget y tres por tipo en Tu agenda', () 
   expect(within(widget as HTMLElement).getByRole('region', { name: 'Próximos eventos' })).toBeInTheDocument()
   expect(within(widget as HTMLElement).getByRole('region', { name: 'Próximos festivos' })).toBeInTheDocument()
   expect(widget.querySelectorAll(':scope > section')).toHaveLength(4)
+  expect(Array.from(widget.querySelectorAll(':scope > section'), section => section.getAttribute('aria-label'))).toEqual(['Próximos eventos', 'Próximas tareas', 'Próximos cumpleaños', 'Próximos festivos'])
+  for (const section of widget.querySelectorAll(':scope > section')) expect(section.querySelectorAll('button')).toHaveLength(3)
   fireEvent.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
   const panel = document.querySelector('.calendar-upcoming-panel')!
-  expect(panel.querySelectorAll('.calendar-upcoming-category')).toHaveLength(3)
+  expect(panel.querySelectorAll('.calendar-upcoming-category')).toHaveLength(4)
   for (const section of panel.querySelectorAll('.calendar-upcoming-category')) {
     expect(section.querySelectorAll('button')).toHaveLength(3)
-    expect(section.querySelector('button')).toHaveClass('event-sun')
+    if (section.getAttribute('aria-label') !== 'Próximos festivos') expect(section.querySelector('button')).toHaveClass('event-sun')
   }
+  expect(Array.from(panel.querySelectorAll('.calendar-upcoming-category'), section => section.getAttribute('aria-label'))).toEqual(['Próximos eventos', 'Próximas tareas', 'Próximos cumpleaños', 'Próximos festivos'])
   expect(panel).not.toHaveTextContent('event-3')
 
 })
@@ -37,5 +40,5 @@ it('omite categorías vacías en Tu agenda', () => {
   localStorage.setItem('pablo-tablet.dashboard.v17', JSON.stringify(DEFAULT_DASHBOARD_STATE))
   render(<App />)
   fireEvent.click(screen.getByRole('button', { name: 'Ir a Calendario' }))
-  expect(document.querySelectorAll('.calendar-upcoming-category')).toHaveLength(0)
+  expect(Array.from(document.querySelectorAll('.calendar-upcoming-category'), section => section.getAttribute('aria-label'))).toEqual(['Próximos festivos'])
 })

@@ -36,6 +36,8 @@ export function getUpcomingCalendarHolidays(calendarEvents: CalendarEvent[], now
   return getUpcomingCalendarItems(calendarEvents, now, time, limit, calendars, true)
 }
 
+export const CALENDAR_CATEGORY_ORDER = ['event', 'task', 'birthday', 'holiday'] as const
+
 export const CALENDAR_CATEGORY_LABELS = {
   event: 'Próximos eventos', task: 'Próximas tareas', birthday: 'Próximos cumpleaños', holiday: 'Próximos festivos',
 } as const

@@ -2438,6 +2438,7 @@
   gap: 4px;
 }
 .calendar-widget-body {
+  grid-template-rows: minmax(0, 1fr);
   display: grid;
   flex: 1;
   gap: clamp(12px, 1.6vw, 20px);
@@ -2537,7 +2538,11 @@
   gap: 7px;
   grid-auto-rows: max-content;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 100%;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   padding-left: clamp(12px, 1.4vw, 18px);
 }
 .calendar-widget-upcoming {
@@ -3191,7 +3196,7 @@
 .widget-size-1x3 .responsive-calendar-widget .calendar-widget-body,
 .widget-size-1x4 .responsive-calendar-widget .calendar-widget-body {
   grid-template-columns: 1fr;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
 }
 .widget-size-1x2 .calendar-widget-agenda,
 .widget-size-1x3 .calendar-widget-agenda,
