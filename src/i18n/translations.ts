@@ -1,4 +1,9 @@
 const english = {
+  'He encontrado dos horas. Repite la petición indicando una sola hora.': 'I found two times. Repeat the request with a single time.',
+  'Puedes confirmar, editar o cancelar. Para cambiar el aviso, di: avísame media hora antes.': 'You can confirm, edit, or cancel. To change the reminder, say: remind me half an hour before.',
+  'Aviso actualizado. Revisa la propuesta y confirma cuando esté correcta.': 'Reminder updated. Review the proposal and confirm when it is correct.',
+  '{{count}} minutos antes': '{{count}} minutes before',
+
   'El aviso está configurado; las notificaciones requieren la aplicación Android.': 'The reminder is configured; notifications require the Android app.',
   'Activa el permiso de notificaciones en Ajustes para recibir el aviso.': 'Enable notification permission in Settings to receive the reminder.',
   'Sin permiso de alarmas exactas, Android podría retrasar el aviso.': 'Without exact alarm permission, Android may delay the reminder.',

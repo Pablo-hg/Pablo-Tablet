@@ -37,9 +37,20 @@ export function interpretTaskReminder(request: AssistantRequest): AssistantPropo
   const delta = weekday < 0 ? 0 : (weekday - new Date(`${today}T12:00:00Z`).getUTCDay() + 7) % 7 || 7
   const date = weekday >= 0 ? addDaysToDateKey(today, delta) : day === 'hoy' ? today : day === 'manana' ? addDaysToDateKey(today, 1) : day === 'pasado manana' ? addDaysToDateKey(today, 2) : day
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(`${date}T12:00:00Z`)) || new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) !== date || !parsed[3].trim() || parsed[3].trim().length > 120) throw new InvalidAssistantCommandError(tx('Esa fecha no es válida. Comprueba el día, mes y año.'))
-  const context = { title: parsed[3].trim(), date, timeZone: request.timeZone }
-  if (!parsed[2]) throw new AssistantTimeRequired(tx('¿A qué hora? Indica también si es por la mañana o por la tarde, o di cancelar.'), context)
-  return proposalForTime(parsed[2], context, language)
+  let title = parsed[3].trim()
+  let timeText = parsed[2]
+  const trailing = /\s+(a las?\s+(.+))$/i.exec(title)
+  const firstTimeWord = trailing ? normalize(trailing[2]).split(/[\s:]/)[0] : ''
+  // Preserve ordinary title text such as «mirar a las estrellas».
+  if (trailing && (/^\d{1,2}$/.test(firstTimeWord) || HOURS[firstTimeWord] !== undefined)) {
+    if (timeText) throw new InvalidAssistantCommandError(tx('He encontrado dos horas. Repite la petición indicando una sola hora.'))
+    timeText = trailing[1]
+    title = title.slice(0, trailing.index).trim()
+  }
+  if (!title) throw new InvalidAssistantCommandError(tx('Indica el día y qué quieres recordar. Por ejemplo: «Recuérdame el próximo viernes que vaya a comprar pilas».'))
+  const context = { title, date, timeZone: request.timeZone }
+  if (!timeText) throw new AssistantTimeRequired(tx('¿A qué hora? Indica también si es por la mañana o por la tarde, o di cancelar.'), context)
+  return proposalForTime(timeText, context, language)
 }
 
 /** El calendario actual guarda avisos en fecha/hora civiles de la tablet. */
@@ -47,4 +58,21 @@ export function taskReminderTime(date: string, time: string, minutesBefore = 60)
   const value = new Date(`${date}T${time}:00Z`)
   value.setUTCMinutes(value.getUTCMinutes() - minutesBefore)
   return { date: value.toISOString().slice(0, 10), time: value.toISOString().slice(11, 16) }
+}
+
+/** Cambia solo la antelación de una propuesta pendiente; no confirma la acción. */
+export function reminderLeadTimeMinutes(text: string): number | null {
+  const value = normalize(text).replace(/[.!?]+$/, '').replace(/\s+/g, ' ')
+  const match = /^(?:(?:avisame|recuerdamelo|cambia el aviso a|change the reminder to|remind me)\s+)?(.+?)\s+(?:antes|before)$/.exec(value)
+  if (!match) return null
+  const duration = match[1]
+  if (duration === 'media hora' || duration === 'half an hour') return 30
+  if (duration === 'una hora y media' || duration === 'an hour and a half') return 90
+  const amount = /^(\d{1,4}|[a-z]+) (minutos?|minutes?|horas?|hours?|dias?|days?)$/.exec(duration)
+  if (!amount) return null
+  const words: Record<string, number> = { ...HOURS, cuarenta: 40, cincuenta: 50, un: 1, una: 1, dos: 2, tres: 3, cuatro: 4, quince: 15, treinta: 30, sesenta: 60, a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, fifteen: 15, thirty: 30, sixty: 60 }
+  const count = /^\d+$/.test(amount[1]) ? Number(amount[1]) : words[amount[1]]
+  const multiplier = /^(hora|hour)/.test(amount[2]) ? 60 : /^(dia|day)/.test(amount[2]) ? 1440 : 1
+  const minutes = count * multiplier
+  return Number.isSafeInteger(minutes) && minutes >= 1 && minutes <= 10080 ? minutes : null
 }

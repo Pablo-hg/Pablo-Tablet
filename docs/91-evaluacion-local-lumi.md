@@ -76,3 +76,9 @@ Revisión manual pendiente con datos ficticios:
 Los permisos, recepción en segundo plano/bloqueo y servicios nativos Android se validarán posteriormente en la tablet.
 
 Resultado automatizado del 13/11/2026: `npm test -- --maxWorkers=2` supera los 50 archivos y las 297 pruebas. La revisión visual manual de la lista anterior continúa pendiente.
+
+## Desarrollo por voz — 13/11/2026
+
+Por indicación del usuario se continúa desarrollando sin ejecutar tests. Se añade la modificación de la antelación durante la confirmación hablada: «avísame media hora antes», «avísame una hora antes», «quince minutos antes» o «un día antes». El cambio actualiza la propuesta y vuelve a pedir confirmación; no guarda ni ejecuta nada por sí solo. Los valores admitidos quedan limitados a entre 1 minuto y 7 días, igual que el contrato. El selector de pantalla conserva valores introducidos por voz que no coincidan con sus opciones habituales.
+
+También se admite la hora al final de una petición: «Recuérdame mañana que vaya a comprar pilas a las siete de la tarde». Si se indican dos horas, se solicita repetir la petición con una sola; las horas ambiguas siguen necesitando aclaración. No se han ejecutado pruebas automatizadas de estos cambios y no se da por validada la interacción real. Se mantiene la prioridad de la versión web y no se instala esta actualización en Android.

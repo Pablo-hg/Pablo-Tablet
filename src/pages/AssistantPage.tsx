@@ -1,3 +1,4 @@
+import { reminderLeadTimeMinutes } from '../assistant/taskReminder'
 import { useEffect, useId, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from 'react'
 import type { TOptions } from 'i18next'
 import { Bot, Check, Edit3, Mic, MicOff, Send, Volume2, X } from 'lucide-react'
@@ -182,7 +183,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         if (voiceRequest || readAloud) {
           if (voiceRequest) onVoiceResponseReady?.()
           const review = assistantCommandSummary(plan.command, assistantLanguage, now)
-          await speakResponse(`${review.title}. ${review.details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`)
+          await speakResponse(`${review.title}. ${review.details.join('. ')}. ${tx(plan.command.type === 'create_task_reminder' ? 'Puedes confirmar, editar o cancelar. Para cambiar el aviso, di: avísame media hora antes.' : 'Puedes decir confirmar, editar o cancelar.')}`)
           if (voiceRequest && !controller.signal.aborted && pendingRef.current === proposal) await listenForPendingDecision(proposal)
         }
       } else {
@@ -277,6 +278,18 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       const answer = await recognizeAssistantSpeech(controller.signal, assistantLanguage)
       if (controller.signal.aborted || pendingRef.current !== proposal) return
       if (listeningControllerRef.current === controller) { listeningControllerRef.current = null; setListening(false) }
+      const reminderMinutes = reminderLeadTimeMinutes(answer)
+      if (proposal.plan.command.type === 'create_task_reminder' && reminderMinutes !== null) {
+        const command = validateAssistantCommand({ ...proposal.plan.command, args: { ...proposal.plan.command.args, reminderMinutesBefore: reminderMinutes } })
+        const updated = { ...proposal, plan: { ...proposal.plan, command } }
+        pendingRef.current = updated
+        setPending(updated)
+        setMessages(current => [...current, newMessage('assistant', tx('Aviso actualizado. Revisa la propuesta y confirma cuando esté correcta.'))])
+        const review = assistantCommandSummary(command, assistantLanguage, now)
+        await speakResponse(`${review.title}. ${review.details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`)
+        if (!controller.signal.aborted && pendingRef.current === updated) await listenForPendingDecision(updated)
+        return
+      }
       const normalized = answer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, ' ')
       if (/^(si|si confirmo|confirmo|confirmar|confirma|confirm|yes|yes confirm)$/.test(normalized)) {
         await confirmPending(proposal, true)
@@ -401,6 +414,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
             pendingRef.current = updated
             setPending(updated)
           }}>
+            {![15, 30, 60, 120, 1440].includes(pending.plan.command.args.reminderMinutesBefore ?? 60) ? <option value={pending.plan.command.args.reminderMinutesBefore}>{tx('{{count}} minutos antes', { count: pending.plan.command.args.reminderMinutesBefore })}</option> : null}
             {([15, 30, 60, 120, 1440] as const).map(minutes => <option key={minutes} value={minutes}>{tx(minutes === 15 ? '15 minutos antes' : minutes === 30 ? '30 minutos antes' : minutes === 60 ? '1 hora antes' : minutes === 120 ? '2 horas antes' : '1 día antes')}</option>)}
           </select>
         </label> : null}
