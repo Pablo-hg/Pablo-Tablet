@@ -1,3 +1,4 @@
+import { TimePicker } from '../TimePicker'
 import type { ReactNode } from 'react'
 import { tx } from '../../i18n'
 
@@ -84,7 +85,7 @@ export function SettingsRange({ icon, label, value, minimum, maximum = 100, disa
 }
 
 export function TimeSetting({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label><span>{label}</span><input type="time" value={value} onChange={(event) => onChange(event.target.value)} /></label>
+  return <TimePicker label={label} value={value} onChange={onChange} />
 }
 
 function DurationSelect({ title, detail, value, options, onChange }: { title: string; detail: string; value: number; options: { value: number; label: string }[]; onChange: (value: number) => void }) {

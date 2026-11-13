@@ -1,0 +1,24 @@
+.time-picker-field { display: grid; gap: 5px; min-width: 0; }
+.time-picker-label { color: var(--ui-text-muted); font-size: .7rem; font-weight: 700; }
+.tablet-shell[data-theme] .time-picker-trigger { align-items: center; background: var(--ui-control); border: var(--ui-outline-width) solid var(--ui-border); border-radius: var(--ui-radius-control); color: var(--ui-text); cursor: pointer; display: flex; font: inherit; gap: 8px; min-height: 44px; padding: 9px 11px; width: 100%; font-variant-numeric: tabular-nums; }
+.time-picker-backdrop { align-items: center; background: var(--theme-overlay); display: flex; inset: 0; justify-content: center; padding: 16px; position: fixed; z-index: 100; }
+.tablet-shell[data-theme] .time-picker-dialog { background: var(--ui-panel-solid); border: var(--ui-outline-width) solid var(--ui-border-strong); border-radius: var(--ui-radius-panel); box-shadow: var(--ui-shadow); box-sizing: border-box; color: var(--ui-text); max-height: calc(100dvh - 32px); overflow-y: auto; padding: clamp(18px, 4vw, 30px); width: min(420px, 100%); }
+.time-picker-dialog header h2 { color: var(--ui-text); font-family: var(--ui-heading-font); font-size: 1.3rem; margin: 0; }
+.time-picker-dialog header p, .time-picker-hint { color: var(--ui-text-muted); font-size: .8rem; margin: 8px 0 18px; }
+.time-picker-clock { align-items: center; display: flex; gap: 8px; justify-content: center; }
+.time-picker-column { background: var(--ui-control); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-control); display: grid; flex: 0 1 90px; min-width: 0; overflow: hidden; }
+.tablet-shell[data-theme] .time-picker-column button { align-items: center; background: transparent; border: 0; border-radius: 0; color: var(--ui-text); cursor: pointer; display: flex; justify-content: center; min-height: 44px; padding: 8px; }
+.tablet-shell[data-theme] .time-picker-column input { appearance: textfield; background: transparent; border: 0; border-block: 1px solid var(--ui-border); border-radius: 0; box-sizing: border-box; color: var(--ui-text); font: inherit; font-size: clamp(2rem, 8vw, 3rem); font-variant-numeric: tabular-nums; min-height: 68px; min-width: 0; padding: 5px; text-align: center; width: 100%; }
+.time-picker-column input::-webkit-inner-spin-button, .time-picker-column input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.time-picker-colon { color: var(--ui-text); font-size: 2.5rem; }
+.time-picker-period { display: grid; gap: 8px; margin-left: 8px; }
+.tablet-shell[data-theme] .time-picker-period button { background: var(--ui-control); border: 1px solid var(--ui-border); border-radius: var(--ui-radius-control); color: var(--ui-text); cursor: pointer; font: inherit; min-height: 44px; padding: 10px 12px; }
+.tablet-shell[data-theme] .time-picker-period button[aria-pressed="true"] { background: var(--ui-action); border-color: var(--ui-action); color: var(--ui-action-text); }
+.time-picker-hint { margin-top: 18px; }
+.time-picker-dialog footer { display: flex; gap: 10px; justify-content: flex-end; }
+.tablet-shell[data-theme] .time-picker-dialog footer button { border: 1px solid var(--ui-border); border-radius: var(--ui-radius-control); cursor: pointer; font: inherit; min-height: 44px; padding: 10px 16px; }
+.tablet-shell[data-theme] .time-picker-cancel { background: var(--ui-control); color: var(--ui-text); }
+.tablet-shell[data-theme] .time-picker-apply { background: var(--ui-action); border-color: var(--ui-action); color: var(--ui-action-text); }
+.time-picker-apply:disabled { cursor: default; opacity: .5; }
+.date-time-picker { align-items: end; display: flex; flex-wrap: wrap; gap: 10px; }
+.date-time-picker > label { display: grid; gap: 5px; }

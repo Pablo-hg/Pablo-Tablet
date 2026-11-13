@@ -1,3 +1,4 @@
+import { TimePicker, DateTimePicker } from './components/TimePicker'
 import { deliveredCalendarReminders } from './calendarReminderDelivery'
 import { calendarReminderKey, dueCalendarReminders } from './calendarReminderSchedule'
 import { checkNotificationPermissionStatus } from './notificationPermissions'
@@ -35,7 +36,6 @@ import {
   MapPin,
   Maximize2,
   Minimize2,
-  Minus,
   Moon,
   Pause,
   Pencil,
@@ -2369,7 +2369,6 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
   const [endYear, endMonth, endDay] = event.endDate.split('-').map(Number)
   const years = Array.from({ length: 7 }, (_, index) => new Date().getFullYear() - 1 + index)
   const months = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: new Intl.DateTimeFormat(activeLocale(), { month: 'long' }).format(new Date(2026, index, 1)) }))
-  const times = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`)
   const writableCalendars = calendars.filter((calendar) => !calendar.readOnly)
   const selectedCalendar = calendars.find((calendar) => calendar.provider === event.source && calendar.accountId === event.accountId && calendar.remoteId === event.calendarId)
   const canChangeDestination = event.source === 'local' || event.syncStatus === 'pending-create'
@@ -2418,7 +2417,7 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
           <label><span>{tx('Mes')}</span><select value={month} onChange={(change) => updateDate(year, Number(change.target.value), day)}>{months.map((value) => <option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
           <label><span>{tx('Año')}</span><select value={year} onChange={(change) => updateDate(Number(change.target.value), month, day)}>{years.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
         </> : null}
-        {!event.allDay ? <label><span>{tx('Hora')}</span><select value={time} onChange={(change) => isStart ? updateStartTime(change.target.value) : updateEndTime(change.target.value)}>{times.map((value) => <option key={value}>{value}</option>)}</select></label> : null}
+        {!event.allDay ? <TimePicker label={tx('Hora')} value={time} onChange={next => isStart ? updateStartTime(next) : updateEndTime(next)} /> : null}
       </div>
     </div>
   }
@@ -2456,7 +2455,6 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
 function CalendarRemindersEditor({ event, onUpdate, onClose }: { event: CalendarEvent; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onClose: () => void }) {
   const years = Array.from({ length: 7 }, (_, index) => new Date().getFullYear() - 1 + index)
   const months = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: new Intl.DateTimeFormat(activeLocale(), { month: 'long' }).format(new Date(2026, index, 1)) }))
-  const times = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`)
   const sortedReminders = [...event.reminders].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))
 
   const updateReminders = (reminders: CalendarEventReminder[]) => onUpdate(event.id, { reminders })
@@ -2485,7 +2483,7 @@ function CalendarRemindersEditor({ event, onUpdate, onClose }: { event: Calendar
           <label><span>{tx('Día')}</span><select value={day} onChange={(change) => updateReminderDate(reminder, year, month, Number(change.target.value))}>{days.map((value) => <option key={value}>{value}</option>)}</select></label>
           <label><span>{tx('Mes')}</span><select value={month} onChange={(change) => updateReminderDate(reminder, year, Number(change.target.value), day)}>{months.map((value) => <option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
           <label><span>{tx('Año')}</span><select value={year} onChange={(change) => updateReminderDate(reminder, Number(change.target.value), month, day)}>{years.map((value) => <option key={value}>{value}</option>)}</select></label>
-          <label><span>{tx('Hora')}</span><select value={reminder.time} onChange={(change) => updateReminder(reminder.id, { time: change.target.value })}>{times.map((value) => <option key={value}>{value}</option>)}</select></label>
+          <TimePicker label={tx('Hora')} value={reminder.time} onChange={time => updateReminder(reminder.id, { time })} />
           <button type="button" className="calendar-reminder-delete" onClick={() => removeReminder(reminder.id)} aria-label={tx('Eliminar recordatorio')}><Trash2 size={17} /></button>
         </div>
       }) : <div className="calendar-reminders-empty"><BellRing size={27} /><strong>{tx('Sin recordatorios')}</strong><span>{tx('Añade uno con los botones superiores.')}</span></div>}</div>
@@ -2788,15 +2786,6 @@ function formatAlarmWeekdays(days: AlarmWeekday[]) {
   return ALARM_WEEKDAYS.filter((day) => days.includes(day.value)).map((day) => tx(day.label as import('./i18n/translations').TranslationKey).slice(0, 1)).join(', ')
 }
 
-function AlarmTimeStepper({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [hour, minute] = value.split(':').map(Number)
-  const change = (part: 'hour' | 'minute', delta: number) => {
-    const nextHour = part === 'hour' ? (hour + delta + 24) % 24 : hour
-    const nextMinute = part === 'minute' ? (minute + delta + 60) % 60 : minute
-    onChange(`${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`)
-  }
-  return <div className="alarm-time-field"><span>{tx('Hora')}</span><div className="alarm-time-stepper"><div><button type="button" onClick={() => change('hour', 1)} aria-label={tx('Subir hora')}><Plus size={16} /></button><strong>{String(hour).padStart(2, '0')}</strong><small>{tx('hora')}</small><button type="button" onClick={() => change('hour', -1)} aria-label={tx('Bajar hora')}><Minus size={16} /></button></div><b>:</b><div><button type="button" onClick={() => change('minute', 1)} aria-label={tx('Subir minutos')}><Plus size={16} /></button><strong>{String(minute).padStart(2, '0')}</strong><small>{tx('min')}</small><button type="button" onClick={() => change('minute', -1)} aria-label={tx('Bajar minutos')}><Minus size={16} /></button></div></div></div>
-}
 
 function AlarmEditor({ alarm, sounds, onUpdate, onDelete, onClose, onPreviewNotification }: { alarm: Alarm; sounds: DeviceAlarmSound[]; onUpdate: (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled' | 'weekdays' | 'soundName' | 'soundUri'>>) => void; onDelete: () => void; onClose: () => void; onPreviewNotification: (title: string, body: string) => void }) {
   const toggleWeekday = (weekday: AlarmWeekday) => {
@@ -2818,7 +2807,7 @@ function AlarmEditor({ alarm, sounds, onUpdate, onDelete, onClose, onPreviewNoti
     <section className="alarm-editor" role="dialog" aria-modal="true" aria-labelledby="alarm-editor-title">
       <div className="alarm-editor-header"><div><p className="eyebrow">{tx('Configurar alarma')}</p><h2 id="alarm-editor-title">{alarm.label || tx('Alarma')}</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label={tx('Cerrar configuración')}><X size={21} /></button></div>
       <div className="alarm-editor-grid">
-        <AlarmTimeStepper value={alarm.time} onChange={(time) => onUpdate(alarm.id, { time })} />
+        <TimePicker label={tx('Hora')} value={alarm.time} onChange={(time) => onUpdate(alarm.id, { time })} />
         <label className="alarm-name-field"><span>{tx('Nombre')}</span><input value={alarm.label} maxLength={60} onChange={(event) => onUpdate(alarm.id, { label: event.target.value })} /></label>
         <fieldset className="weekday-picker"><legend>{tx('Repetir')}</legend><div>{ALARM_WEEKDAYS.map((weekday) => <button key={weekday.value} type="button" className={alarm.weekdays.includes(weekday.value) ? 'is-selected' : ''} onClick={() => toggleWeekday(weekday.value)} aria-pressed={alarm.weekdays.includes(weekday.value)} aria-label={tx(weekday.label as import('./i18n/translations').TranslationKey)}>{tx(weekday.label as import('./i18n/translations').TranslationKey).slice(0, 1)}</button>)}</div></fieldset>
         <div className="alarm-sound-field"><label><span>{tx('Sonido')}</span><select value={alarm.soundUri ?? ''} onChange={(event) => { const sound = sounds.find((item) => item.uri === event.target.value) ?? DEFAULT_ALARM_SOUND; onUpdate(alarm.id, { soundName: sound.name, soundUri: sound.uri || null }) }}>{sounds.map((sound) => <option key={sound.uri || 'default'} value={sound.uri}>{sound.name === 'Sonido predeterminado' ? tx('Sonido predeterminado') : sound.name}</option>)}</select></label><button type="button" className="sound-preview" onClick={previewSound}><Volume2 size={18} />{tx('Probar')}</button></div>
@@ -3292,7 +3281,7 @@ function NoteEditor({ note, readOnly, drawingExpanded, onDrawingExpandedChange, 
             ? <NoteListEditor key={note.id} note={note} readOnly={readOnly} onUpdate={onUpdate} onEditingChange={onEditingChange} />
             : <NoteTextEditor note={note} readOnly={readOnly} onUpdate={onUpdate} onEditingChange={onEditingChange} />}
       </div>
-      <div className="note-editor-footer">{readOnly ? <span>{tx('Nota archivada')}</span> : <span className="reminder-controls"><label>{tx('Recordatorio')}<input type="datetime-local" value={note.reminderAt ?? ''} onChange={(event) => onUpdate(note.id, { reminderAt: event.target.value || null })} /></label><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || tx('Recordatorio'), notificationBody)}><BellRing size={15} />{tx('Probar aviso')}</button></span>}<span>{isDrawing ? tx('{{count}} trazos · Dibujo local', { count: note.drawing.length }) : isList ? tx('{{checked}}/{{count}} marcados · Guardado local', { checked: listItems.filter((item) => item.checked).length, count: listItems.length }) : tx('{{count}}/2000 · Guardado local', { count: note.content.length })}</span></div>
+      <div className="note-editor-footer">{readOnly ? <span>{tx('Nota archivada')}</span> : <div className="reminder-controls"><DateTimePicker key={note.id} label={tx('Recordatorio')} value={note.reminderAt} onChange={reminderAt => onUpdate(note.id, { reminderAt })} /><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || tx('Recordatorio'), notificationBody)}><BellRing size={15} />{tx('Probar aviso')}</button></div>}<span>{isDrawing ? tx('{{count}} trazos · Dibujo local', { count: note.drawing.length }) : isList ? tx('{{checked}}/{{count}} marcados · Guardado local', { checked: listItems.filter((item) => item.checked).length, count: listItems.length }) : tx('{{count}}/2000 · Guardado local', { count: note.content.length })}</span></div>
     </div>
   )
 }

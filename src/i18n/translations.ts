@@ -1,4 +1,14 @@
 const english = {
+  'Minutos': 'Minutes',
+  'Aplicar': 'Apply',
+  'Elegir hora': 'Choose time',
+  'Horas': 'Hours',
+  'Periodo del día': 'Time of day',
+  'Puedes escribir la hora y los minutos o usar los botones.': 'Type the hour and minutes or use the buttons.',
+  'Fecha del recordatorio': 'Reminder date',
+  'Hora del recordatorio': 'Reminder time',
+  'Quitar recordatorio': 'Remove reminder',
+
   'He encontrado dos horas. Repite la petición indicando una sola hora.': 'I found two times. Repeat the request with a single time.',
   'Puedes confirmar, editar o cancelar. Para cambiar el aviso, di: avísame media hora antes.': 'You can confirm, edit, or cancel. To change the reminder, say: remind me half an hour before.',
   'Aviso actualizado. Revisa la propuesta y confirma cuando esté correcta.': 'Reminder updated. Review the proposal and confirm when it is correct.',
