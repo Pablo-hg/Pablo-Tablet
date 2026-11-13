@@ -88,3 +88,7 @@ También se admite la hora al final de una petición: «Recuérdame mañana que 
 Se sustituye la elección en intervalos de media hora por un selector reutilizable que se abre al pulsar el campo Hora: columnas de horas y minutos con botones +/−, escritura directa, selección AM/PM y Aplicar/Cancelar. La hora se presenta en formato de 12 horas y se conserva internamente en HH:mm de 24 horas (12 AM = 00 y 12 PM = 12). Se integra en inicio/fin de eventos, avisos de calendario, alarmas, horario nocturno y fecha/hora de avisos de notas. Los borradores de notas sin fecha y hora completas no se guardan como recordatorio.
 
 El diálogo se monta dentro de la raíz del tema activo para conservar su apariencia y evitar recortes de ventanas anidadas; incluye cierre con Escape, retorno de foco y navegación con teclado. Compilación web correcta. No se han ejecutado tests ni generado/instalado una nueva APK para este cambio. La revisión visual se realiza primero en la web.
+
+## Avisos de la versión web — 13/11/2026
+
+Las notificaciones de simulación web adoptan los tokens del tema activo (superficie, borde, texto, icono y cierre). Se mantiene una cola en memoria durante la sesión: un aviso nuevo ya no reemplaza al anterior; la X descarta únicamente el aviso visible y deja pasar al siguiente. No se añade caducidad automática ni se guardan permanentemente estos avisos. Se ajusta el ancho al viewport y el texto largo puede partirse sin salir del aviso. Compilación web correcta; sin ejecutar tests ni instalar una APK. Revisión visual pendiente en web.

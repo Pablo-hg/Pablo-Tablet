@@ -298,3 +298,39 @@
   .tablet-shell[data-theme] .ringing-alert-card,
   .tablet-shell[data-theme] .ringing-alert-card.is-calendar-reminder { animation: none; }
 }
+
+/* Local web notices stay readable in every theme until explicitly dismissed. */
+.tablet-shell[data-theme] .simulated-alert {
+  background: var(--ui-panel-solid);
+  border-color: var(--ui-border-strong);
+  border-width: var(--ui-outline-width);
+  border-radius: var(--ui-radius-panel);
+  box-shadow: var(--ui-shadow);
+  box-sizing: border-box;
+  color: var(--ui-text);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  right: 16px;
+  top: 16px;
+  width: min(440px, calc(100vw - 32px));
+}
+.tablet-shell[data-theme] .simulated-alert > div { min-width: 0; overflow-wrap: anywhere; }
+.tablet-shell[data-theme] .simulated-alert > svg { color: var(--ui-action-label); }
+.tablet-shell[data-theme] .simulated-alert strong { color: var(--ui-text); font-family: var(--ui-heading-font); }
+.tablet-shell[data-theme] .simulated-alert :is(p, small) { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .simulated-alert small { display: block; }
+.tablet-shell[data-theme] .simulated-alert button {
+  align-items: center;
+  background: var(--ui-control);
+  border: var(--ui-outline-width) solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-text);
+  display: flex;
+  flex: 0 0 44px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tablet-shell[data-theme] .simulated-alert { animation: none; }
+}

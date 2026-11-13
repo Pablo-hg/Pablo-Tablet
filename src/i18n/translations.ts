@@ -1,4 +1,5 @@
 const english = {
+  '{{count}} avisos pendientes': '{{count}} pending alerts',
   'Minutos': 'Minutes',
   'Aplicar': 'Apply',
   'Elegir hora': 'Choose time',

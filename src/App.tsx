@@ -130,7 +130,7 @@ import './dashboardVisual.css'
 import './components/ClockStyles.css'
 import './appearanceSystem.css'
 
-type SimulatedAlert = { title: string; body: string }
+type SimulatedAlert = { id: string; title: string; body: string }
 type RingingAlert = { kind: 'alarm' | 'timer' | 'calendar'; sourceId: string; title: string; subtitle: string; soundUri: string | null; notificationId?: number }
 type TimerPatch = Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt' | 'soundName' | 'soundUri'>>
 type CalendarEventPatch = Partial<Pick<CalendarEvent, 'type' | 'recurrence' | 'completed' | 'title' | 'date' | 'endDate' | 'startTime' | 'endTime' | 'allDay' | 'location' | 'notes' | 'color' | 'reminders'>>
@@ -161,7 +161,8 @@ function App() {
   const [assistantPopupInitialized, setAssistantPopupInitialized] = useState(false)
   const [assistantVoiceMode, setAssistantVoiceMode] = useState(false)
   const assistantPageRef = useRef<AssistantPageHandle>(null)
-  const [simulatedAlert, setSimulatedAlert] = useState<SimulatedAlert | null>(null)
+  const [simulatedAlerts, setSimulatedAlerts] = useState<SimulatedAlert[]>([])
+  const simulatedAlert = simulatedAlerts[0] ?? null
   const [ringingAlert, setRingingAlert] = useState<RingingAlert | null>(null)
   const [snoozeMinutes, setSnoozeMinutes] = useState(5)
   const [screensaverVisible, setScreensaverVisible] = useState(false)
@@ -266,7 +267,8 @@ function App() {
 
   const showSimulatedAlert = useCallback((title: string, body: string) => {
     setScreensaverVisible(false)
-    setSimulatedAlert({ title, body })
+    const alert = { id: createLocalId(), title, body }
+    setSimulatedAlerts(current => [...current, alert])
   }, [])
 
   const startRinging = useCallback((alert: RingingAlert) => {
@@ -1323,7 +1325,7 @@ function App() {
         </section>
       ) : null}
 
-      {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>{tx('Simulación web de aviso local')}</small></div><button type="button" onClick={() => setSimulatedAlert(null)} aria-label={tx('Cerrar aviso')}><X size={18} /></button></div> : null}
+      {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>{tx('Simulación web de aviso local')}</small>{simulatedAlerts.length > 1 ? <small>{tx('{{count}} avisos pendientes', { count: simulatedAlerts.length })}</small> : null}</div><button type="button" onClick={() => setSimulatedAlerts(current => current.filter(alert => alert.id !== simulatedAlert.id))} aria-label={tx('Cerrar aviso')}><X size={18} /></button></div> : null}
       {ringingAlert ? <RingingAlertOverlay alert={ringingAlert} snoozeMinutes={snoozeMinutes} onSnoozeMinutesChange={setSnoozeMinutes} onSnooze={snoozeRingingAlert} onStop={stopRinging} /> : null}
       {screensaverVisible ? <GalleryScreensaver photo={screensaverPhoto} now={now} time={time} date={date} calendarEvents={calendarEvents} calendars={dashboardState.externalCalendars} onDismiss={() => { setScreensaverVisible(false); registerInteraction() }} /> : null}
 
