@@ -1,5 +1,7 @@
 # Evaluación de utilidad de Lumi en Dev
 
+**Prioridad vigente desde el 13/11/2026:** validar primero la versión web, incluida su apariencia. No realizar nuevas instalaciones Android hasta completar esa revisión. Las comprobaciones automatizadas de DOM no sustituyen la revisión visual ni la prueba de voz real.
+
 Alcance acordado con el usuario el 12/11/2026: avanzar hasta evaluar consultas de datos locales, acciones confirmadas y comodidad frente a los menús. Se empieza por el intérprete local existente para medir el flujo. Esto no valida Gemini ni representa conversación generativa. Sin búsquedas web nuevas. La rama de desarrollo no se ha publicado, fusionado ni instalado.
 
 ## Entrega inicial
@@ -54,3 +56,23 @@ Corrección posterior (12/11/2026): los recordatorios de calendario se comprueba
 La notificación del sistema se conserva como respaldo cuando Dev no está visible; al volver se abre el modal pendiente. Esta corrección no añade permisos de superposición ni full-screen intent, ni garantiza abrir una pantalla sobre otra aplicación o sobre el bloqueo. Android restringe esa presentación: https://developer.android.com/develop/ui/views/notifications/time-sensitive . La comprobación directa cubre avisos vencidos en los últimos 35 segundos; avisos anteriores se recuperan desde las notificaciones entregadas que sigan disponibles.
 
 Pruebas: suite completa de 50 archivos / 297 pruebas aprobadas; pruebas específicas de modal, cola, recurrencias, no repetición al aceptar, recuperación de payloads Android y conservación del planificador. No se ha verificado todavía la presentación física del nuevo modal en la T65.
+
+## Revisión web antes de Android — 13/11/2026
+
+Servidor local de desarrollo: http://127.0.0.1:5173/ (solo en el ordenador). Inicio con Node 22.13.0: `npm run dev -- --host 127.0.0.1 --port 5173 --strictPort`. Respuesta HTTP 200 comprobada. La compilación web pasa; lint finaliza sin errores, con avisos existentes de refs en CalendarConnectionsPanel y setState en un efecto de AssistantPage.
+
+El acceso de automatización al navegador no está disponible (sin navegadores conectados; «browser access host is unavailable»). Por tanto no se ha dado por aprobada la apariencia ni el reconocimiento/reproducción de voz real en un navegador.
+
+Revisión manual pendiente con datos ficticios:
+
+- [ ] En un tema claro y uno oscuro, abrir Calendario → evento → Recordatorios: leer botones, texto vacío, etiquetas y selectores con contraste suficiente.
+- [ ] Crear una tarea con aviso futuro desde Lumi; comprobar aclaración de la hora, mañana/tarde, título, fecha natural, aviso de una hora y destino local. Cancelar una propuesta y comprobar que no guarda nada.
+- [ ] Confirmar una tarea, recargar la página y comprobar que aparece una sola vez en Calendario.
+- [ ] Para probar el modal, elegir una hora de tarea unos 20 minutos posterior y aviso 15 minutos antes; mantener visible la página y esperar unos cinco minutos. Revisar colores, tipografía, icono, selector, botones y resplandor en el tema seleccionado.
+- [ ] Pulsar Aceptar y comprobar que el mismo aviso no reaparece. Repetir con Volver a recordar → 1 minuto; la página web debe mantenerse abierta para esa prueba.
+- [ ] Comprobar el orden eventos → tareas → cumpleaños → festivos, máximo de tres por categoría y scroll del widget.
+- [ ] Probar texto y, si el navegador ofrece reconocimiento y síntesis, el flujo real de micrófono con autorización del usuario. El resultado de voz simulado en tests no demuestra la voz real.
+
+Los permisos, recepción en segundo plano/bloqueo y servicios nativos Android se validarán posteriormente en la tablet.
+
+Resultado automatizado del 13/11/2026: `npm test -- --maxWorkers=2` supera los 50 archivos y las 297 pruebas. La revisión visual manual de la lista anterior continúa pendiente.
