@@ -251,3 +251,50 @@
 .tablet-shell[data-theme] .calendar-reminders-empty strong { color: var(--ui-text); }
 .tablet-shell[data-theme] .calendar-reminder-row option { background: var(--ui-panel-solid); color: var(--ui-text); }
 .tablet-shell[data-theme] .calendar-reminder-delete { background: var(--ui-control); border-color: var(--ui-border); color: var(--ui-danger); }
+
+/* Alarm and calendar overlays use the same appearance contract as their pages. */
+.tablet-shell[data-theme] .ringing-alert-backdrop {
+  background: var(--theme-overlay);
+  backdrop-filter: blur(var(--ui-backdrop-blur));
+}
+.tablet-shell[data-theme] .ringing-alert-card {
+  background: var(--ui-panel-solid);
+  border-color: var(--ui-border-strong);
+  border-width: var(--ui-outline-width);
+  border-radius: var(--ui-radius-panel);
+  box-shadow: var(--ui-shadow);
+  color: var(--ui-text);
+}
+.tablet-shell[data-theme] .ringing-alert-card h2 {
+  color: var(--ui-text);
+  font-family: var(--ui-heading-font);
+  font-weight: var(--theme-heading-weight);
+}
+.tablet-shell[data-theme] .ringing-alert-card > p { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .ringing-alert-card .ringing-bell {
+  background: var(--ui-action-soft);
+  color: var(--ui-action-label);
+}
+.tablet-shell[data-theme] .snooze-action :is(select, button) {
+  background: var(--ui-control);
+  border: var(--ui-outline-width) solid var(--ui-border);
+  color: var(--ui-text);
+}
+.tablet-shell[data-theme] .snooze-action select { border-radius: var(--ui-radius-control) 0 0 var(--ui-radius-control); }
+.tablet-shell[data-theme] .snooze-action button { border-radius: 0 var(--ui-radius-control) var(--ui-radius-control) 0; }
+.tablet-shell[data-theme] .snooze-action option { background: var(--ui-panel-solid); color: var(--ui-text); }
+.tablet-shell[data-theme] .stop-ringing {
+  background: var(--ui-action);
+  border: var(--ui-outline-width) solid var(--ui-action);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-action-text);
+}
+.tablet-shell[data-theme] .ringing-alert-card.is-calendar-reminder { animation-name: theme-reminder-pulse; }
+@keyframes theme-reminder-pulse {
+  0%, 100% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ui-action) 12%, transparent); transform: scale(1); }
+  50% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--ui-action) 5%, transparent); transform: scale(1.012); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tablet-shell[data-theme] .ringing-alert-card,
+  .tablet-shell[data-theme] .ringing-alert-card.is-calendar-reminder { animation: none; }
+}
