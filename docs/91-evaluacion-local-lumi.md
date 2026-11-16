@@ -92,3 +92,17 @@ El diálogo se monta dentro de la raíz del tema activo para conservar su aparie
 ## Avisos de la versión web — 13/11/2026
 
 Las notificaciones de simulación web adoptan los tokens del tema activo (superficie, borde, texto, icono y cierre). Se mantiene una cola en memoria durante la sesión: un aviso nuevo ya no reemplaza al anterior; la X descarta únicamente el aviso visible y deja pasar al siguiente. No se añade caducidad automática ni se guardan permanentemente estos avisos. Se ajusta el ancho al viewport y el texto largo puede partirse sin salir del aviso. Compilación web correcta; sin ejecutar tests ni instalar una APK. Revisión visual pendiente en web.
+
+## Conservar el chat al navegar — 13/11/2026
+
+La página de Asistencia permanece montada durante la navegación, oculta cuando no está seleccionada. Se conservan mensajes, borrador, contador, contexto y propuestas pendientes durante la sesión. Al ocultarla se interrumpen la escucha y la reproducción. No se incorpora almacenamiento permanente del historial: recargar o cerrar la aplicación sigue iniciando una sesión nueva.
+
+El botón «Nuevo chat» vacía mensajes, borrador, propuestas sin ejecutar y contexto, y reinicia el contador. Las tareas, notas y otras operaciones ya confirmadas se conservan. También aparece en el asistente flotante. Compilación web correcta, sin ejecutar tests ni actualizar Android. Pendiente comprobar manualmente: escribir una consulta, cambiar de página deslizando, volver y ver el mismo chat; pulsar Nuevo chat y ver solo el saludo.
+
+## Revisión real en Chrome completada — 13/11/2026
+
+La conexión de la extensión se ha recuperado y se ha realizado la revisión escrita desde la interfaz real. Informe y capturas en [91-pruebas-web-lumi-2026-11-13.md](91-pruebas-web-lumi-2026-11-13.md). Se verifican consultas y contexto, confirmación/cancelación, aclaración de hora, cambio de antelación, nota, temporizador con modal, conservación del chat/borrador/propuesta al navegar con botones y limpieza mediante Nuevo chat sin borrar las operaciones confirmadas. Queda un detalle de redacción reproducible: la agenda describe una tarea sin duración como «de 19:00 a 19:00». No se ejecutan suites automatizadas ni se valida voz o Android en esta revisión.
+
+## Cuatro comprobaciones web adicionales — 13/11/2026
+
+Verificadas en Chrome: arrastre horizontal de ida/vuelta conservando chat y borrador; doble pulsación rápida sobre Confirmar con una sola tarea resultante; tarea, nota y recordatorio conservados después de recargar (el historial del chat sí se reinicia); modal real de calendario al vencer el aviso de las 13:57. El modal permanece abierto al menos 64 segundos sin interacción y no reaparece durante los 58 segundos observados después de Aceptar, ni al navegar. Informe ampliado y capturas en [91-pruebas-web-lumi-2026-11-13.md](91-pruebas-web-lumi-2026-11-13.md). Se abre una pestaña de prueba separada para conservar la propuesta existente del usuario. Sin modificaciones de código, suites automatizadas ni APK. Queda por afinar el mensaje que afirma que las notificaciones requieren Android: debe diferenciar notificaciones nativas y modal interno en web abierta.

@@ -1200,19 +1200,19 @@ function App() {
       onClick={handleClick}
     >
       <section className={`tablet-content ${screen === 'settings' ? 'is-settings' : ''} ${screen === 'home' && activePage?.id === 'calendar' ? 'is-calendar' : ''} ${screen === 'home' && activePage?.id === 'weather' ? 'is-weather' : ''} ${screen === 'home' && activePage?.id === 'clock' ? 'is-clock' : ''}`} aria-label="Pablo Tablet">
-        {screen === 'home' && activePage?.id === 'assistant' ? (
-          <AssistantPage
-            enabled={dashboardState.preferences.assistantEnabled}
-            voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
-            readAloud={dashboardState.preferences.assistantReadAloud}
-            speechVoice={dashboardState.preferences.assistantVoices[dashboardState.preferences.assistantLanguage]}
-            assistantLanguage={dashboardState.preferences.assistantLanguage}
-            now={now}
-            onExecute={executeAssistant}
-            onOpenPage={openDashboardPage}
-            onEditingChange={setInteractionLocked}
-          />
-        ) : screen === 'home' && activePage ? (
+        <AssistantPage
+          enabled={dashboardState.preferences.assistantEnabled}
+          voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
+          readAloud={dashboardState.preferences.assistantReadAloud}
+          speechVoice={dashboardState.preferences.assistantVoices[dashboardState.preferences.assistantLanguage]}
+          assistantLanguage={dashboardState.preferences.assistantLanguage}
+          now={now}
+          onExecute={executeAssistant}
+          onOpenPage={openDashboardPage}
+          onEditingChange={setInteractionLocked}
+          visible={screen === 'home' && activePage?.id === 'assistant'}
+        />
+        {screen === 'home' && activePage && activePage.id !== 'assistant' ? (
           <DashboardPage
             key={activePage.id}
             page={activePage}
@@ -1278,7 +1278,7 @@ function App() {
             onChangeWidgetLayout={updateWidgetLayout}
             onEditingChange={setInteractionLocked}
           />
-        ) : (
+        ) : screen === 'settings' ? (
           <SettingsPage
             preferences={dashboardState.preferences}
             widgets={dashboardState.widgets}
@@ -1288,7 +1288,7 @@ function App() {
             onWidgetVisibilityChange={(widgetId, visible) => { if (widgetId === 'assistant' && !visible) setAssistantPopupOpen(false); setWidgetVisible(widgetId, visible) }}
             nightModeActive={nightModeActive}
           />
-        )}
+        ) : null}
       </section>
 
       {dashboardState.preferences.assistantEnabled && dashboardState.widgets.some((widget) => widget.id === 'assistant' && widget.visible) && !(screen === 'home' && activePage?.id === 'assistant') ? (
@@ -3283,7 +3283,7 @@ function NoteEditor({ note, readOnly, drawingExpanded, onDrawingExpandedChange, 
             ? <NoteListEditor key={note.id} note={note} readOnly={readOnly} onUpdate={onUpdate} onEditingChange={onEditingChange} />
             : <NoteTextEditor note={note} readOnly={readOnly} onUpdate={onUpdate} onEditingChange={onEditingChange} />}
       </div>
-      <div className="note-editor-footer">{readOnly ? <span>{tx('Nota archivada')}</span> : <div className="reminder-controls"><DateTimePicker key={note.id} label={tx('Recordatorio')} value={note.reminderAt} onChange={reminderAt => onUpdate(note.id, { reminderAt })} /><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || tx('Recordatorio'), notificationBody)}><BellRing size={15} />{tx('Probar aviso')}</button></div>}<span>{isDrawing ? tx('{{count}} trazos · Dibujo local', { count: note.drawing.length }) : isList ? tx('{{checked}}/{{count}} marcados · Guardado local', { checked: listItems.filter((item) => item.checked).length, count: listItems.length }) : tx('{{count}}/2000 · Guardado local', { count: note.content.length })}</span></div>
+      <div className="note-editor-footer">{readOnly ? <span>{tx('Nota archivada')}</span> : <div className="reminder-controls"><DateTimePicker key={note.id} label={tx('Recordatorio')} value={note.reminderAt} onChange={reminderAt => onUpdate(note.id, { reminderAt })} /><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || tx('Recordatorio'), notificationBody)}><BellRing size={15} />{tx('Probar aviso')}</button></div>}<span>{isDrawing ? tx('{{count}} trazos · Dibujo local', { count: note.drawing.length }) : isList ? tx('{{checked}}/{{count}} marcados', { checked: listItems.filter((item) => item.checked).length, count: listItems.length }) : tx('{{count}}/2000', { count: note.content.length })}</span></div>
     </div>
   )
 }

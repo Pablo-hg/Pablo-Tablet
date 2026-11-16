@@ -1,7 +1,7 @@
 import { reminderLeadTimeMinutes } from '../assistant/taskReminder'
 import { useEffect, useId, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from 'react'
 import type { TOptions } from 'i18next'
-import { Bot, Check, Edit3, Mic, MicOff, Send, Volume2, X } from 'lucide-react'
+import { Bot, Check, Edit3, Mic, MicOff, MessageSquarePlus, Send, Volume2, X } from 'lucide-react'
 import { AssistantTimeRequired, type AssistantTimeContext, validateAssistantCommand, type AssistantCommand, type ValidatedAssistantPlan } from '../assistant/contracts'
 import { addDaysToDateKey, dateKeyToDayNumber } from '../calendarRecurrence'
 import { assistantCommandSummary, type AssistantExecutionResult } from '../assistant/executor'
@@ -82,9 +82,22 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   useEffect(() => {
     if (!visible || !enabled) {
       abortRef.current?.abort()
-      timeContextRef.current = null
-      timeSourceRef.current = ''
-      setAwaitingTime(false)
+      listeningControllerRef.current?.abort()
+      listeningControllerRef.current = null
+      setListening(false)
+      speechSequenceRef.current += 1
+      setSpeaking(false)
+      void stopAssistantSpeechRecognition().catch(() => undefined)
+      void stopAssistantSpeech().catch(() => undefined)
+      if (!confirmingRef.current) {
+        processingRef.current = false
+        setProcessing(false)
+      }
+      if (!enabled) {
+        timeContextRef.current = null
+        timeSourceRef.current = ''
+        setAwaitingTime(false)
+      }
     }
   }, [visible, enabled])
 
@@ -116,6 +129,15 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     finally { if (speechSequenceRef.current === sequence) setSpeaking(false) }
   }
 
+  const spokenProposal = (command: AssistantCommand) => {
+    const review = assistantCommandSummary(command, assistantLanguage, now)
+    if (command.type === 'create_task_reminder' || command.type === 'create_task') {
+      const details = review.details.slice(0, command.type === 'create_task_reminder' ? 3 : 2)
+      return `${details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`
+    }
+    return `${review.title}. ${review.details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`
+  }
+
   const submit = async (text: string, voiceRequest = false) => {
     const trimmed = text.trim()
     if (!trimmed || processingRef.current || pendingRef.current) return
@@ -136,7 +158,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       return
     }
     if (requestCount >= SESSION_LIMIT) {
-      setMessages((current) => [...current, newMessage('assistant', tx('Has alcanzado el límite de 30 peticiones de esta sesión. Cierra y vuelve a abrir la pantalla para continuar.'))])
+      setMessages((current) => [...current, newMessage('assistant', tx('Has alcanzado el límite de 30 peticiones de este chat. Pulsa Nuevo chat para continuar.'))])
       if (voiceRequest) onVoiceResponseReady?.()
       return
     }
@@ -182,8 +204,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         setProcessing(false)
         if (voiceRequest || readAloud) {
           if (voiceRequest) onVoiceResponseReady?.()
-          const review = assistantCommandSummary(plan.command, assistantLanguage, now)
-          await speakResponse(`${review.title}. ${review.details.join('. ')}. ${tx(plan.command.type === 'create_task_reminder' ? 'Puedes confirmar, editar o cancelar. Para cambiar el aviso, di: avísame media hora antes.' : 'Puedes decir confirmar, editar o cancelar.')}`)
+          await speakResponse(spokenProposal(plan.command))
           if (voiceRequest && !controller.signal.aborted && pendingRef.current === proposal) await listenForPendingDecision(proposal)
         }
       } else {
@@ -285,8 +306,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         pendingRef.current = updated
         setPending(updated)
         setMessages(current => [...current, newMessage('assistant', tx('Aviso actualizado. Revisa la propuesta y confirma cuando esté correcta.'))])
-        const review = assistantCommandSummary(command, assistantLanguage, now)
-        await speakResponse(`${review.title}. ${review.details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`)
+        await speakResponse(spokenProposal(command))
         if (!controller.signal.aborted && pendingRef.current === updated) await listenForPendingDecision(updated)
         return
       }
@@ -379,14 +399,38 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     },
   }))
 
+  const startNewChat = () => {
+    abortRef.current?.abort()
+    listeningControllerRef.current?.abort()
+    listeningControllerRef.current = null
+    speechSequenceRef.current += 1
+    void stopAssistantSpeechRecognition().catch(() => undefined)
+    void stopAssistantSpeech().catch(() => undefined)
+    setSpeaking(false)
+    setListening(false)
+    pendingRef.current = null
+    setPending(null)
+    timeContextRef.current = null
+    timeSourceRef.current = ''
+    setAwaitingTime(false)
+    lastTopicRef.current = null
+    lastQueryTopicRef.current = null
+    setInput('')
+    setRequestCount(0)
+    setMessages([newMessage('assistant', tx('Hola, Pablo. Puedo consultar tu día, el tiempo, la agenda y tus notas, o preparar una nota, alarma o temporizador.'))])
+  }
+
   const summary = pending ? assistantCommandSummary(pending.plan.command, assistantLanguage, now) : null
 
-  return <div className={`assistant-page fullscreen-page page-enter ${pending ? 'has-pending' : ''}`}>
-    {!compact ? <PageHeader pageLabel="¿En qué te ayudo?" /> : null}
+  return <div hidden={!visible} className={`assistant-page fullscreen-page page-enter ${pending ? 'has-pending' : ''}`}>
+    <div className="assistant-chat-header" data-swipe-block>
+      {!compact ? <PageHeader pageLabel="¿En qué te ayudo?" /> : null}
+      <button type="button" className="assistant-new-chat" onClick={startNewChat} disabled={processing} title={tx('Nuevo chat')}><MessageSquarePlus size={18} aria-hidden="true" />{tx('Nuevo chat')}</button>
+    </div>
     {voiceMode ? <div className={`lumi-voice-indicator ${listening ? 'is-listening' : speaking ? 'is-speaking' : ''}`} role="status" aria-label={listening ? tx('Escuchando') : speaking ? tx('Hablando') : tx('Lumi preparada')}><span aria-hidden="true"><i /><i /><i /><i /><i /></span><small>{listening ? tx('Escuchando') : speaking ? tx('Hablando') : tx('Lumi preparada')}</small></div> : null}
     {!compact ? <div className="assistant-status" role="status">
       <span className={enabled ? 'is-ready' : 'is-disabled'}><i />{enabled ? tx('Peticiones locales · voz según el dispositivo') : tx('Desactivado')}</span>
-      <small>{tx('{{count}}/30 peticiones en esta sesión · el historial no se guarda', { count: requestCount })}</small>
+      <small>{tx('{{count}}/30 peticiones · el chat se conserva al cambiar de página', { count: requestCount })}</small>
     </div> : null}
 
     <div className="assistant-log" ref={logRef} role="log" aria-live="polite" aria-label={tx('Conversación del Asistente')}>
