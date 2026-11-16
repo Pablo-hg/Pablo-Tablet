@@ -72,6 +72,9 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   const confirmationRef = useRef<HTMLElement | null>(null)
   const lastTopicRef = useRef<{ type: 'calendar'; weekStart: string } | { type: 'weather' } | null>(null)
   const lastQueryTopicRef = useRef<'calendar' | 'weather' | null>(null)
+  const lastCalendarTypeRef = useRef<'task' | 'event' | 'birthday' | undefined>(undefined)
+  const lastTaskStatusRef = useRef<'completed' | 'pending' | undefined>(undefined)
+  const noteCandidatesRef = useRef<{ id: string; title: string }[]>([])
   const speechSequenceRef = useRef(0)
 
   useEffect(() => {
@@ -107,7 +110,8 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     const top = pending && confirmationRef.current
       ? log.scrollTop + confirmationRef.current.getBoundingClientRect().top - log.getBoundingClientRect().top
       : log.scrollHeight
-    log.scrollTo({ top, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+    if (typeof log.scrollTo === 'function') log.scrollTo({ top, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+    else log.scrollTop = top
   }, [messages, pending])
 
   useEffect(() => () => {
@@ -172,6 +176,18 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     setMessages((current) => [...current, newMessage('user', trimmed)])
     try {
       const normalized = trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[¿?¡!.,]/g, '').trim().replace(/\s+/g, ' ')
+      const candidates = noteCandidatesRef.current
+      const readReference = /^(?:lee|leeme|leer) (?:esa|esta|la) nota$|^(?:lee|leeme)la$/.test(normalized)
+      const choice = /^(?:la|el) (?:de|del) (.+)$/.exec(normalized)
+      const noteFollowup = candidates.length > 0 && (readReference || Boolean(choice))
+      let selectedNoteId: string | undefined
+      if (noteFollowup) {
+        const selected = readReference ? candidates : candidates.filter(note => note.title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(choice![1]))
+        if (selected.length !== 1) throw new Error(tx('Indica cuál de las notas quieres leer.'))
+        selectedNoteId = selected[0].id
+      } else {
+        noteCandidatesRef.current = []
+      }
       const nextWeekFollowup = /^(?:y\s+)?(?:la\s+)?(?:semana que viene|semana siguiente|proxima semana)$|^(?:and\s+)?next week$|^what about next week$/.test(normalized)
       const dayFollowup = /^(?:y\s+)?(hoy|manana|pasado manana)$|^(?:and\s+|what about\s+)?(today|tomorrow|the day after tomorrow)$/.exec(normalized)
       const queryTopic = lastQueryTopicRef.current
@@ -181,12 +197,14 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       if (!nextWeekFollowup && !dayFollowup) lastQueryTopicRef.current = null
       if (nextWeekFollowup && !previousTopic && !queryTopic) throw new Error(tx('¿Te refieres al tiempo o a la agenda de la semana que viene?'))
       const nextStart = nextWeekFollowup && previousTopic?.type === 'calendar' ? addDaysToDateKey(previousTopic.weekStart, 7) : null
-      const plan = nextWeekFollowup && previousTopic?.type === 'weather'
+      const plan = selectedNoteId
+        ? { command: validateAssistantCommand({ type: 'read_note_id', args: { id: selectedNoteId } }), explanation: tx('Leer una nota guardada localmente.'), requiresConfirmation: false }
+        : nextWeekFollowup && previousTopic?.type === 'weather'
         ? { command: validateAssistantCommand({ type: 'get_weather', args: { period: 'next_week' } }), explanation: tx('Consultar la previsión disponible para Casa.'), requiresConfirmation: false }
         : nextStart
-        ? { command: validateAssistantCommand({ type: 'get_calendar', args: { from: `${nextStart}T00:00:00`, to: `${addDaysToDateKey(nextStart, 6)}T23:59:59` } }), explanation: tx('Consultar la agenda del intervalo solicitado.'), requiresConfirmation: false }
+        ? { command: validateAssistantCommand({ type: 'get_calendar', args: { from: `${nextStart}T00:00:00`, to: `${addDaysToDateKey(nextStart, 6)}T23:59:59`, ...(lastCalendarTypeRef.current ? { type: lastCalendarTypeRef.current } : {}), ...(lastCalendarTypeRef.current === 'task' && lastTaskStatusRef.current ? { taskStatus: lastTaskStatusRef.current } : {}) } }), explanation: tx('Consultar la agenda del intervalo solicitado.'), requiresConfirmation: false }
         : await planAssistantRequest(provider, {
-          text: dayFollowup ? `${queryTopic === 'calendar' ? 'agenda' : 'tiempo'} ${dayFollowup[1] ?? dayFollowup[2]}` : nextWeekFollowup && queryTopic === 'calendar' ? 'agenda la semana que viene' : trimmed,
+          text: dayFollowup ? `${queryTopic === 'calendar' ? (lastCalendarTypeRef.current === 'task' ? (lastTaskStatusRef.current === 'completed' ? 'tareas completadas' : 'tareas') : lastCalendarTypeRef.current === 'event' ? 'eventos' : lastCalendarTypeRef.current === 'birthday' ? 'cumpleaños' : 'agenda') : 'tiempo'} ${dayFollowup[1] ?? dayFollowup[2]}` : nextWeekFollowup && queryTopic === 'calendar' ? `${lastCalendarTypeRef.current === 'task' ? (lastTaskStatusRef.current === 'completed' ? 'tareas completadas' : 'tareas') : lastCalendarTypeRef.current === 'event' ? 'eventos' : lastCalendarTypeRef.current === 'birthday' ? 'cumpleaños' : 'agenda'} la semana que viene` : trimmed,
           locale: activeLocale(assistantLanguage),
           now: now.toISOString(),
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
@@ -210,8 +228,11 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       } else {
         const result = await executeAssistantPlan(plan, { execute: onExecute }) as AssistantExecutionResult
         if (controller.signal.aborted) return
+        noteCandidatesRef.current = result.noteCandidates ?? []
         if (plan.command.type === 'get_calendar') {
           lastQueryTopicRef.current = 'calendar'
+          lastCalendarTypeRef.current = plan.command.args.type
+          lastTaskStatusRef.current = plan.command.args.taskStatus
           const from = plan.command.args.from.slice(0, 10)
           const to = plan.command.args.to.slice(0, 10)
           lastTopicRef.current = dateKeyToDayNumber(to) - dateKeyToDayNumber(from) === 6 && new Date(`${from}T12:00:00Z`).getUTCDay() === 1 ? { type: 'calendar', weekStart: from } : null
@@ -345,12 +366,22 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   }
 
   const toggleListening = async () => {
-    if (listening) {
+    if (listeningControllerRef.current) {
       const controller = listeningControllerRef.current
       listeningControllerRef.current = null
       controller?.abort()
       setListening(false)
       return
+    }
+    if (speaking) {
+      // Prevent the interrupted response from starting its own follow-up listener.
+      abortRef.current?.abort()
+      abortRef.current = null
+      processingRef.current = false
+      setProcessing(false)
+      speechSequenceRef.current += 1
+      setSpeaking(false)
+      await stopAssistantSpeech().catch(() => undefined)
     }
     if (pendingRef.current) {
       await listenForPendingDecision(pendingRef.current)
@@ -415,6 +446,9 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     setAwaitingTime(false)
     lastTopicRef.current = null
     lastQueryTopicRef.current = null
+    lastCalendarTypeRef.current = undefined
+    lastTaskStatusRef.current = undefined
+    noteCandidatesRef.current = []
     setInput('')
     setRequestCount(0)
     setMessages([newMessage('assistant', tx('Hola, Pablo. Puedo consultar tu día, el tiempo, la agenda y tus notas, o preparar una nota, alarma o temporizador.'))])
@@ -478,7 +512,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     {!compact ? <form className="assistant-composer" data-swipe-block onSubmit={onSubmit}>
       <div>
         <textarea id={inputId} aria-label={tx('Escribe o dicta una petición')} value={input} onChange={(event) => setInput(event.target.value)} placeholder={tx('Escribe o dicta una petición')} rows={2} disabled={!enabled || processing || pending !== null} />
-        {voiceEnabled ? <button type="button" className={listening ? 'is-listening' : ''} onClick={() => void toggleListening()} disabled={!enabled || (processing && pending === null && !listening)} aria-label={listening ? tx('Detener dictado') : tx('Iniciar dictado')}>{listening ? <MicOff size={21} /> : <Mic size={21} />}</button> : null}
+        {voiceEnabled ? <button type="button" className={listening ? 'is-listening' : ''} onClick={() => void toggleListening()} disabled={!enabled || (processing && pending === null && !listening && !speaking)} aria-label={listening ? tx('Detener dictado') : tx('Iniciar dictado')}>{listening ? <MicOff size={21} /> : <Mic size={21} />}</button> : null}
         <button type="submit" className="assistant-send" disabled={!input.trim() || !enabled || processing || pending !== null} aria-label={tx('Enviar petición')}><Send size={21} /></button>
       </div>
       {listening ? <p className="assistant-listening"><i />{tx('Escuchando… toca el micrófono para cancelar')}</p> : null}

@@ -81,6 +81,7 @@
     <string name="error_mobile_admin_unknown_network">unknown network error</string>
     <string name="error_mobile_admin_status">The local server status could not be checked.</string>
     <string name="error_mobile_admin_enabled_missing">Specify whether mobile access should be enabled.</string>
+    <string name="error_mobile_admin_dev_unavailable">Administration from other devices is unavailable in Pablo Tablet DEV.</string>
     <string name="error_mobile_admin_notifications_permission">Allow notifications to keep the mobile administration service visible.</string>
     <string name="error_mobile_admin_pairing_qr">The pairing QR code could not be created.</string>
     <string name="error_mobile_admin_request_approve">The request can no longer be approved.</string>

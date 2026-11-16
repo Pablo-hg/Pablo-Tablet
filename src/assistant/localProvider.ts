@@ -63,7 +63,7 @@ const NUMBER_WORDS: Record<string, number> = {
 const WEEKDAYS: Record<string, number> = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6, sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 }
 const MONTHS: Record<string, number> = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 }
 
-const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').replace(/\s+([?.!])/g, '$1').trim()
 
 const dateInTimeZone = (now: string, timeZone: string) => {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(now))
@@ -99,6 +99,38 @@ export class LocalAssistantProvider implements AssistantProvider {
     const text = normalize(request.text)
     const today = dateInTimeZone(request.now, request.timeZone)
     const tomorrow = addLocalDays(today, 1)
+
+    const taskSearch = request.text.trim().match(/^(?:busca|buscar|encuentra|find|search for)\s+(?:(?:una|la|a|the)\s+)?(?:tarea|task)\s+(?:(?:llamada|con titulo|titulada|called|named)\s+)?(.+?)\s*[?.!¿¡]*$/i)
+    if (taskSearch) {
+      const query = taskSearch[1].trim()
+      if (query.length > 120) throw new InvalidAssistantCommandError(tx('Indica el título de la tarea que quieres buscar.'))
+      return proposal({ type: 'search_tasks', args: { query } }, tx('Buscar tareas por título.'))
+    }
+
+    if (/\b(?:que hora es|dime la hora|what time is it|what is the time)\b/.test(text)) {
+      return proposal({ type: 'get_current_datetime', args: { part: 'time' } }, tx('Consultar la hora del dispositivo.'))
+    }
+    if (/\b(?:que dia es hoy|que fecha es hoy|que fecha es|que dia es|what day is it|what is the date|what date is it)\b/.test(text)) {
+      return proposal({ type: 'get_current_datetime', args: { part: 'date' } }, tx('Consultar la fecha del dispositivo.'))
+    }
+
+    if (/\b(?:que tengo|agenda|calendario|eventos|tareas)\b.*\besta manana\b/.test(text)) {
+      throw new InvalidAssistantCommandError(tx('Para consultar la agenda, indica hoy o mañana.'))
+    }
+
+    const noteRead = request.text.trim().match(/^(?:lee|l[eé]eme|leer|read)\s+(?:(?:una|la|a|the)\s+)?(?:nota|note)\s+(?:(?:sobre|de|del|con|llamada|about|called)\s+)?(.+?)\s*[?.!¿¡]*$/i)
+    if (noteRead) {
+      const query = noteRead[1].trim()
+      if (query.length > 200) throw new InvalidAssistantCommandError(tx('Indica qué quieres buscar en tus notas.'))
+      return proposal({ type: 'read_note', args: { query } }, tx('Leer una nota guardada localmente.'))
+    }
+
+    const noteSearch = request.text.trim().match(/^(?:busca|busco|buscar|encuentra|find|search for)\s+(?:(?:una|la|mis|a|the|my)\s+)?(?:nota|notas|note|notes)\s+(?:(?:donde\s+(?:apunt[eé]|escrib[ií]|guard[eé])|que\s+(?:contenga|contiene|diga|incluya)|sobre|de|del|con|acerca de|about|containing|called)\s+)?(.+?)\s*[?.!¿¡]*$/i)
+    if (noteSearch) {
+      const query = noteSearch[1].trim()
+      if (query.length > 200) throw new InvalidAssistantCommandError(tx('Indica qué quieres buscar en tus notas.'))
+      return proposal({ type: 'search_notes', args: { query, limit: 5 } }, tx('Buscar en las notas guardadas localmente.'))
+    }
 
     const reminder = interpretTaskReminder(request)
     if (reminder) return reminder
@@ -181,7 +213,7 @@ export class LocalAssistantProvider implements AssistantProvider {
       return proposal({ type: 'get_weather', args: { period } }, tx('Consultar la previsión disponible para Casa.'))
     }
 
-    if (/^[¿]?(?:que tengo manana|what do i have tomorrow)[?]?$/.test(text) || text.includes('agenda') || text.includes('calendario') || text.includes('proxima cita') || text.includes('eventos') || text.includes('tareas') || text.includes('que tengo esta semana') || text.includes('que tengo la semana que viene') || text.includes('que tengo la proxima semana') || text.includes('que tengo el ') || text.includes('que tengo pasado manana') || text.includes('schedule') || text.includes('calendar') || text.includes('next appointment') || text.includes('events') || text.includes('tasks') || text.includes('what do i have this week') || text.includes('what do i have next week') || text.includes('what do i have on ') || text.includes('what do i have the day after tomorrow')) {
+    if (/^[¿]?(?:que tengo manana|what do i have tomorrow)[?]?$/.test(text) || text.includes('agenda') || text.includes('calendario') || text.includes('proxima cita') || text.includes('eventos') || text.includes('tareas') || /\b(?:cumpleanos|birthdays?)\b/.test(text) || /\b(?:que tengo|what do i have)\b.*\b(?:este mes|el mes que viene|this month|next month)\b/.test(text) || text.includes('que tengo esta semana') || text.includes('que tengo la semana que viene') || text.includes('que tengo la proxima semana') || text.includes('que tengo el ') || text.includes('que tengo pasado manana') || text.includes('schedule') || text.includes('calendar') || text.includes('next appointment') || text.includes('events') || text.includes('tasks') || text.includes('what do i have this week') || text.includes('what do i have next week') || text.includes('what do i have on ') || text.includes('what do i have the day after tomorrow')) {
       if (/\b(ayer|yesterday)\b|semana pasada|last week/.test(text)) {
         throw new InvalidAssistantCommandError(tx('Todavía no puedo consultar esa fecha. Prueba con hoy, mañana, esta semana o la semana que viene.'))
       }
@@ -189,11 +221,13 @@ export class LocalAssistantProvider implements AssistantProvider {
       let to = tomorrow
       const nextWeek = /semana (?:que viene|proxima|siguiente)|proxima semana|next week/.test(text)
       const thisWeek = /esta semana|semana actual|this week/.test(text)
+      const thisMonth = /\b(?:este mes|mes actual|this month)\b/.test(text)
+      const nextMonth = /\b(?:el mes que viene|mes siguiente|proximo mes|next month)\b/.test(text)
       const weekdayMatches = [...text.matchAll(/\b(domingo|lunes|martes|miercoles|jueves|viernes|sabado|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/g)]
       const isoDate = /\b(\d{4}-\d{2}-\d{2})\b/.exec(text)
       const slashDate = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\b/.exec(text)
       const namedDate = /\b(\d{1,2}|[a-z]+(?:\s+y\s+[a-z]+)?)\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\s+de\s+(\d{4}))?\b/.exec(text)
-      if ((nextWeek && thisWeek) || weekdayMatches.length > 1 || (weekdayMatches.length > 0 && (isoDate || slashDate || namedDate)) || Number(Boolean(isoDate)) + Number(Boolean(slashDate)) + Number(Boolean(namedDate)) > 1) throw new InvalidAssistantCommandError(tx('Indica un solo día para consultar la agenda.'))
+      if (Number(nextWeek) + Number(thisWeek) + Number(thisMonth) + Number(nextMonth) > 1 || ((thisMonth || nextMonth) && (weekdayMatches.length > 0 || isoDate || slashDate || namedDate)) || weekdayMatches.length > 1 || (weekdayMatches.length > 0 && (isoDate || slashDate || namedDate)) || Number(Boolean(isoDate)) + Number(Boolean(slashDate)) + Number(Boolean(namedDate)) > 1) throw new InvalidAssistantCommandError(tx('Indica un solo día para consultar la agenda.'))
       if (isoDate || slashDate || namedDate) {
         const day = namedDate ? readNumber(namedDate[1]) : slashDate ? Number(slashDate[1]) : null
         const year = namedDate?.[3] ?? slashDate?.[3] ?? today.slice(0, 4)
@@ -213,6 +247,12 @@ export class LocalAssistantProvider implements AssistantProvider {
         to = from
       } else if (/\b(?:el|dia|on)\s+\d{1,2}\b/.test(text)) {
         throw new InvalidAssistantCommandError(tx('Indica el día, el mes y el año que quieres consultar.'))
+      } else if (thisMonth || nextMonth) {
+        const [year, month] = today.split('-').map(Number)
+        const first = new Date(Date.UTC(year, month - 1 + Number(nextMonth), 1))
+        const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0))
+        from = first.toISOString().slice(0, 10)
+        to = last.toISOString().slice(0, 10)
       } else if (nextWeek || thisWeek) {
         const weekday = new Date(`${today}T12:00:00Z`).getUTCDay()
         from = addDaysToDateKey(today, -((weekday + 6) % 7) + (nextWeek ? 7 : 0))
@@ -227,7 +267,7 @@ export class LocalAssistantProvider implements AssistantProvider {
         to = today
       }
       return proposal(
-        { type: 'get_calendar', args: { from: `${from}T00:00:00`, to: `${to}T23:59:59` } },
+        { type: 'get_calendar', args: { from: `${from}T00:00:00`, to: `${to}T23:59:59`, ...(/\b(?:cumpleanos|birthdays?)\b/.test(text) && !/\b(?:tareas?|tasks?|eventos?|events?)\b/.test(text) ? { type: 'birthday' } : /\b(?:tareas?|tasks?)\b/.test(text) && !/\b(?:eventos?|events?|cumpleanos|birthdays?)\b/.test(text) ? { type: 'task', ...(/\b(?:completadas?|terminadas?|hechas?|completed|finished)\b/.test(text) ? { taskStatus: 'completed' } : {}) } : /\b(?:eventos?|events?)\b/.test(text) && !/\b(?:tareas?|tasks?|cumpleanos|birthdays?)\b/.test(text) ? { type: 'event' } : {}) } },
         tx('Consultar la agenda del intervalo solicitado.'),
       )
     }

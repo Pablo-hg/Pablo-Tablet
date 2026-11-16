@@ -10,18 +10,21 @@ class MockRecognition {
   onerror: ((event: { error: string }) => void) | null = null
   onend: (() => void) | null = null
   start = vi.fn()
+  stop = vi.fn()
   abort = vi.fn()
   constructor() { MockRecognition.instance = this }
 }
 
 describe('dictado del asistente en navegador', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
   it('recoge la frase reconocida para que se pueda revisar', async () => {
+    vi.useFakeTimers()
     vi.stubGlobal('SpeechRecognition', MockRecognition)
     const result = recognizeAssistantSpeech()
     expect(MockRecognition.instance.start).toHaveBeenCalledOnce()
     MockRecognition.instance.onresult?.({ results: [[{ transcript: '  crea una nota  ' }]] })
+    await vi.advanceTimersByTimeAsync(1000)
     await expect(result).resolves.toBe('crea una nota')
   })
 

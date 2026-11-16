@@ -1,10 +1,15 @@
 import { tx } from '../i18n'
 
 export type AssistantCommand =
+  | { type: 'get_current_datetime'; args: { part: 'time' | 'date' } }
   | { type: 'get_daily_summary'; args: { date: string } }
   | { type: 'get_weather'; args: { period: 'now' | 'today' | 'tomorrow' | 'next_week' } }
-  | { type: 'get_calendar'; args: { from: string; to: string } }
+  | { type: 'get_calendar'; args: { from: string; to: string; type?: 'task' | 'event' | 'birthday'; taskStatus?: 'completed' | 'pending' } }
+  | { type: 'search_tasks'; args: { query: string } }
   | { type: 'get_notes'; args: { limit: number } }
+  | { type: 'search_notes'; args: { query: string; limit: number } }
+  | { type: 'read_note'; args: { query: string } }
+  | { type: 'read_note_id'; args: { id: string } }
   | { type: 'get_clock_status'; args: { include: 'alarms' | 'timers' | 'both' } }
   | { type: 'create_task_reminder'; args: { title: string; date: string; timeZone: string; time: string; reminderMinutesBefore?: number } }
   | { type: 'create_task'; args: { title: string; date: string; timeZone: string } }
@@ -96,6 +101,9 @@ export function validateAssistantCommand(value: unknown): AssistantCommand {
 
   const { type, args } = value
   switch (type) {
+    case 'get_current_datetime':
+      if (!hasOnlyKeys(args, ['part']) || (args.part !== 'time' && args.part !== 'date')) break
+      return { type, args: { part: args.part } }
     case 'get_daily_summary':
       if (!hasOnlyKeys(args, ['date']) || !isDateOnly(args.date)) break
       return { type, args: { date: args.date } }
@@ -103,14 +111,26 @@ export function validateAssistantCommand(value: unknown): AssistantCommand {
       if (!hasOnlyKeys(args, ['period']) || typeof args.period !== 'string' || !PERIODS.has(args.period)) break
       return { type, args: { period: args.period as 'now' | 'today' | 'tomorrow' | 'next_week' } }
     case 'get_calendar':
-      if (!hasOnlyKeys(args, ['from', 'to']) || !isIsoDateTime(args.from) || !isIsoDateTime(args.to)) break
+      if (!hasOnlyKeys(args, ['from', 'to', ...('type' in args ? ['type'] : []), ...('taskStatus' in args ? ['taskStatus'] : [])]) || ('type' in args && args.type !== 'task' && args.type !== 'event' && args.type !== 'birthday') || ('taskStatus' in args && (args.type !== 'task' || (args.taskStatus !== 'completed' && args.taskStatus !== 'pending'))) || !isIsoDateTime(args.from) || !isIsoDateTime(args.to)) break
       if (typeof args.from !== 'string' || typeof args.to !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(args.from) || !/^\d{4}-\d{2}-\d{2}T/.test(args.to) || !isDateOnly(args.from.slice(0, 10)) || !isDateOnly(args.to.slice(0, 10))) break
       if (Date.parse(args.from) > Date.parse(args.to)) break
       if (Date.parse(`${args.to.slice(0, 10)}T00:00:00Z`) - Date.parse(`${args.from.slice(0, 10)}T00:00:00Z`) > 31 * 86_400_000) break
-      return { type, args: { from: args.from, to: args.to } }
+      return { type, args: { from: args.from, to: args.to, ...(args.type === 'task' || args.type === 'event' || args.type === 'birthday' ? { type: args.type } : {}), ...(args.taskStatus === 'completed' || args.taskStatus === 'pending' ? { taskStatus: args.taskStatus } : {}) } }
+    case 'search_tasks':
+      if (!hasOnlyKeys(args, ['query']) || !isNonEmptyText(args.query, 120)) break
+      return { type, args: { query: args.query.trim() } }
     case 'get_notes':
       if (!hasOnlyKeys(args, ['limit']) || !Number.isInteger(args.limit) || (args.limit as number) < 1 || (args.limit as number) > 10) break
       return { type, args: { limit: args.limit as number } }
+    case 'search_notes':
+      if (!hasOnlyKeys(args, ['query', 'limit']) || !isNonEmptyText(args.query, 200) || !Number.isInteger(args.limit) || (args.limit as number) < 1 || (args.limit as number) > 10) break
+      return { type, args: { query: args.query.trim(), limit: args.limit as number } }
+    case 'read_note':
+      if (!hasOnlyKeys(args, ['query']) || !isNonEmptyText(args.query, 200)) break
+      return { type, args: { query: args.query.trim() } }
+    case 'read_note_id':
+      if (!hasOnlyKeys(args, ['id']) || !isNonEmptyText(args.id, 200)) break
+      return { type, args: { id: args.id.trim() } }
     case 'get_clock_status':
       if (!hasOnlyKeys(args, ['include']) || (args.include !== 'alarms' && args.include !== 'timers' && args.include !== 'both')) break
       return { type, args: { include: args.include } }

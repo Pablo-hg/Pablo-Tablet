@@ -1,4 +1,5 @@
 import { taskReminderTime } from './taskReminder'
+import { parseNoteList } from '../noteList'
 import { assistantDateText } from './dateText'
 import type { AssistantCommand } from './contracts'
 import { DEFAULT_ALARM_SOUND } from '../alarmSounds'
@@ -22,6 +23,7 @@ export interface AssistantExecutionResult {
   response: string
   spokenResponse?: string
   openPage?: DashboardPageId
+  noteCandidates?: { id: string; title: string }[]
 }
 
 const unchanged = (state: DashboardState, response: string, openPage?: DashboardPageId): AssistantExecutionResult => ({ state, response, openPage })
@@ -62,6 +64,14 @@ export function executeAssistantCommand(
   const tx = translateFor(language)
 
   switch (command.type) {
+    case 'get_current_datetime': {
+      if (command.args.part === 'time') {
+        const time = new Intl.DateTimeFormat(activeLocale(language), { hour: '2-digit', minute: '2-digit' }).format(now)
+        return unchanged(state, tx('Son las {{time}}.', { time }), 'clock')
+      }
+      const date = new Intl.DateTimeFormat(activeLocale(language), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now)
+      return unchanged(state, tx('Hoy es {{date}}.', { date }), 'clock')
+    }
     case 'get_daily_summary': {
       const events = state.calendarEvents.flatMap((event) => {
         const occurrence = calendarOccurrenceForDate(event, command.args.date)
@@ -111,7 +121,7 @@ export function executeAssistantCommand(
       const occurrences = new Map<string, typeof state.calendarEvents[number]>()
       for (let date = from; date <= to; date = addDaysToDateKey(date, 1)) {
         for (const event of state.calendarEvents) {
-          if (event.completed || event.syncStatus === 'pending-delete') continue
+          if (event.syncStatus === 'pending-delete' || (command.args.type && event.type !== command.args.type) || (command.args.taskStatus === 'completed' ? !event.completed : event.completed)) continue
           const occurrence = calendarOccurrenceForDate(event, date)
           if (occurrence) occurrences.set(`${event.id}:${occurrence.startDate}`, eventForOccurrence(event, occurrence))
         }
@@ -121,7 +131,20 @@ export function executeAssistantCommand(
         ? ` ${tx('Alguna cuenta no está sincronizada; los datos podrían no estar actualizados.')}` : ''
       if (!events.length) {
         const formatDate = (date: string) => new Intl.DateTimeFormat(activeLocale(language), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`))
-        const message = from === to
+        const fromDate = new Date(`${from}T12:00:00Z`)
+        const lastDay = new Date(Date.UTC(fromDate.getUTCFullYear(), fromDate.getUTCMonth() + 1, 0)).getUTCDate()
+        const fullMonth = from.slice(0, 7) === to.slice(0, 7) && from.slice(8) === '01' && Number(to.slice(8)) === lastDay
+        const month = fullMonth ? new Intl.DateTimeFormat(activeLocale(language), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(fromDate) : ''
+        const message = command.args.taskStatus === 'completed' ? (from === to
+          ? tx('No hay tareas completadas el {{date}}.', { date: formatDate(from) })
+          : tx('No hay tareas completadas entre el {{from}} y el {{to}}.', { from: formatDate(from), to: formatDate(to) })) : command.args.type === 'task' ? (from === to
+          ? tx('No hay tareas pendientes el {{date}}.', { date: formatDate(from) })
+          : tx('No hay tareas pendientes entre el {{from}} y el {{to}}.', { from: formatDate(from), to: formatDate(to) })) : command.args.type === 'birthday' ? (fullMonth
+          ? tx('No hay cumpleaños en {{month}}.', { month }) : from === to
+          ? tx('No hay cumpleaños el {{date}}.', { date: formatDate(from) })
+          : tx('No hay cumpleaños entre el {{from}} y el {{to}}.', { from: formatDate(from), to: formatDate(to) })) : command.args.type === 'event' ? (from === to
+          ? tx('No hay eventos pendientes el {{date}}.', { date: formatDate(from) })
+          : tx('No hay eventos pendientes entre el {{from}} y el {{to}}.', { from: formatDate(from), to: formatDate(to) })) : from === to
           ? tx('No hay eventos ni tareas pendientes el {{date}}.', { date: formatDate(from) })
           : tx('No hay eventos ni tareas pendientes entre el {{from}} y el {{to}}.', { from: formatDate(from), to: formatDate(to) })
         return unchanged(state, message + syncWarning, 'calendar')
@@ -139,19 +162,55 @@ export function executeAssistantCommand(
             : tx('El {{date}} tienes {{title}} durante todo el día.', { date, title })
           : multiDay
             ? tx('El {{date}} a las {{start}} empieza {{title}} y termina el {{endDate}} a las {{end}}.', { date, start: event.startTime, title, endDate, end: event.endTime })
-            : tx('El {{date}} tienes {{title}} de {{start}} a {{end}}.', { date, title, start: event.startTime, end: event.endTime })
+            : event.startTime === event.endTime
+              ? tx('El {{date}} tienes {{title}} a las {{start}}.', { date, title, start: event.startTime })
+              : tx('El {{date}} tienes {{title}} de {{start}} a {{end}}.', { date, title, start: event.startTime, end: event.endTime })
         const source = event.source !== 'local' && event.source !== 'native' ? ` ${tx('Calendario: {{calendar}}.', { calendar: calendar?.name ?? event.source })}` : ''
         const status = event.syncStatus !== 'local' && event.syncStatus !== 'synced' ? ` ${tx('Sincronización pendiente o con error.')}` : ''
-        return sentence + source + status
+        return sentence + (command.args.taskStatus === 'completed' ? ` ${tx('Completada.')}` : '') + source + status
       }).join('\n')
       const response = details + syncWarning
       if (response.length > 2_000) return { state, response, spokenResponse: tx('Hay {{count}} elementos en ese periodo. La lista completa está en la conversación.', { count: events.length }) + syncWarning, openPage: 'calendar' }
       return unchanged(state, response, 'calendar')
     }
+    case 'search_tasks': {
+      const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ')
+      const query = normalize(command.args.query)
+      const tasks = state.calendarEvents.filter(event => event.type === 'task' && event.syncStatus !== 'pending-delete' && normalize(event.title).includes(query)).sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
+      if (!tasks.length) return unchanged(state, tx('No he encontrado tareas con el título «{{query}}».', { query: command.args.query }), 'calendar')
+      const descriptions = tasks.slice(0, 10).map(task => {
+        const date = new Intl.DateTimeFormat(activeLocale(language), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${task.date}T12:00:00Z`))
+        return tx(task.completed ? '«{{title}}» · {{date}} · completada' : '«{{title}}» · {{date}} · pendiente', { title: task.title, date })
+      }).join('; ')
+      const warning = state.calendarAccounts.some(account => account.enabled && account.status !== 'connected') ? ` ${tx('Alguna cuenta no está sincronizada; los datos podrían no estar actualizados.')}` : ''
+      return unchanged(state, tx(tasks.length === 1 ? 'He encontrado una tarea: {{tasks}}.' : 'He encontrado {{count}} tareas. Mostrando hasta 10: {{tasks}}.', { count: tasks.length, tasks: descriptions }) + warning, 'calendar')
+    }
     case 'get_notes': {
       const notes = [...state.notes].filter((note) => !note.archived).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, command.args.limit)
       if (!notes.length) return unchanged(state, tx('No hay notas activas guardadas.'), 'notes')
       return unchanged(state, tx('Notas recientes: {{notes}}.', { notes: notes.map((note) => note.title || note.content.slice(0, 50) || tx('Sin título')).join('; ') }), 'notes')
+    }
+    case 'read_note_id':
+    case 'read_note':
+    case 'search_notes': {
+      const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      const stopWords = new Set(['el', 'la', 'los', 'las', 'de', 'del', 'un', 'una', 'en', 'the', 'a', 'of', 'in'])
+      const query = command.type === 'read_note_id' ? '' : command.args.query
+      const terms = normalize(query).match(/[\p{L}\p{N}]+/gu)?.filter(word => !stopWords.has(word)) ?? []
+      if (command.type !== 'read_note_id' && !terms.length) return unchanged(state, tx('Indica qué quieres buscar en tus notas.'))
+      const matches = state.notes.filter(note => !note.archived && (command.type === 'read_note_id' ? note.id === command.args.id : terms.every(term => normalize(`${note.title} ${note.content}`).includes(term)))).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      if (!matches.length) return unchanged(state, command.type === 'read_note_id' ? tx('La nota seleccionada ya no está disponible.') : tx('No he encontrado notas que coincidan con «{{query}}».', { query }), 'notes')
+      const candidates = matches.slice(0, 5).map(note => ({ id: note.id, title: note.title || tx('Sin título') }))
+      if (command.type === 'read_note' || command.type === 'read_note_id') {
+        if (matches.length > 1) return { ...unchanged(state, tx('He encontrado varias notas: {{notes}}. Indica un título más concreto.', { notes: candidates.map(note => note.title).join('; ') }), 'notes'), noteCandidates: candidates }
+        const note = matches[0]
+        if (note.type === 'drawing') return unchanged(state, tx('La nota «{{title}}» es un dibujo y no puedo leer su contenido.', { title: note.title || tx('Sin título') }), 'notes')
+        const content = note.type === 'list' ? parseNoteList(note.content).map(item => item.text).join('; ') : note.content
+        if (!content.trim()) return unchanged(state, tx('La nota «{{title}}» está vacía.', { title: note.title || tx('Sin título') }), 'notes')
+        return unchanged(state, tx('Nota «{{title}}»: {{content}}', { title: note.title || tx('Sin título'), content }), 'notes')
+      }
+      const titles = matches.slice(0, command.args.limit).map(note => note.title || tx('Sin título')).join('; ')
+      return { ...unchanged(state, tx(matches.length === 1 ? 'He encontrado una nota: {{notes}}.' : 'He encontrado {{count}} notas. Mostrando: {{notes}}.', { count: matches.length, notes: titles }), 'notes'), noteCandidates: candidates }
     }
     case 'get_clock_status': {
       const sections: string[] = []
