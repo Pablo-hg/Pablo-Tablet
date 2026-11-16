@@ -1,0 +1,108 @@
+# Evaluación de utilidad de Lumi en Dev
+
+**Prioridad vigente desde el 13/11/2026:** validar primero la versión web, incluida su apariencia. No realizar nuevas instalaciones Android hasta completar esa revisión. Las comprobaciones automatizadas de DOM no sustituyen la revisión visual ni la prueba de voz real.
+
+Alcance acordado con el usuario el 12/11/2026: avanzar hasta evaluar consultas de datos locales, acciones confirmadas y comodidad frente a los menús. Se empieza por el intérprete local existente para medir el flujo. Esto no valida Gemini ni representa conversación generativa. Sin búsquedas web nuevas. La rama de desarrollo no se ha publicado, fusionado ni instalado.
+
+## Entrega inicial
+
+- Reutilizar consulta de agenda, notas y reloj, creación de notas y temporizadores de #28.
+- Añadir `create_task` local con fecha, título y zona horaria validados; propuesta con destino explícito, todo el día y sin avisos. Confirmar o cancelar antes de guardar. El contrato no admite cuentas externas.
+- Frases admitidas: «Crea una tarea para mañana: comprar pilas», «Añade una tarea para hoy: llamar al taller», «Crea una tarea para 2026-12-01: revisar el coche». También `Create a task for tomorrow: buy batteries`. Si falta fecha o título, pedir una nueva petición completa; no interpretar fechas ambiguas ni prometer comprensión libre.
+- Añadir «¿Qué tengo mañana?» como consulta directa; reutilizar fechas y consultas de agenda existentes. La sugerencia de crear tarea queda visible en la conversación vacía.
+
+## Prueba física pendiente
+
+Usar datos ficticios en Dev. No instalar APK sin autorización. Hacer cada escenario mediante Lumi y mediante los menús, con el mismo estado inicial; alternar el orden para reducir el efecto del aprendizaje. Medir segundos y toques desde la misma pantalla, registrar errores y anotar si hubo que aprender una frase rígida. No registrar el contenido de datos privados.
+
+| Escenario | Resultado esperado | Lumi: tiempo/toques/errores | Menús: tiempo/toques/errores | Preferencia |
+|---|---|---|---|---|
+| Consultar qué hay mañana | Coincide con Calendario | Pendiente | Pendiente | Pendiente |
+| Crear una tarea para mañana y consultarla | Propuesta correcta; una tarea tras confirmar | Pendiente | Pendiente | Pendiente |
+| Cancelar la creación de una tarea | Ningún dato nuevo | Pendiente | Pendiente | Pendiente |
+| Crear una nota breve | Confirmación y nota en Notas | Pendiente | Pendiente | Pendiente |
+| Iniciar un temporizador | Duración revisable; resultado visible en Reloj | Pendiente | Pendiente | Pendiente |
+
+Además: reiniciar Dev y comprobar persistencia; doble toque de confirmación; petición incompleta; probar sin red y con Lumi desactivada desde Ajustes. La voz existente es opcional y su procesamiento offline no se garantiza. Gemini y su consentimiento/cuotas todavía no están implementados.
+
+## Decisión después de probar
+
+Continuar solo si las consultas son correctas, ninguna acción se ejecuta sin confirmación y el usuario aprecia ahorro de pasos o esfuerzo en escenarios repetidos. La medición humana de comodidad no se da por superada con tests automatizados. Si el flujo local resulta útil pero las frases rígidas molestan, esa evidencia ayudará a decidir si compensa añadir el motor conversacional; si no aporta utilidad, pausar Lumi.
+
+## Evidencia automatizada
+
+`src/test/localAssistantPilot.test.ts` ejercita interpretación → validación → confirmación → ejecución → guardado y carga con las funciones reales de almacenamiento → consulta; bloquea duplicados del mismo plan y comprueba ausencia de llamadas fetch en ese flujo. También cubre fecha inválida, título largo, fecha ambigua, inglés y rechazo de destinos externos. `AssistantPage.test.tsx` cubre revisión, cancelación y doble confirmación desde la UI. No son pruebas reales de Android ni sustituyen comprobar el guardado desde la aplicación completa.
+
+Validación del 12/11/2026: suite completa con `npm test -- --maxWorkers=2`: 44 archivos y 263 pruebas aprobadas con Node 22.13.0. Compilación web correcta; lint sin errores y con avisos existentes en CalendarConnectionsPanel. La ejecución con paralelismo por defecto agotó el tiempo del test de apariencias ya observado en la base; se redujeron los procesos sin modificar los límites de tiempo de los tests. Capacitor sync correcto. La prueba física y la comparación de comodidad siguen pendientes.
+
+APK Dev compilada correctamente con `npm run android:dev:build`: paquete verificado `com.pablohorcajada.tablet.debug`, versión `0.5.2-dev`, etiqueta `Pablo Tablet DEV`. Artefacto: `android/app/build/outputs/apk/debug/app-debug.apk`. El primer intento quedó bloqueado por permisos de la caché de Gradle; el reintento con acceso a esa caché completó la compilación. No instalada. No se ha publicado ningún artefacto.
+
+Seguimiento por voz (12/11/2026): el usuario confirma que el flujo escrito funciona en la tablet y pide priorizar voz. Se admite «Crea una tarea para mañana comprar pilas» sin puntuación. En el flujo de voz de la ventana flotante se leen título, fecha y destino antes de escuchar «confirmar» o «cancelar». Pruebas automatizadas relacionadas: 22 aprobadas (contrato local, UI y adaptador de voz); incluyen dictado, lectura de datos y confirmación hablada simulados. La prueba real de voz y su comodidad siguen pendientes. Usar Ajustes → Asistente → Entrada por voz y el botón flotante; el servicio de reconocimiento Android puede requerir red, no se afirma procesamiento offline.
+
+## Aclaración de hora y recordatorios de tareas
+
+Añadido el 12/11/2026. «Recuérdame el próximo viernes que vaya a comprar pilas» inicia una propuesta sin guardar nada. Lumi pregunta la hora; «a las siete» exige otra aclaración («por la mañana o por la tarde»). Una hora explícita como «19:00» o «siete de la tarde» permite mostrar fecha, título, hora y aviso 30 minutos antes. Se guarda únicamente tras confirmar. Se puede decir «cancelar» durante las preguntas. El contexto es temporal y se descarta al ocultar o desactivar Lumi. Para esta primera versión se admiten hoy, mañana, pasado mañana, fecha ISO o día de la semana; un día de semana significa su siguiente aparición estrictamente futura. No se afirma comprensión libre de cualquier expresión temporal.
+
+La operación tipada `create_task_reminder` genera una tarea local con hora y un recordatorio en el formato del calendario existente. La programación de notificaciones reutiliza `syncCalendarEventNotifications`; no requiere servicios externos. Se comprueban los permisos disponibles y se informa si Android puede impedir o retrasar los avisos. Un aviso ya pasado bloquea la operación. Las notificaciones siguen usando el calendario civil de la tablet como el módulo actual.
+
+Validación automatizada: suite completa de 48 archivos / 292 pruebas aprobadas con dos procesos; incluye diálogo de voz simulado, aclaración de mañana/tarde, cancelación, confirmación, persistencia/recarga, bloqueo de duplicados, aviso del día anterior y llamada al planificador nativo simulado a las 18:30 para una tarea de las 19:00. Compilación web/Capacitor/APK Dev correcta. La recepción real de la notificación y la calidad del reconocimiento en la T65 siguen pendientes de prueba física.
+
+Ajuste posterior solicitado por el usuario (12/11/2026): el aviso de tareas con hora pasa a **1 hora antes por defecto**. La propuesta muestra solo «Aviso: 1 hora antes» y «Destino: calendario local». La pantalla completa permite cambiar la antelación antes de confirmar (15/30 minutos, 1/2 horas o 1 día); el valor se valida y se usa para calcular el recordatorio real. Los avisos ya guardados conservan su configuración. Validación: 39 pruebas relacionadas aprobadas y compilación Android Dev correcta.
+
+## Presentación del aviso dentro de la aplicación
+
+Corrección posterior (12/11/2026): los recordatorios de calendario se comprueban también desde el reloj de la aplicación, como las alarmas, y abren el modal existente con «Aceptar» y «Volver a recordar». Se comparte el cálculo de recurrencias con el planificador Android; se evitan duplicados por evento/aviso/ocurrencia y se encolan recordatorios simultáneos. Al presentar o aceptar el modal se retira su notificación Android. Si la app vuelve de segundo plano, se recuperan los avisos que sigan entregados: Android devuelve su lista sin el campo `extra`, por lo que se recupera la información almacenada mediante `getByIds`.
+
+La notificación del sistema se conserva como respaldo cuando Dev no está visible; al volver se abre el modal pendiente. Esta corrección no añade permisos de superposición ni full-screen intent, ni garantiza abrir una pantalla sobre otra aplicación o sobre el bloqueo. Android restringe esa presentación: https://developer.android.com/develop/ui/views/notifications/time-sensitive . La comprobación directa cubre avisos vencidos en los últimos 35 segundos; avisos anteriores se recuperan desde las notificaciones entregadas que sigan disponibles.
+
+Pruebas: suite completa de 50 archivos / 297 pruebas aprobadas; pruebas específicas de modal, cola, recurrencias, no repetición al aceptar, recuperación de payloads Android y conservación del planificador. No se ha verificado todavía la presentación física del nuevo modal en la T65.
+
+## Revisión web antes de Android — 13/11/2026
+
+Servidor local de desarrollo: http://127.0.0.1:5173/ (solo en el ordenador). Inicio con Node 22.13.0: `npm run dev -- --host 127.0.0.1 --port 5173 --strictPort`. Respuesta HTTP 200 comprobada. La compilación web pasa; lint finaliza sin errores, con avisos existentes de refs en CalendarConnectionsPanel y setState en un efecto de AssistantPage.
+
+El acceso de automatización al navegador no está disponible (sin navegadores conectados; «browser access host is unavailable»). Por tanto no se ha dado por aprobada la apariencia ni el reconocimiento/reproducción de voz real en un navegador.
+
+Revisión manual pendiente con datos ficticios:
+
+- [ ] En un tema claro y uno oscuro, abrir Calendario → evento → Recordatorios: leer botones, texto vacío, etiquetas y selectores con contraste suficiente.
+- [ ] Crear una tarea con aviso futuro desde Lumi; comprobar aclaración de la hora, mañana/tarde, título, fecha natural, aviso de una hora y destino local. Cancelar una propuesta y comprobar que no guarda nada.
+- [ ] Confirmar una tarea, recargar la página y comprobar que aparece una sola vez en Calendario.
+- [ ] Para probar el modal, elegir una hora de tarea unos 20 minutos posterior y aviso 15 minutos antes; mantener visible la página y esperar unos cinco minutos. Revisar colores, tipografía, icono, selector, botones y resplandor en el tema seleccionado.
+- [ ] Pulsar Aceptar y comprobar que el mismo aviso no reaparece. Repetir con Volver a recordar → 1 minuto; la página web debe mantenerse abierta para esa prueba.
+- [ ] Comprobar el orden eventos → tareas → cumpleaños → festivos, máximo de tres por categoría y scroll del widget.
+- [ ] Probar texto y, si el navegador ofrece reconocimiento y síntesis, el flujo real de micrófono con autorización del usuario. El resultado de voz simulado en tests no demuestra la voz real.
+
+Los permisos, recepción en segundo plano/bloqueo y servicios nativos Android se validarán posteriormente en la tablet.
+
+Resultado automatizado del 13/11/2026: `npm test -- --maxWorkers=2` supera los 50 archivos y las 297 pruebas. La revisión visual manual de la lista anterior continúa pendiente.
+
+## Desarrollo por voz — 13/11/2026
+
+Por indicación del usuario se continúa desarrollando sin ejecutar tests. Se añade la modificación de la antelación durante la confirmación hablada: «avísame media hora antes», «avísame una hora antes», «quince minutos antes» o «un día antes». El cambio actualiza la propuesta y vuelve a pedir confirmación; no guarda ni ejecuta nada por sí solo. Los valores admitidos quedan limitados a entre 1 minuto y 7 días, igual que el contrato. El selector de pantalla conserva valores introducidos por voz que no coincidan con sus opciones habituales.
+
+También se admite la hora al final de una petición: «Recuérdame mañana que vaya a comprar pilas a las siete de la tarde». Si se indican dos horas, se solicita repetir la petición con una sola; las horas ambiguas siguen necesitando aclaración. No se han ejecutado pruebas automatizadas de estos cambios y no se da por validada la interacción real. Se mantiene la prioridad de la versión web y no se instala esta actualización en Android.
+
+## Selector común de hora exacta — 13/11/2026
+
+Se sustituye la elección en intervalos de media hora por un selector reutilizable que se abre al pulsar el campo Hora: columnas de horas y minutos con botones +/−, escritura directa, selección AM/PM y Aplicar/Cancelar. La hora se presenta en formato de 12 horas y se conserva internamente en HH:mm de 24 horas (12 AM = 00 y 12 PM = 12). Se integra en inicio/fin de eventos, avisos de calendario, alarmas, horario nocturno y fecha/hora de avisos de notas. Los borradores de notas sin fecha y hora completas no se guardan como recordatorio.
+
+El diálogo se monta dentro de la raíz del tema activo para conservar su apariencia y evitar recortes de ventanas anidadas; incluye cierre con Escape, retorno de foco y navegación con teclado. Compilación web correcta. No se han ejecutado tests ni generado/instalado una nueva APK para este cambio. La revisión visual se realiza primero en la web.
+
+## Avisos de la versión web — 13/11/2026
+
+Las notificaciones de simulación web adoptan los tokens del tema activo (superficie, borde, texto, icono y cierre). Se mantiene una cola en memoria durante la sesión: un aviso nuevo ya no reemplaza al anterior; la X descarta únicamente el aviso visible y deja pasar al siguiente. No se añade caducidad automática ni se guardan permanentemente estos avisos. Se ajusta el ancho al viewport y el texto largo puede partirse sin salir del aviso. Compilación web correcta; sin ejecutar tests ni instalar una APK. Revisión visual pendiente en web.
+
+## Conservar el chat al navegar — 13/11/2026
+
+La página de Asistencia permanece montada durante la navegación, oculta cuando no está seleccionada. Se conservan mensajes, borrador, contador, contexto y propuestas pendientes durante la sesión. Al ocultarla se interrumpen la escucha y la reproducción. No se incorpora almacenamiento permanente del historial: recargar o cerrar la aplicación sigue iniciando una sesión nueva.
+
+El botón «Nuevo chat» vacía mensajes, borrador, propuestas sin ejecutar y contexto, y reinicia el contador. Las tareas, notas y otras operaciones ya confirmadas se conservan. También aparece en el asistente flotante. Compilación web correcta, sin ejecutar tests ni actualizar Android. Pendiente comprobar manualmente: escribir una consulta, cambiar de página deslizando, volver y ver el mismo chat; pulsar Nuevo chat y ver solo el saludo.
+
+## Revisión real en Chrome completada — 13/11/2026
+
+La conexión de la extensión se ha recuperado y se ha realizado la revisión escrita desde la interfaz real. Informe y capturas en [91-pruebas-web-lumi-2026-11-13.md](91-pruebas-web-lumi-2026-11-13.md). Se verifican consultas y contexto, confirmación/cancelación, aclaración de hora, cambio de antelación, nota, temporizador con modal, conservación del chat/borrador/propuesta al navegar con botones y limpieza mediante Nuevo chat sin borrar las operaciones confirmadas. Queda un detalle de redacción reproducible: la agenda describe una tarea sin duración como «de 19:00 a 19:00». No se ejecutan suites automatizadas ni se valida voz o Android en esta revisión.
+
+## Cuatro comprobaciones web adicionales — 13/11/2026
+
+Verificadas en Chrome: arrastre horizontal de ida/vuelta conservando chat y borrador; doble pulsación rápida sobre Confirmar con una sola tarea resultante; tarea, nota y recordatorio conservados después de recargar (el historial del chat sí se reinicia); modal real de calendario al vencer el aviso de las 13:57. El modal permanece abierto al menos 64 segundos sin interacción y no reaparece durante los 58 segundos observados después de Aceptar, ni al navegar. Informe ampliado y capturas en [91-pruebas-web-lumi-2026-11-13.md](91-pruebas-web-lumi-2026-11-13.md). Se abre una pestaña de prueba separada para conservar la propuesta existente del usuario. Sin modificaciones de código, suites automatizadas ni APK. Queda por afinar el mensaje que afirma que las notificaciones requieren Android: debe diferenciar notificaciones nativas y modal interno en web abierta.

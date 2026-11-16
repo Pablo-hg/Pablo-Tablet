@@ -1,3 +1,5 @@
+import { taskReminderTime } from './taskReminder'
+import { assistantDateText } from './dateText'
 import type { AssistantCommand } from './contracts'
 import { DEFAULT_ALARM_SOUND } from '../alarmSounds'
 import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, toLocalDateKey } from '../calendarRecurrence'
@@ -177,6 +179,23 @@ export function executeAssistantCommand(
     }
     case 'get_local_help':
       return unchanged(state, helpForTopic(command.args.topic, language))
+    case 'create_task_reminder':
+    case 'create_task': {
+      const timestamp = now.toISOString()
+      const timed = command.type === 'create_task_reminder'
+      const time = timed ? command.args.time : '00:00'
+      const reminder = timed ? taskReminderTime(command.args.date, time, timed ? command.args.reminderMinutesBefore : undefined) : null
+      if (reminder && new Date(`${reminder.date}T${reminder.time}:00`).getTime() <= now.getTime()) throw new Error(tx('La hora del aviso ya ha pasado. Elige una hora posterior.'))
+      const task: DashboardState['calendarEvents'][number] = {
+        id: createId(), source: 'local', accountId: null, calendarId: null,
+        externalId: null, externalVersion: null, syncStatus: 'local',
+        type: 'task', recurrence: 'none', completed: false,
+        title: command.args.title, date: command.args.date, endDate: command.args.date,
+        startTime: time, endTime: timed ? time : '23:59', allDay: !timed, timeZone: command.args.timeZone,
+        location: '', notes: '', color: 'mint', reminders: reminder ? [{ id: createId(), ...reminder }] : [], createdAt: timestamp, updatedAt: timestamp,
+      }
+      return { state: { ...state, calendarEvents: [...state.calendarEvents, task] }, response: reminder ? tx('Tarea «{{title}}» creada para {{date}} a las {{time}}. Aviso configurado {{duration}} antes, a las {{reminder}}.', { title: task.title, date: assistantDateText(task.date, now, task.timeZone, language), time, duration: formatTimerDuration((timed ? command.args.reminderMinutesBefore ?? 60 : 60) * 60, language), reminder: reminder.time }) : tx('Tarea «{{title}}» creada en el calendario local para {{date}}.', { title: task.title, date: assistantDateText(task.date, now, task.timeZone, language) }), openPage: 'calendar' }
+    }
     case 'create_note': {
       const timestamp = now.toISOString()
       const note: Note = {
@@ -227,9 +246,14 @@ export function executeAssistantCommand(
   }
 }
 
-export function assistantCommandSummary(command: AssistantCommand, language?: SupportedLanguage) {
+export function assistantCommandSummary(command: AssistantCommand, language?: SupportedLanguage, now = new Date()) {
   const tx = translateFor(language)
   switch (command.type) {
+    case 'create_task_reminder': {
+      return { title: tx('Crear tarea local'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: assistantDateText(command.args.date, now, command.args.timeZone, language) }), tx('Hora: {{value}}', { value: command.args.time }), tx('Aviso: {{duration}} antes', { duration: formatTimerDuration((command.args.reminderMinutesBefore ?? 60) * 60, language) }), tx('Destino: calendario local')] }
+    }
+    case 'create_task':
+      return { title: tx('Crear tarea local'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: assistantDateText(command.args.date, now, command.args.timeZone, language) }), tx('Todo el día · sin aviso'), tx('Destino: calendario local')] }
     case 'create_note':
       return { title: tx('Crear nota'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Contenido: {{value}}', { value: command.args.content }), command.args.reminderAt ? tx('Aviso: {{value}}', { value: formatDateTime(command.args.reminderAt, language) }) : tx('Sin aviso')] }
     case 'create_alarm':

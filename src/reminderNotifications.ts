@@ -1,5 +1,5 @@
+import { calendarReminderOccurrences } from './calendarReminderSchedule'
 import { Capacitor } from '@capacitor/core'
-import { calendarOccurrenceIndexNear, calendarOccurrenceStart, toLocalDateKey } from './calendarRecurrence'
 import { LocalNotifications, Weekday, type LocalNotificationSchema } from '@capacitor/local-notifications'
 import { alarmChannelId, configureAlarmChannel, configureAlertChannel, configureTimerChannel } from './alarmSounds'
 import type { Alarm, CalendarEvent, Note, Timer } from './dashboardState'
@@ -18,7 +18,7 @@ const CALENDAR_EVENT_CHANNEL = 'pablo_calendar_reminders_silent'
 export const MAX_SCHEDULED_CALENDAR_NOTIFICATIONS = 128
 const NOTIFICATION_CANCELLATION_BATCH_SIZE = 128
 
-function notificationId(noteId: string) {
+export function notificationId(noteId: string) {
   let hash = 0
   for (let index = 0; index < noteId.length; index += 1) {
     hash = ((hash << 5) - hash + noteId.charCodeAt(index)) | 0
@@ -137,22 +137,6 @@ export async function syncAlarmNotifications(alarms: Alarm[]) {
   }
 }
 
-function calendarReminderOccurrences(event: CalendarEvent, reminder: CalendarEvent['reminders'][number], now: number) {
-  const count = event.recurrence === 'daily' || event.recurrence === 'weekly' ? 40 : event.recurrence === 'monthly' ? 24 : event.recurrence === 'yearly' ? 10 : 1
-  const eventStart = new Date(`${event.date}T${event.startTime}:00`).getTime()
-  const reminderOffset = new Date(`${reminder.date}T${reminder.time}:00`).getTime() - eventStart
-  const occurrence = (index: number) => {
-    const occurrenceDate = calendarOccurrenceStart(event, index)
-    const occurrenceStart = new Date(`${occurrenceDate}T${event.startTime}:00`)
-    return { index, occurrenceDate, at: new Date(occurrenceStart.getTime() + reminderOffset) }
-  }
-  // Keep the original recurrence index in notification IDs as the window moves.
-  let firstIndex = calendarOccurrenceIndexNear(event, toLocalDateKey(new Date(now - reminderOffset)))
-  if (event.recurrence !== 'none') {
-    while (occurrence(firstIndex).at.getTime() <= now) firstIndex += 1
-  }
-  return Array.from({ length: count }, (_, offset) => occurrence(firstIndex + offset))
-}
 
 export async function syncCalendarEventNotifications(events: CalendarEvent[]) {
   if (!Capacitor.isNativePlatform()) return

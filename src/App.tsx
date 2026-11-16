@@ -1,3 +1,8 @@
+import { TimePicker, DateTimePicker } from './components/TimePicker'
+import { deliveredCalendarReminders } from './calendarReminderDelivery'
+import { calendarReminderKey, dueCalendarReminders } from './calendarReminderSchedule'
+import { checkNotificationPermissionStatus } from './notificationPermissions'
+import { CALENDAR_CATEGORY_ORDER, CALENDAR_CATEGORY_LABELS, getUpcomingCalendarGroups, getUpcomingCalendarEvents, isCalendarHoliday } from './calendarUpcoming'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { Capacitor } from '@capacitor/core'
@@ -20,7 +25,6 @@ import {
   CloudMoon,
   CloudRain,
   CloudSun,
-  Compass,
   Droplets,
   EyeOff,
   Eraser,
@@ -32,7 +36,6 @@ import {
   MapPin,
   Maximize2,
   Minimize2,
-  Minus,
   Moon,
   Pause,
   Pencil,
@@ -82,7 +85,7 @@ import {
 import type { AssistantCommand } from './assistant/contracts'
 import { executeAssistantCommand } from './assistant/executor'
 import { DEFAULT_ALARM_SOUND, getDeviceAlarmSounds, previewAlarmSound, stopAlarmSoundPreview, type DeviceAlarmSound } from './alarmSounds'
-import { snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
+import { notificationId, snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
 import { arrangeWidgets, DASHBOARD_COLUMNS, DASHBOARD_ROWS, DEFAULT_WIDGETS, placeWidgets, resizeWidgets, type DashboardOrientation, type DashboardWidgetId, type PlacedWidget, type WidgetPosition } from './widgetLayout'
 import { playInteractionSound } from './deviceSettings'
 import { shouldPlayInteractionSoundOnClick } from './interactionSoundEvents'
@@ -94,7 +97,7 @@ import { readCalendarConnectionToken, removeCalendarConnectionToken, writeCalend
 import { CalendarConnectionsPanel } from './calendarSync/CalendarConnectionsPanel'
 import type { CalendarAccount, SyncedCalendar } from './calendarSync/contracts'
 import { fetchWeatherForecast, isWeatherHourDay, searchWeatherLocations, weatherDescription, type WeatherForecast, type WeatherLocation } from './weather'
-import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, nextCalendarOccurrence, offsetDateKey, toLocalDateKey } from './calendarRecurrence'
+import { addDaysToDateKey, calendarOccurrenceForDate, eventForOccurrence, offsetDateKey, toLocalDateKey } from './calendarRecurrence'
 import { formatCountdown, pauseTimer, resetTimer, startTimer, timerHasFinished, timerRemainingSeconds } from './timerLogic'
 import { isNightModeActive } from './nightMode'
 import { ClockWidgetAlarms } from './components/ClockWidgetAlarms'
@@ -113,7 +116,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { AssistantPage, type AssistantPageHandle } from './pages/AssistantPage'
 import { PageHeader } from './components/PageHeader'
 import { nativeCalendarEventsForYears } from './nativeCalendarDates'
-import { activeLocale, setAppLanguage, tx } from './i18n'
+import { activeLocale, setAppLanguage, tx, txFor } from './i18n'
 import type { TranslationKey } from './i18n/translations'
 import { setNativeAppLanguage } from './nativeLocale'
 import './App.css'
@@ -127,8 +130,8 @@ import './dashboardVisual.css'
 import './components/ClockStyles.css'
 import './appearanceSystem.css'
 
-type SimulatedAlert = { title: string; body: string }
-type RingingAlert = { kind: 'alarm' | 'timer' | 'calendar'; sourceId: string; title: string; subtitle: string; soundUri: string | null }
+type SimulatedAlert = { id: string; title: string; body: string }
+type RingingAlert = { kind: 'alarm' | 'timer' | 'calendar'; sourceId: string; title: string; subtitle: string; soundUri: string | null; notificationId?: number }
 type TimerPatch = Partial<Pick<Timer, 'label' | 'durationSeconds' | 'remainingSeconds' | 'endsAt' | 'soundName' | 'soundUri'>>
 type CalendarEventPatch = Partial<Pick<CalendarEvent, 'type' | 'recurrence' | 'completed' | 'title' | 'date' | 'endDate' | 'startTime' | 'endTime' | 'allDay' | 'location' | 'notes' | 'color' | 'reminders'>>
 type NotePatch = Partial<Pick<Note, 'title' | 'content' | 'drawing' | 'color' | 'pinned' | 'reminderAt'>>
@@ -158,7 +161,8 @@ function App() {
   const [assistantPopupInitialized, setAssistantPopupInitialized] = useState(false)
   const [assistantVoiceMode, setAssistantVoiceMode] = useState(false)
   const assistantPageRef = useRef<AssistantPageHandle>(null)
-  const [simulatedAlert, setSimulatedAlert] = useState<SimulatedAlert | null>(null)
+  const [simulatedAlerts, setSimulatedAlerts] = useState<SimulatedAlert[]>([])
+  const simulatedAlert = simulatedAlerts[0] ?? null
   const [ringingAlert, setRingingAlert] = useState<RingingAlert | null>(null)
   const [snoozeMinutes, setSnoozeMinutes] = useState(5)
   const [screensaverVisible, setScreensaverVisible] = useState(false)
@@ -169,6 +173,9 @@ function App() {
   const lastScreensaverPhotoId = useRef<string | null>(null)
   const suppressClick = useRef(false)
   const deliveredSimulationIds = useRef(new Set<string>())
+  const shownCalendarAlerts = useRef(new Set<string>())
+  const pendingCalendarAlerts = useRef<RingingAlert[]>([])
+  const ringingAlertRef = useRef<RingingAlert | null>(null)
   const calendarSyncInFlight = useRef(new Set<string>())
   const dashboardStateRef = useRef(dashboardState)
   const dashboardReady = useDashboardPersistence({ state: dashboardState, stateRef: dashboardStateRef, setState: setDashboardState })
@@ -260,12 +267,18 @@ function App() {
 
   const showSimulatedAlert = useCallback((title: string, body: string) => {
     setScreensaverVisible(false)
-    setSimulatedAlert({ title, body })
+    const alert = { id: createLocalId(), title, body }
+    setSimulatedAlerts(current => [...current, alert])
   }, [])
 
   const startRinging = useCallback((alert: RingingAlert) => {
     setScreensaverVisible(false)
+    if (alert.kind !== 'calendar' && ringingAlertRef.current?.kind === 'calendar') pendingCalendarAlerts.current.unshift(ringingAlertRef.current)
+    ringingAlertRef.current = alert
     setRingingAlert(alert)
+    if (alert.kind === 'calendar' && alert.notificationId !== undefined && Capacitor.isNativePlatform()) {
+      void LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: alert.notificationId, title: alert.title, body: alert.subtitle }] }).catch(() => undefined)
+    }
     setScreen('home')
     const destination = alert.kind === 'calendar' ? 'calendar' : 'clock'
     setDashboardState((current) => current.preferences.enabledPageIds.includes(destination) ? current : {
@@ -281,11 +294,42 @@ function App() {
   }, [])
 
   const stopRinging = useCallback(() => {
+    const current = ringingAlertRef.current
+    if (current?.kind === 'calendar' && current.notificationId !== undefined && Capacitor.isNativePlatform()) {
+      void LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: current.notificationId, title: current.title, body: current.subtitle }] }).catch(() => undefined)
+    }
+    ringingAlertRef.current = null
     setRingingAlert(null)
     setInteractionLocked(false)
     navigator.vibrate?.(0)
     void stopAlarmSoundPreview()
-  }, [])
+    let next = pendingCalendarAlerts.current.shift()
+    while (next) {
+      const event = dashboardStateRef.current.calendarEvents.find(event => event.id === next?.sourceId)
+      if (event && !(event.type === 'task' && event.completed)) { startRinging(next); break }
+      next = pendingCalendarAlerts.current.shift()
+    }
+  }, [startRinging])
+
+  const enqueueCalendarAlert = useCallback((key: string, alert: RingingAlert) => {
+    if (shownCalendarAlerts.current.has(key)) return
+    shownCalendarAlerts.current.add(key)
+    if (ringingAlertRef.current) pendingCalendarAlerts.current.push(alert)
+    else startRinging(alert)
+  }, [startRinging])
+
+  useEffect(() => {
+    if (!dashboardReady) return
+    const due = dueCalendarReminders(dashboardState.calendarEvents, now)
+    if (!due.length) return
+    const timeout = window.setTimeout(() => {
+      for (const { key, event } of due) enqueueCalendarAlert(key, {
+        kind: 'calendar', sourceId: event.id, notificationId: notificationId(key), title: event.title || tx('Recordatorio del calendario'),
+        subtitle: formatCalendarEventTime(event, toLocalDateKey(now)), soundUri: null,
+      })
+    }, 0)
+    return () => window.clearTimeout(timeout)
+  }, [dashboardReady, dashboardState.calendarEvents, now, enqueueCalendarAlert])
 
   useEffect(() => {
     if (!dashboardReady) return
@@ -353,9 +397,13 @@ function App() {
         if (typeof calendarEventId !== 'string') return false
         const calendarEvent = dashboardStateRef.current.calendarEvents.find((item) => item.id === calendarEventId)
         if (!calendarEvent || (calendarEvent.type === 'task' && calendarEvent.completed)) return false
-        void LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: notification.id, title: notification.title || '', body: notification.body || '' }] })
-        startRinging({
+        const reminderId = notification.extra?.calendarReminderId
+        const index = notification.extra?.recurrenceIndex
+        const key = typeof reminderId === 'string' && typeof index === 'number'
+          ? calendarReminderKey(calendarEventId, reminderId, index) : `notification:${notification.id}`
+        enqueueCalendarAlert(key, {
           kind: 'calendar',
+          notificationId: notification.id,
           sourceId: calendarEventId,
           title: calendarEvent?.title || notification.title || 'Recordatorio del calendario',
           subtitle: notification.body || (calendarEvent ? formatCalendarEventTime(calendarEvent, toLocalDateKey(new Date())) : 'Tienes un aviso del calendario.'),
@@ -365,6 +413,17 @@ function App() {
       }
       return false
     }
+
+    const recoverDelivered = async () => {
+      try {
+        const notifications = await deliveredCalendarReminders()
+        if (disposed) return
+        for (const notification of notifications) showNotificationAlert(notification)
+      } catch (error) { console.warn('No se pudieron recuperar los recordatorios pendientes.', error) }
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') void recoverDelivered() }
+    document.addEventListener('visibilitychange', onVisible)
+    void recoverDelivered()
 
     void LocalNotifications.addListener('localNotificationActionPerformed', ({ notification }) => {
       if (showNotificationAlert(notification)) return
@@ -395,8 +454,8 @@ function App() {
       showNotificationAlert(notification)
     }).then(registerListener)
 
-    return () => { disposed = true; removers.forEach((remove) => remove()) }
-  }, [registerInteraction, startRinging, dashboardReady])
+    return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); removers.forEach((remove) => remove()) }
+  }, [registerInteraction, startRinging, enqueueCalendarAlert, dashboardReady])
 
   useEffect(() => {
     const preferences = dashboardState.preferences
@@ -967,6 +1026,16 @@ function App() {
       dashboardStateRef.current = result.state
       setDashboardState(result.state)
     }
+    if (command.type === 'create_task_reminder') {
+      let warning = ''
+      try {
+        const permission = await checkNotificationPermissionStatus()
+        if (!permission.supported) warning = txFor(current.preferences.assistantLanguage, 'El aviso está configurado; las notificaciones requieren la aplicación Android.')
+        else if (permission.display !== 'granted') warning = txFor(current.preferences.assistantLanguage, 'Activa el permiso de notificaciones en Ajustes para recibir el aviso.')
+        else if (permission.exactAlarm !== 'granted' && permission.exactAlarm !== 'not-required') warning = txFor(current.preferences.assistantLanguage, 'Sin permiso de alarmas exactas, Android podría retrasar el aviso.')
+      } catch { warning = txFor(current.preferences.assistantLanguage, 'No he podido comprobar los permisos del aviso. Revísalos en Ajustes.') }
+      if (warning) return { ...result, response: `${result.response} ${warning}` }
+    }
     return result
   }
 
@@ -1131,19 +1200,19 @@ function App() {
       onClick={handleClick}
     >
       <section className={`tablet-content ${screen === 'settings' ? 'is-settings' : ''} ${screen === 'home' && activePage?.id === 'calendar' ? 'is-calendar' : ''} ${screen === 'home' && activePage?.id === 'weather' ? 'is-weather' : ''} ${screen === 'home' && activePage?.id === 'clock' ? 'is-clock' : ''}`} aria-label="Pablo Tablet">
-        {screen === 'home' && activePage?.id === 'assistant' ? (
-          <AssistantPage
-            enabled={dashboardState.preferences.assistantEnabled}
-            voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
-            readAloud={dashboardState.preferences.assistantReadAloud}
-            speechVoice={dashboardState.preferences.assistantVoices[dashboardState.preferences.assistantLanguage]}
-            assistantLanguage={dashboardState.preferences.assistantLanguage}
-            now={now}
-            onExecute={executeAssistant}
-            onOpenPage={openDashboardPage}
-            onEditingChange={setInteractionLocked}
-          />
-        ) : screen === 'home' && activePage ? (
+        <AssistantPage
+          enabled={dashboardState.preferences.assistantEnabled}
+          voiceEnabled={dashboardState.preferences.assistantVoiceEnabled}
+          readAloud={dashboardState.preferences.assistantReadAloud}
+          speechVoice={dashboardState.preferences.assistantVoices[dashboardState.preferences.assistantLanguage]}
+          assistantLanguage={dashboardState.preferences.assistantLanguage}
+          now={now}
+          onExecute={executeAssistant}
+          onOpenPage={openDashboardPage}
+          onEditingChange={setInteractionLocked}
+          visible={screen === 'home' && activePage?.id === 'assistant'}
+        />
+        {screen === 'home' && activePage && activePage.id !== 'assistant' ? (
           <DashboardPage
             key={activePage.id}
             page={activePage}
@@ -1209,7 +1278,7 @@ function App() {
             onChangeWidgetLayout={updateWidgetLayout}
             onEditingChange={setInteractionLocked}
           />
-        ) : (
+        ) : screen === 'settings' ? (
           <SettingsPage
             preferences={dashboardState.preferences}
             widgets={dashboardState.widgets}
@@ -1219,7 +1288,7 @@ function App() {
             onWidgetVisibilityChange={(widgetId, visible) => { if (widgetId === 'assistant' && !visible) setAssistantPopupOpen(false); setWidgetVisible(widgetId, visible) }}
             nightModeActive={nightModeActive}
           />
-        )}
+        ) : null}
       </section>
 
       {dashboardState.preferences.assistantEnabled && dashboardState.widgets.some((widget) => widget.id === 'assistant' && widget.visible) && !(screen === 'home' && activePage?.id === 'assistant') ? (
@@ -1256,7 +1325,7 @@ function App() {
         </section>
       ) : null}
 
-      {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>{tx('Simulación web de aviso local')}</small></div><button type="button" onClick={() => setSimulatedAlert(null)} aria-label={tx('Cerrar aviso')}><X size={18} /></button></div> : null}
+      {simulatedAlert ? <div className="simulated-alert" role="alert"><BellRing size={21} /><div><strong>{simulatedAlert.title}</strong><p>{simulatedAlert.body}</p><small>{tx('Simulación web de aviso local')}</small>{simulatedAlerts.length > 1 ? <small>{tx('{{count}} avisos pendientes', { count: simulatedAlerts.length })}</small> : null}</div><button type="button" onClick={() => setSimulatedAlerts(current => current.filter(alert => alert.id !== simulatedAlert.id))} aria-label={tx('Cerrar aviso')}><X size={18} /></button></div> : null}
       {ringingAlert ? <RingingAlertOverlay alert={ringingAlert} snoozeMinutes={snoozeMinutes} onSnoozeMinutesChange={setSnoozeMinutes} onSnooze={snoozeRingingAlert} onStop={stopRinging} /> : null}
       {screensaverVisible ? <GalleryScreensaver photo={screensaverPhoto} now={now} time={time} date={date} calendarEvents={calendarEvents} calendars={dashboardState.externalCalendars} onDismiss={() => { setScreensaverVisible(false); registerInteraction() }} /> : null}
 
@@ -1638,8 +1707,7 @@ function GridDashboard({ clockWidgetStyle, now, time, date, widgets, notes, alar
   const visibleDashboardNotes = notes
     .filter((note) => !note.archived)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt))
-  const upcomingEvents = getUpcomingCalendarEvents(calendarEvents, now, time, 6, calendars)
-  const upcomingHolidays = getUpcomingCalendarHolidays(calendarEvents, now, time, 3, calendars)
+  const upcomingGroups = getUpcomingCalendarGroups(calendarEvents, now, time, 3, calendars)
 
   const cancelWidgetHold = useCallback(() => {
     if (holdTimer.current !== null) window.clearTimeout(holdTimer.current)
@@ -1872,7 +1940,7 @@ function GridDashboard({ clockWidgetStyle, now, time, date, widgets, notes, alar
       {isEditing ? <div className="widget-editor-banner" data-swipe-block><span>{tx('Arrastra para mover · arrastra los bordes para ajustar')}</span><button type="button" onClick={finishEditing}><Check size={17} />{tx('Listo')}</button></div> : null}
       <div ref={gridRef} className={`dashboard-grid is-${orientation}`}>
         {displayedWidgets.length > 0
-          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} clockWidgetStyle={clockWidgetStyle} now={now} date={date} notes={visibleDashboardNotes} alarms={alarms} calendarEvents={calendarEvents} upcomingEvents={upcomingEvents} upcomingHolidays={upcomingHolidays} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
+          ? displayedWidgets.map((widget) => <DashboardWidgetCard key={widget.id} widget={widget} clockWidgetStyle={clockWidgetStyle} now={now} date={date} notes={visibleDashboardNotes} alarms={alarms} calendarEvents={calendarEvents} upcomingGroups={upcomingGroups} showUpcomingCalendarHolidays={showUpcomingCalendarHolidays} homeWeatherLocation={homeWeatherLocation} homeWeatherForecast={homeWeatherForecast} weatherLoading={weatherLoading} isEditing={isEditing} showResizeHandles={selectedWidgetId === widget.id} isHolding={holdingWidgetId === widget.id} dragOffset={dragPreview?.widgetId === widget.id ? dragPreview : null} onHoldStart={startWidgetHold} onDragStart={startWidgetDrag} onDragMove={moveWidgetDrag} onDragEnd={finishWidgetDrag} onResizeStart={startWidgetResize} onResizeMove={moveWidgetResize} onResizeEnd={finishWidgetResize} canExpand={(direction) => canExpandWidget(widget, direction)} canShrink={(direction) => canShrinkWidget(widget, direction)} onActivate={activateWidget} onOpenNotes={onOpenNotes} onOpenWeather={onOpenWeather} onOpenCalendar={onOpenCalendar} onOpenAssistant={onOpenAssistant} />)
           : <DashboardEmptyState time={time} date={date} />}
       </div>
     </div>
@@ -1931,16 +1999,15 @@ function DashboardWidgetFrame({ widget, style, isEditing, showResizeHandles, isH
   </div>
 }
 
-function DashboardWidgetCard({ widget, clockWidgetStyle, now, date, notes, alarms, calendarEvents, upcomingEvents, upcomingHolidays, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
+function DashboardWidgetCard({ widget, clockWidgetStyle, now, date, notes, alarms, calendarEvents, upcomingGroups, showUpcomingCalendarHolidays, homeWeatherLocation, homeWeatherForecast, weatherLoading, isEditing, showResizeHandles, isHolding, dragOffset, onHoldStart, onDragStart, onDragMove, onDragEnd, onResizeStart, onResizeMove, onResizeEnd, canExpand, canShrink, onActivate, onOpenNotes, onOpenWeather, onOpenCalendar, onOpenAssistant }: {
   widget: PlacedWidget
   clockWidgetStyle: ClockWidgetStyle
   now: Date
   date: string
   notes: Note[]
   calendarEvents: CalendarEvent[]
-  upcomingEvents: CalendarEvent[]
+  upcomingGroups: ReturnType<typeof getUpcomingCalendarGroups>
   alarms: Alarm[]
-  upcomingHolidays: CalendarEvent[]
   showUpcomingCalendarHolidays: boolean
   homeWeatherLocation: WeatherLocation | null
   homeWeatherForecast: WeatherForecast | null
@@ -2025,8 +2092,9 @@ function DashboardWidgetCard({ widget, clockWidgetStyle, now, date, notes, alarm
     return { key, day: value.getDate(), muted: value.getMonth() !== now.getMonth(), events: summarizeCalendarCellEvents(events, key) }
   })
   const agendaCount: Record<string, number> = { '1x1': 0, '1x2': 2, '1x3': 3, '1x4': 4, '2x1': 1, '2x2': 2, '2x3': 3, '2x4': 5, '3x1': 2, '3x2': 3, '3x3': 5, '3x4': 6, '4x1': 2, '4x2': 4, '4x3': 6, '4x4': 6 }
-  const showHolidaySection = showUpcomingCalendarHolidays && area >= 6 && upcomingHolidays.length > 0
-  const visibleAgendaCount = showHolidaySection ? Math.max(1, (agendaCount[sizeKey] ?? 0) - 1) : agendaCount[sizeKey] ?? 0
+  const agendaBudget = agendaCount[sizeKey] ?? 0
+  const selectedGroups = agendaBudget > 0 ? CALENDAR_CATEGORY_ORDER.filter(category => (category !== 'holiday' || showUpcomingCalendarHolidays) && upcomingGroups[category].length > 0) : []
+  const visibleAgendaCount = 3
   const calendarSubtitle = visibleDayCount === 7
     ? tx('Esta semana')
     : showWholeMonth
@@ -2049,52 +2117,21 @@ function DashboardWidgetCard({ widget, clockWidgetStyle, now, date, notes, alarm
           return <button key={cell.key} type="button" aria-label={tx('Abrir {{name}}', { name: formatCalendarDay(new Date(`${cell.key}T12:00:00`)) })} aria-current={isToday ? 'date' : undefined} className={`${isToday ? 'is-today' : ''} ${cell.muted ? 'is-muted' : ''}`} onPointerDown={(event) => event.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(cell.key))}>
             <strong>{cell.day}</strong>
             {isToday ? <span className="calendar-widget-today" aria-hidden="true">{tx('Hoy')}</span> : null}
-            {cell.events.slice(0, showSecondEvent ? 2 : 1).map((event, index) => <small key={event.id} title={event.title || tx('Evento')} className={`calendar-widget-event ${index === 1 ? 'calendar-widget-second-event' : ''} event-${event.color} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}>{event.title || tx('Evento')}</small>)}
+            {cell.events.slice(0, showSecondEvent ? 2 : 1).map((event, index) => <small key={event.id} title={event.title || tx('Evento')} className={`calendar-widget-event ${index === 1 ? 'calendar-widget-second-event' : ''} event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''} ${event.source !== 'native' && isCalendarEventPast(event, now) ? 'is-past' : ''}`}><CalendarEventTypeMark type={event.type} source={event.source} size={9} />{event.title || tx('Evento')}</small>)}
             {remaining > 0 ? <span className={`calendar-widget-more ${showSecondEvent ? 'calendar-widget-second-count' : ''}`} aria-label={tx(remaining === 1 ? '{{count}} evento más' : '{{count}} eventos más', { count: remaining })}>+{remaining}</span> : null}
           </button>
         })}</div>
       </section>
-      {(agendaCount[sizeKey] ?? 0) > 0 ? <aside className={`calendar-widget-agenda ${showHolidaySection ? 'has-holidays' : ''}`} aria-label={tx('Calendario')} tabIndex={0} data-swipe-block>
-        <div className="calendar-widget-upcoming"><p>{tx('Próximos eventos')}</p>{upcomingEvents.length > 0 ? upcomingEvents.slice(0, visibleAgendaCount).map((event) => <button type="button" key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><CalendarEventTypeMark type={event.type} source={event.source} /><span>{event.title || tx('Evento')}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>) : <span className="calendar-widget-empty"><Compass size={19} />{tx('Sin eventos próximos')}</span>}</div>
-        {showHolidaySection ? <div className="calendar-widget-holidays"><p><Sparkles size={12} />{tx('Próximos festivos')}</p>{upcomingHolidays.slice(0, 2).map((event) => <button type="button" key={event.id} className={`calendar-event-line is-holiday event-${event.color} ${nativeCalendarClass(event)}`} onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><Sparkles size={13} /><span>{event.title || tx('Festivo')}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>)}</div> : null}
+      {selectedGroups.length > 0 ? <aside className="calendar-widget-agenda" aria-label={tx('Calendario')} tabIndex={0} data-swipe-block>
+        {selectedGroups.map(category => <section key={category} className={`calendar-widget-upcoming ${category === 'holiday' ? 'calendar-widget-holidays' : ''}`} aria-label={tx(CALENDAR_CATEGORY_LABELS[category])}>
+          <p>{tx(CALENDAR_CATEGORY_LABELS[category])}</p>
+          {upcomingGroups[category].slice(0, visibleAgendaCount).map(event => <button type="button" key={event.id} className={`calendar-event-line event-${event.color} kind-${event.type} ${category === 'holiday' ? 'is-holiday' : ''} ${nativeCalendarClass(event)}`} onPointerDown={pointerEvent => pointerEvent.stopPropagation()} onClick={() => onActivate(() => onOpenCalendar(event.date))}><i /><span className="calendar-event-copy"><b><CalendarEventTypeMark type={event.type} source={event.source} /><span>{event.title || tx('Evento')}</span></b><time>{formatCalendarEventTime(event, toLocalDateKey(now))}</time></span></button>)}
+        </section>)}
       </aside> : null}
     </div>
   </article></DashboardWidgetFrame>
 }
 
-const HOLIDAY_CALENDAR_PATTERN = /(holiday|holidays|festiv|festivo|festivos|bank[ _-]?holiday|feiertag|f[eé]ri[eé])/i
-
-function isCalendarHoliday(event: CalendarEvent, calendars: SyncedCalendar[] = []) {
-  if (event.source === 'native') return true
-  if (event.isHoliday) return true
-  if (!event.allDay || event.source === 'local' || !event.accountId || !event.calendarId) return false
-  const calendar = calendars.find((candidate) => candidate.provider === event.source && candidate.accountId === event.accountId && candidate.remoteId === event.calendarId)
-  return Boolean(calendar && HOLIDAY_CALENDAR_PATTERN.test(`${calendar.name} ${calendar.remoteId}`))
-}
-
-function getUpcomingCalendarItems(calendarEvents: CalendarEvent[], now: Date, time: string, limit: number, calendars: SyncedCalendar[], holidaysOnly: boolean) {
-  const todayKey = toLocalDateKey(now)
-  return calendarEvents
-    .filter((event) => event.type !== 'task' || !event.completed)
-    .filter((event) => isCalendarHoliday(event, calendars) === holidaysOnly)
-    .map((event) => {
-      let occurrence = nextCalendarOccurrence(event, todayKey)
-      if (occurrence?.endDate === todayKey && !event.allDay && event.endTime < time && event.recurrence !== 'none') occurrence = nextCalendarOccurrence(event, addDaysToDateKey(todayKey, 1))
-      if (!occurrence || (occurrence.endDate === todayKey && !event.allDay && event.endTime < time)) return null
-      return eventForOccurrence(event, occurrence)
-    })
-    .filter((event): event is CalendarEvent => event !== null)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
-    .slice(0, limit)
-}
-
-function getUpcomingCalendarEvents(calendarEvents: CalendarEvent[], now: Date, time: string, limit = 3, calendars: SyncedCalendar[] = []) {
-  return getUpcomingCalendarItems(calendarEvents, now, time, limit, calendars, false)
-}
-
-function getUpcomingCalendarHolidays(calendarEvents: CalendarEvent[], now: Date, time: string, limit = 3, calendars: SyncedCalendar[] = []) {
-  return getUpcomingCalendarItems(calendarEvents, now, time, limit, calendars, true)
-}
 
 function isCalendarEventPast(event: CalendarEvent, now: Date) {
   const todayKey = toLocalDateKey(now)
@@ -2205,7 +2242,7 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
   const visibleEvents = hideCompletedTasks ? sourceVisibleEvents.filter((event) => event.type !== 'task' || !event.completed) : sourceVisibleEvents
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   const currentHour = now.getHours()
-  const upcomingEvents = getUpcomingCalendarEvents(visibleEvents, now, currentTime, 5, calendars)
+  const upcomingGroups = getUpcomingCalendarGroups(visibleEvents, now, currentTime, 3, calendars)
   const currentMonthKey = todayKey.slice(0, 7)
   const dayViewDates = [-1, 0, 1].map((offset) => addDaysToDateKey(selectedDate, offset))
   const dayViewEvents = dayViewDates.map((date) => visibleEvents.flatMap((event) => {
@@ -2309,13 +2346,16 @@ function CalendarPage({ now, initialDate, events, accounts, calendars, hideCompl
       </section>
       <div className="calendar-side-column">
         <aside className="calendar-upcoming-panel">
-          <header><div><p className="eyebrow">{tx('Tu agenda')}</p><h2>{tx('Próximos eventos')}</h2></div><CalendarDays size={21} /></header>
-          <div className="calendar-upcoming-list">{upcomingEvents.length > 0 ? upcomingEvents.map((event, index) => {
+          <header><div><p className="eyebrow">{tx('Tu agenda')}</p><h2>{tx('Calendario')}</h2></div><CalendarDays size={21} /></header>
+          {CALENDAR_CATEGORY_ORDER.filter(category => upcomingGroups[category].length > 0).map(category => <section key={category} className="calendar-upcoming-category" aria-label={tx(CALENDAR_CATEGORY_LABELS[category])}>
+            <h3>{tx(CALENDAR_CATEGORY_LABELS[category])}</h3>
+            <div className="calendar-upcoming-list">{upcomingGroups[category].map((event, index) => {
             const eventMonthKey = event.date.slice(0, 7)
-            const previousMonthKey = index === 0 ? currentMonthKey : upcomingEvents[index - 1].date.slice(0, 7)
+            const previousMonthKey = index === 0 ? currentMonthKey : upcomingGroups[category][index - 1].date.slice(0, 7)
             const showMonthSeparator = eventMonthKey !== previousMonthKey
             return <Fragment key={event.id}>{showMonthSeparator ? <div className="calendar-upcoming-month"><span>{formatCalendarMonth(new Date(`${eventMonthKey}-01T12:00:00`))}</span></div> : null}<button type="button" disabled={event.source === 'native'} className={`calendar-upcoming-event event-${event.color} kind-${event.type} ${nativeCalendarClass(event)} ${event.completed ? 'is-completed' : ''}`} onClick={() => openEditor(event.id)}><i /><span><strong><CalendarEventTypeMark type={event.type} source={event.source} />{event.title || tx('Evento')}{event.recurrence !== 'none' ? <RotateCw className="calendar-recurrence-mark" size={12} /> : null}</strong><small>{event.source === 'native' ? event.notes : event.completed ? tx('Completada · {{time}}', { time: formatCalendarEventTime(event, todayKey) }) : formatCalendarEventTime(event, todayKey)}</small></span>{event.source !== 'native' ? <ChevronRight size={17} /> : null}</button></Fragment>
-          }) : <div className="calendar-upcoming-empty"><span>{tx('No hay próximos eventos.')}</span></div>}</div>
+          })}</div>
+          </section>)}
         </aside>
         <CalendarConnectionsPanel accounts={accounts} onConnected={onConnected} onSync={onSync} onDisconnect={onDisconnect} />
       </div>
@@ -2331,7 +2371,6 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
   const [endYear, endMonth, endDay] = event.endDate.split('-').map(Number)
   const years = Array.from({ length: 7 }, (_, index) => new Date().getFullYear() - 1 + index)
   const months = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: new Intl.DateTimeFormat(activeLocale(), { month: 'long' }).format(new Date(2026, index, 1)) }))
-  const times = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`)
   const writableCalendars = calendars.filter((calendar) => !calendar.readOnly)
   const selectedCalendar = calendars.find((calendar) => calendar.provider === event.source && calendar.accountId === event.accountId && calendar.remoteId === event.calendarId)
   const canChangeDestination = event.source === 'local' || event.syncStatus === 'pending-create'
@@ -2380,7 +2419,7 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
           <label><span>{tx('Mes')}</span><select value={month} onChange={(change) => updateDate(year, Number(change.target.value), day)}>{months.map((value) => <option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
           <label><span>{tx('Año')}</span><select value={year} onChange={(change) => updateDate(Number(change.target.value), month, day)}>{years.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
         </> : null}
-        {!event.allDay ? <label><span>{tx('Hora')}</span><select value={time} onChange={(change) => isStart ? updateStartTime(change.target.value) : updateEndTime(change.target.value)}>{times.map((value) => <option key={value}>{value}</option>)}</select></label> : null}
+        {!event.allDay ? <TimePicker label={tx('Hora')} value={time} onChange={next => isStart ? updateStartTime(next) : updateEndTime(next)} /> : null}
       </div>
     </div>
   }
@@ -2418,7 +2457,6 @@ function CalendarEventEditor({ event, calendars, onUpdate, onSetDestination, onD
 function CalendarRemindersEditor({ event, onUpdate, onClose }: { event: CalendarEvent; onUpdate: (eventId: string, patch: CalendarEventPatch) => void; onClose: () => void }) {
   const years = Array.from({ length: 7 }, (_, index) => new Date().getFullYear() - 1 + index)
   const months = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: new Intl.DateTimeFormat(activeLocale(), { month: 'long' }).format(new Date(2026, index, 1)) }))
-  const times = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`)
   const sortedReminders = [...event.reminders].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))
 
   const updateReminders = (reminders: CalendarEventReminder[]) => onUpdate(event.id, { reminders })
@@ -2447,7 +2485,7 @@ function CalendarRemindersEditor({ event, onUpdate, onClose }: { event: Calendar
           <label><span>{tx('Día')}</span><select value={day} onChange={(change) => updateReminderDate(reminder, year, month, Number(change.target.value))}>{days.map((value) => <option key={value}>{value}</option>)}</select></label>
           <label><span>{tx('Mes')}</span><select value={month} onChange={(change) => updateReminderDate(reminder, year, Number(change.target.value), day)}>{months.map((value) => <option key={value.value} value={value.value}>{value.label}</option>)}</select></label>
           <label><span>{tx('Año')}</span><select value={year} onChange={(change) => updateReminderDate(reminder, Number(change.target.value), month, day)}>{years.map((value) => <option key={value}>{value}</option>)}</select></label>
-          <label><span>{tx('Hora')}</span><select value={reminder.time} onChange={(change) => updateReminder(reminder.id, { time: change.target.value })}>{times.map((value) => <option key={value}>{value}</option>)}</select></label>
+          <TimePicker label={tx('Hora')} value={reminder.time} onChange={time => updateReminder(reminder.id, { time })} />
           <button type="button" className="calendar-reminder-delete" onClick={() => removeReminder(reminder.id)} aria-label={tx('Eliminar recordatorio')}><Trash2 size={17} /></button>
         </div>
       }) : <div className="calendar-reminders-empty"><BellRing size={27} /><strong>{tx('Sin recordatorios')}</strong><span>{tx('Añade uno con los botones superiores.')}</span></div>}</div>
@@ -2750,15 +2788,6 @@ function formatAlarmWeekdays(days: AlarmWeekday[]) {
   return ALARM_WEEKDAYS.filter((day) => days.includes(day.value)).map((day) => tx(day.label as import('./i18n/translations').TranslationKey).slice(0, 1)).join(', ')
 }
 
-function AlarmTimeStepper({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [hour, minute] = value.split(':').map(Number)
-  const change = (part: 'hour' | 'minute', delta: number) => {
-    const nextHour = part === 'hour' ? (hour + delta + 24) % 24 : hour
-    const nextMinute = part === 'minute' ? (minute + delta + 60) % 60 : minute
-    onChange(`${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`)
-  }
-  return <div className="alarm-time-field"><span>{tx('Hora')}</span><div className="alarm-time-stepper"><div><button type="button" onClick={() => change('hour', 1)} aria-label={tx('Subir hora')}><Plus size={16} /></button><strong>{String(hour).padStart(2, '0')}</strong><small>{tx('hora')}</small><button type="button" onClick={() => change('hour', -1)} aria-label={tx('Bajar hora')}><Minus size={16} /></button></div><b>:</b><div><button type="button" onClick={() => change('minute', 1)} aria-label={tx('Subir minutos')}><Plus size={16} /></button><strong>{String(minute).padStart(2, '0')}</strong><small>{tx('min')}</small><button type="button" onClick={() => change('minute', -1)} aria-label={tx('Bajar minutos')}><Minus size={16} /></button></div></div></div>
-}
 
 function AlarmEditor({ alarm, sounds, onUpdate, onDelete, onClose, onPreviewNotification }: { alarm: Alarm; sounds: DeviceAlarmSound[]; onUpdate: (alarmId: string, patch: Partial<Pick<Alarm, 'label' | 'time' | 'enabled' | 'weekdays' | 'soundName' | 'soundUri'>>) => void; onDelete: () => void; onClose: () => void; onPreviewNotification: (title: string, body: string) => void }) {
   const toggleWeekday = (weekday: AlarmWeekday) => {
@@ -2780,7 +2809,7 @@ function AlarmEditor({ alarm, sounds, onUpdate, onDelete, onClose, onPreviewNoti
     <section className="alarm-editor" role="dialog" aria-modal="true" aria-labelledby="alarm-editor-title">
       <div className="alarm-editor-header"><div><p className="eyebrow">{tx('Configurar alarma')}</p><h2 id="alarm-editor-title">{alarm.label || tx('Alarma')}</h2></div><button type="button" className="editor-close" onClick={onClose} aria-label={tx('Cerrar configuración')}><X size={21} /></button></div>
       <div className="alarm-editor-grid">
-        <AlarmTimeStepper value={alarm.time} onChange={(time) => onUpdate(alarm.id, { time })} />
+        <TimePicker label={tx('Hora')} value={alarm.time} onChange={(time) => onUpdate(alarm.id, { time })} />
         <label className="alarm-name-field"><span>{tx('Nombre')}</span><input value={alarm.label} maxLength={60} onChange={(event) => onUpdate(alarm.id, { label: event.target.value })} /></label>
         <fieldset className="weekday-picker"><legend>{tx('Repetir')}</legend><div>{ALARM_WEEKDAYS.map((weekday) => <button key={weekday.value} type="button" className={alarm.weekdays.includes(weekday.value) ? 'is-selected' : ''} onClick={() => toggleWeekday(weekday.value)} aria-pressed={alarm.weekdays.includes(weekday.value)} aria-label={tx(weekday.label as import('./i18n/translations').TranslationKey)}>{tx(weekday.label as import('./i18n/translations').TranslationKey).slice(0, 1)}</button>)}</div></fieldset>
         <div className="alarm-sound-field"><label><span>{tx('Sonido')}</span><select value={alarm.soundUri ?? ''} onChange={(event) => { const sound = sounds.find((item) => item.uri === event.target.value) ?? DEFAULT_ALARM_SOUND; onUpdate(alarm.id, { soundName: sound.name, soundUri: sound.uri || null }) }}>{sounds.map((sound) => <option key={sound.uri || 'default'} value={sound.uri}>{sound.name === 'Sonido predeterminado' ? tx('Sonido predeterminado') : sound.name}</option>)}</select></label><button type="button" className="sound-preview" onClick={previewSound}><Volume2 size={18} />{tx('Probar')}</button></div>
@@ -3254,7 +3283,7 @@ function NoteEditor({ note, readOnly, drawingExpanded, onDrawingExpandedChange, 
             ? <NoteListEditor key={note.id} note={note} readOnly={readOnly} onUpdate={onUpdate} onEditingChange={onEditingChange} />
             : <NoteTextEditor note={note} readOnly={readOnly} onUpdate={onUpdate} onEditingChange={onEditingChange} />}
       </div>
-      <div className="note-editor-footer">{readOnly ? <span>{tx('Nota archivada')}</span> : <span className="reminder-controls"><label>{tx('Recordatorio')}<input type="datetime-local" value={note.reminderAt ?? ''} onChange={(event) => onUpdate(note.id, { reminderAt: event.target.value || null })} /></label><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || tx('Recordatorio'), notificationBody)}><BellRing size={15} />{tx('Probar aviso')}</button></span>}<span>{isDrawing ? tx('{{count}} trazos · Dibujo local', { count: note.drawing.length }) : isList ? tx('{{checked}}/{{count}} marcados · Guardado local', { checked: listItems.filter((item) => item.checked).length, count: listItems.length }) : tx('{{count}}/2000 · Guardado local', { count: note.content.length })}</span></div>
+      <div className="note-editor-footer">{readOnly ? <span>{tx('Nota archivada')}</span> : <div className="reminder-controls"><DateTimePicker key={note.id} label={tx('Recordatorio')} value={note.reminderAt} onChange={reminderAt => onUpdate(note.id, { reminderAt })} /><button type="button" className="text-action" onClick={() => onPreviewNotification(note.title || tx('Recordatorio'), notificationBody)}><BellRing size={15} />{tx('Probar aviso')}</button></div>}<span>{isDrawing ? tx('{{count}} trazos · Dibujo local', { count: note.drawing.length }) : isList ? tx('{{checked}}/{{count}} marcados', { checked: listItems.filter((item) => item.checked).length, count: listItems.length }) : tx('{{count}}/2000', { count: note.content.length })}</span></div>
     </div>
   )
 }

@@ -234,3 +234,163 @@
 @media (prefers-reduced-motion: reduce) {
   .tablet-shell[data-theme] { transition: none; }
 }
+
+/* Reminder controls share the active theme instead of dark-only text colours. */
+.tablet-shell[data-theme] :is(.calendar-reminder-presets button, .calendar-reminder-row, .calendar-reminder-row select) {
+  background: var(--ui-control);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+.tablet-shell[data-theme] .calendar-reminder-presets button:is(:hover, :focus-visible) {
+  background: var(--ui-action-soft);
+  border-color: var(--ui-focus);
+}
+.tablet-shell[data-theme] :is(.calendar-reminders-empty, .calendar-reminders-empty span, .calendar-reminder-row label > span, .calendar-reminders-help, .calendar-reminder-count) {
+  color: var(--ui-text-muted);
+}
+.tablet-shell[data-theme] .calendar-reminders-empty strong { color: var(--ui-text); }
+.tablet-shell[data-theme] .calendar-reminder-row option { background: var(--ui-panel-solid); color: var(--ui-text); }
+.tablet-shell[data-theme] .calendar-reminder-delete { background: var(--ui-control); border-color: var(--ui-border); color: var(--ui-danger); }
+
+/* Alarm and calendar overlays use the same appearance contract as their pages. */
+.tablet-shell[data-theme] .ringing-alert-backdrop {
+  background: var(--theme-overlay);
+  backdrop-filter: blur(var(--ui-backdrop-blur));
+}
+.tablet-shell[data-theme] .ringing-alert-card {
+  background: var(--ui-panel-solid);
+  border-color: var(--ui-border-strong);
+  border-width: var(--ui-outline-width);
+  border-radius: var(--ui-radius-panel);
+  box-shadow: var(--ui-shadow);
+  color: var(--ui-text);
+}
+.tablet-shell[data-theme] .ringing-alert-card h2 {
+  color: var(--ui-text);
+  font-family: var(--ui-heading-font);
+  font-weight: var(--theme-heading-weight);
+}
+.tablet-shell[data-theme] .ringing-alert-card > p { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .ringing-alert-card .ringing-bell {
+  background: var(--ui-action-soft);
+  color: var(--ui-action-label);
+}
+.tablet-shell[data-theme] .snooze-action :is(select, button) {
+  background: var(--ui-control);
+  border: var(--ui-outline-width) solid var(--ui-border);
+  color: var(--ui-text);
+}
+.tablet-shell[data-theme] .snooze-action select { border-radius: var(--ui-radius-control) 0 0 var(--ui-radius-control); }
+.tablet-shell[data-theme] .snooze-action button { border-radius: 0 var(--ui-radius-control) var(--ui-radius-control) 0; }
+.tablet-shell[data-theme] .snooze-action option { background: var(--ui-panel-solid); color: var(--ui-text); }
+.tablet-shell[data-theme] .stop-ringing {
+  background: var(--ui-action);
+  border: var(--ui-outline-width) solid var(--ui-action);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-action-text);
+}
+.tablet-shell[data-theme] .ringing-alert-card.is-calendar-reminder { animation-name: theme-reminder-pulse; }
+@keyframes theme-reminder-pulse {
+  0%, 100% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ui-action) 12%, transparent); transform: scale(1); }
+  50% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--ui-action) 5%, transparent); transform: scale(1.012); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tablet-shell[data-theme] .ringing-alert-card,
+  .tablet-shell[data-theme] .ringing-alert-card.is-calendar-reminder { animation: none; }
+}
+
+/* Local web notices stay readable in every theme until explicitly dismissed. */
+.tablet-shell[data-theme] .simulated-alert {
+  background: var(--ui-panel-solid);
+  border-color: var(--ui-border-strong);
+  border-width: var(--ui-outline-width);
+  border-radius: var(--ui-radius-panel);
+  box-shadow: var(--ui-shadow);
+  box-sizing: border-box;
+  color: var(--ui-text);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  right: 16px;
+  top: 16px;
+  width: min(440px, calc(100vw - 32px));
+}
+.tablet-shell[data-theme] .simulated-alert > div { min-width: 0; overflow-wrap: anywhere; }
+.tablet-shell[data-theme] .simulated-alert > svg { color: var(--ui-action-label); }
+.tablet-shell[data-theme] .simulated-alert strong { color: var(--ui-text); font-family: var(--ui-heading-font); }
+.tablet-shell[data-theme] .simulated-alert :is(p, small) { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .simulated-alert small { display: block; }
+.tablet-shell[data-theme] .simulated-alert button {
+  align-items: center;
+  background: var(--ui-control);
+  border: var(--ui-outline-width) solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-text);
+  display: flex;
+  flex: 0 0 44px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tablet-shell[data-theme] .simulated-alert { animation: none; }
+}
+
+/* Keep Lumi mounted while navigating, without exposing the inactive page. */
+.assistant-page[hidden] { display: none; }
+.assistant-chat-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; flex-wrap: wrap; }
+.assistant-chat-header .dashboard-header { margin: 0; }
+.assistant-new-chat { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; min-height: 44px; padding: 10px 14px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-control); background: var(--ui-control); color: var(--ui-text); cursor: pointer; font: inherit; }
+.assistant-new-chat:disabled { opacity: .5; cursor: default; }
+.assistant-new-chat:focus-visible { outline: 2px solid var(--ui-action); outline-offset: 3px; }
+.assistant-popup .assistant-chat-header { padding-right: 40px; }
+
+/* Notes lists share the active theme, including editing and reordering states. */
+.tablet-shell[data-theme] .note-list-editor {
+  background: var(--ui-control);
+  border: var(--ui-outline-width) solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-text);
+}
+.tablet-shell[data-theme] .note-list-scroll { scrollbar-color: var(--ui-border-strong) transparent; }
+.tablet-shell[data-theme] .note-list-row {
+  background: var(--ui-panel-solid);
+  border-color: var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  grid-template-columns: 38px 22px minmax(0, 1fr) 32px;
+  color: var(--ui-text);
+}
+.tablet-shell[data-theme] .note-list-row > input[type="text"] { background: transparent; color: var(--ui-text); }
+.tablet-shell[data-theme] .note-list-row > input[type="text"]::placeholder { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .note-list-row > input[type="checkbox"] { accent-color: var(--ui-action); }
+.tablet-shell[data-theme] :is(.note-list-reorder, .note-list-remove, .note-list-completed-toggle) { color: var(--ui-text-muted); border-radius: var(--ui-radius-control); }
+.tablet-shell[data-theme] :is(.note-list-row.is-completed, .note-list-row.is-completed > input[type="text"]) { color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .note-list-completed { border-color: var(--ui-border); }
+.tablet-shell[data-theme] .note-list-completed > div { opacity: 1; }
+.tablet-shell[data-theme] .note-list-add { color: var(--ui-action-label); border-radius: var(--ui-radius-control); }
+.tablet-shell[data-theme] :is(.note-list-add:hover, .note-list-completed-toggle:hover, .note-list-reorder:active, .note-list-reorder[aria-pressed="true"]) { background: var(--ui-control); color: var(--ui-action-label); }
+.tablet-shell[data-theme] .note-list-remove:hover { background: var(--ui-control); color: var(--ui-danger); }
+.tablet-shell[data-theme] .note-list-row:is(.is-dragging, .is-drop-before, .is-drop-after) { background: var(--ui-panel-solid); border-color: var(--ui-action); box-shadow: var(--ui-shadow); }
+.tablet-shell[data-theme] .note-list-drop-indicator::before { background: var(--ui-action); box-shadow: none; }
+.tablet-shell[data-theme] .note-list-drop-indicator::after { background: var(--ui-action); border-color: var(--ui-panel-solid); box-shadow: none; }
+.tablet-shell[data-theme] .note-list-drop-indicator span { background: var(--ui-action); border-color: var(--ui-action); color: var(--ui-action-text); box-shadow: var(--ui-shadow); }
+
+/* Date, time and preview use the same control height and lower alignment. */
+.tablet-shell[data-theme] .note-editor-footer { align-items: flex-end; color: var(--ui-text-muted); }
+.tablet-shell[data-theme] .note-editor-footer .reminder-controls { align-items: flex-end; max-width: 100%; }
+.tablet-shell[data-theme] .note-editor-footer .date-time-picker { align-items: flex-end; min-width: 0; }
+.tablet-shell[data-theme] .note-editor-footer .date-time-picker > label { align-items: stretch; display: grid; gap: 5px; min-width: 148px; }
+.tablet-shell[data-theme] .note-editor-footer :is(.date-time-picker > label > span, .time-picker-label) { color: var(--ui-text-muted); font-size: .7rem; font-weight: 700; line-height: 1.3; }
+.tablet-shell[data-theme] .note-editor-footer .time-picker-field { min-width: 132px; }
+.tablet-shell[data-theme] .note-editor-footer :is(input[type="date"], .time-picker-trigger, .reminder-controls .text-action) {
+  box-sizing: border-box;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  background: var(--ui-control);
+  border: var(--ui-outline-width) solid var(--ui-border);
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-text);
+  font-size: .8rem;
+  padding: 9px 11px;
+}
+.tablet-shell[data-theme] .note-editor-footer > span { align-items: center; display: flex; min-height: 44px; }

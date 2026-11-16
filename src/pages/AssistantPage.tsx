@@ -1,7 +1,8 @@
+import { reminderLeadTimeMinutes } from '../assistant/taskReminder'
 import { useEffect, useId, useImperativeHandle, useRef, useState, type FormEvent, type Ref } from 'react'
 import type { TOptions } from 'i18next'
-import { Bot, Check, Edit3, Mic, MicOff, Send, Volume2, X } from 'lucide-react'
-import { validateAssistantCommand, type AssistantCommand, type ValidatedAssistantPlan } from '../assistant/contracts'
+import { Bot, Check, Edit3, Mic, MicOff, MessageSquarePlus, Send, Volume2, X } from 'lucide-react'
+import { AssistantTimeRequired, type AssistantTimeContext, validateAssistantCommand, type AssistantCommand, type ValidatedAssistantPlan } from '../assistant/contracts'
 import { addDaysToDateKey, dateKeyToDayNumber } from '../calendarRecurrence'
 import { assistantCommandSummary, type AssistantExecutionResult } from '../assistant/executor'
 import { LocalAssistantProvider } from '../assistant/localProvider'
@@ -38,7 +39,7 @@ export interface AssistantPageHandle {
 
 const provider = new LocalAssistantProvider()
 const SESSION_LIMIT = 30
-const SUGGESTIONS: TranslationKey[] = ['¿Qué tengo hoy?', '¿Va a llover hoy?', 'Guarda una nota: comprar pilas', 'Temporizador de 20 minutos']
+const SUGGESTIONS: TranslationKey[] = ['¿Qué tengo hoy?', 'Crea una tarea para mañana: comprar pilas', 'Guarda una nota: comprar pilas', 'Temporizador de 20 minutos']
 
 const newMessage = (role: AssistantMessage['role'], text: string, openPage?: DashboardPageId): AssistantMessage => ({
   id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
@@ -61,6 +62,9 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [requestCount, setRequestCount] = useState(0)
+  const timeContextRef = useRef<AssistantTimeContext | null>(null)
+  const timeSourceRef = useRef('')
+  const [awaitingTime, setAwaitingTime] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const listeningControllerRef = useRef<AbortController | null>(null)
   const confirmingRef = useRef(false)
@@ -71,13 +75,31 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   const speechSequenceRef = useRef(0)
 
   useEffect(() => {
-    onEditingChange(visible && (processing || listening || pending !== null))
+    onEditingChange(visible && (processing || listening || pending !== null || awaitingTime))
     return () => onEditingChange(false)
-  }, [listening, onEditingChange, pending, processing, visible])
+  }, [awaitingTime, listening, onEditingChange, pending, processing, visible])
 
   useEffect(() => {
-    if (!visible) abortRef.current?.abort()
-  }, [visible])
+    if (!visible || !enabled) {
+      abortRef.current?.abort()
+      listeningControllerRef.current?.abort()
+      listeningControllerRef.current = null
+      setListening(false)
+      speechSequenceRef.current += 1
+      setSpeaking(false)
+      void stopAssistantSpeechRecognition().catch(() => undefined)
+      void stopAssistantSpeech().catch(() => undefined)
+      if (!confirmingRef.current) {
+        processingRef.current = false
+        setProcessing(false)
+      }
+      if (!enabled) {
+        timeContextRef.current = null
+        timeSourceRef.current = ''
+        setAwaitingTime(false)
+      }
+    }
+  }, [visible, enabled])
 
   useEffect(() => {
     const log = logRef.current
@@ -107,6 +129,15 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     finally { if (speechSequenceRef.current === sequence) setSpeaking(false) }
   }
 
+  const spokenProposal = (command: AssistantCommand) => {
+    const review = assistantCommandSummary(command, assistantLanguage, now)
+    if (command.type === 'create_task_reminder' || command.type === 'create_task') {
+      const details = review.details.slice(0, command.type === 'create_task_reminder' ? 3 : 2)
+      return `${details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`
+    }
+    return `${review.title}. ${review.details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`
+  }
+
   const submit = async (text: string, voiceRequest = false) => {
     const trimmed = text.trim()
     if (!trimmed || processingRef.current || pendingRef.current) return
@@ -115,8 +146,19 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       if (voiceRequest) onVoiceResponseReady?.()
       return
     }
+    if (timeContextRef.current && /^(cancelar|cancela|cancel|no)$/i.test(trimmed)) {
+      timeContextRef.current = null
+      timeSourceRef.current = ''
+      setAwaitingTime(false)
+      setInput('')
+      const message = tx('Acción cancelada. No se ha modificado ningún dato.')
+      setMessages(current => [...current, newMessage('assistant', message)])
+      if (voiceRequest) onVoiceResponseReady?.()
+      if (voiceRequest || readAloud) await speakResponse(message)
+      return
+    }
     if (requestCount >= SESSION_LIMIT) {
-      setMessages((current) => [...current, newMessage('assistant', tx('Has alcanzado el límite de 30 peticiones de esta sesión. Cierra y vuelve a abrir la pantalla para continuar.'))])
+      setMessages((current) => [...current, newMessage('assistant', tx('Has alcanzado el límite de 30 peticiones de este chat. Pulsa Nuevo chat para continuar.'))])
       if (voiceRequest) onVoiceResponseReady?.()
       return
     }
@@ -148,18 +190,22 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
           locale: activeLocale(assistantLanguage),
           now: now.toISOString(),
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
+          timeClarification: timeContextRef.current ?? undefined,
         }, controller.signal)
       if (controller.signal.aborted) return
       if (plan.requiresConfirmation) {
-        const proposal = { plan, sourceText: trimmed }
+        const proposal = { plan, sourceText: timeSourceRef.current || trimmed }
+        timeContextRef.current = null
+        timeSourceRef.current = ''
+        setAwaitingTime(false)
         pendingRef.current = proposal
         setPending(proposal)
         processingRef.current = false
         setProcessing(false)
-        if (voiceRequest) {
-          onVoiceResponseReady?.()
-          await speakResponse(`${plan.explanation} ${tx('Puedes decir confirmar, editar o cancelar.')}`)
-          if (!controller.signal.aborted && pendingRef.current === proposal) await listenForPendingDecision(proposal)
+        if (voiceRequest || readAloud) {
+          if (voiceRequest) onVoiceResponseReady?.()
+          await speakResponse(spokenProposal(plan.command))
+          if (voiceRequest && !controller.signal.aborted && pendingRef.current === proposal) await listenForPendingDecision(proposal)
         }
       } else {
         const result = await executeAssistantPlan(plan, { execute: onExecute }) as AssistantExecutionResult
@@ -177,9 +223,22 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       }
     } catch (error) {
       if (!controller.signal.aborted) {
+        if (error instanceof AssistantTimeRequired) {
+          if (!timeSourceRef.current) timeSourceRef.current = trimmed
+          timeContextRef.current = error.context
+          setAwaitingTime(true)
+        }
         const message = error instanceof Error ? error.message : tx('No se ha podido procesar la petición.')
         setMessages((current) => [...current, newMessage('assistant', message)])
-        if (voiceRequest) { onVoiceResponseReady?.(); await speakResponse(message) }
+        if (voiceRequest || readAloud) {
+          if (voiceRequest) onVoiceResponseReady?.()
+          await speakResponse(message)
+        }
+        if (error instanceof AssistantTimeRequired && voiceRequest && !controller.signal.aborted) {
+          processingRef.current = false
+          setProcessing(false)
+          await toggleListening()
+        }
       }
     } finally {
       if (abortRef.current === controller) {
@@ -240,6 +299,17 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       const answer = await recognizeAssistantSpeech(controller.signal, assistantLanguage)
       if (controller.signal.aborted || pendingRef.current !== proposal) return
       if (listeningControllerRef.current === controller) { listeningControllerRef.current = null; setListening(false) }
+      const reminderMinutes = reminderLeadTimeMinutes(answer)
+      if (proposal.plan.command.type === 'create_task_reminder' && reminderMinutes !== null) {
+        const command = validateAssistantCommand({ ...proposal.plan.command, args: { ...proposal.plan.command.args, reminderMinutesBefore: reminderMinutes } })
+        const updated = { ...proposal, plan: { ...proposal.plan, command } }
+        pendingRef.current = updated
+        setPending(updated)
+        setMessages(current => [...current, newMessage('assistant', tx('Aviso actualizado. Revisa la propuesta y confirma cuando esté correcta.'))])
+        await speakResponse(spokenProposal(command))
+        if (!controller.signal.aborted && pendingRef.current === updated) await listenForPendingDecision(updated)
+        return
+      }
       const normalized = answer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, ' ')
       if (/^(si|si confirmo|confirmo|confirmar|confirma|confirm|yes|yes confirm)$/.test(normalized)) {
         await confirmPending(proposal, true)
@@ -295,8 +365,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       const text = await recognizeAssistantSpeech(controller.signal, assistantLanguage)
       if (controller.signal.aborted) return
       if (listeningControllerRef.current === controller) { listeningControllerRef.current = null; setListening(false) }
-      if (text && onVoiceModeStart) await submit(text, true)
-      else if (text) setInput(text)
+      if (text) await submit(text, true)
       else onVoiceResponseReady?.()
     } catch (error) {
       if (!controller.signal.aborted) {
@@ -330,14 +399,38 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     },
   }))
 
-  const summary = pending ? assistantCommandSummary(pending.plan.command, assistantLanguage) : null
+  const startNewChat = () => {
+    abortRef.current?.abort()
+    listeningControllerRef.current?.abort()
+    listeningControllerRef.current = null
+    speechSequenceRef.current += 1
+    void stopAssistantSpeechRecognition().catch(() => undefined)
+    void stopAssistantSpeech().catch(() => undefined)
+    setSpeaking(false)
+    setListening(false)
+    pendingRef.current = null
+    setPending(null)
+    timeContextRef.current = null
+    timeSourceRef.current = ''
+    setAwaitingTime(false)
+    lastTopicRef.current = null
+    lastQueryTopicRef.current = null
+    setInput('')
+    setRequestCount(0)
+    setMessages([newMessage('assistant', tx('Hola, Pablo. Puedo consultar tu día, el tiempo, la agenda y tus notas, o preparar una nota, alarma o temporizador.'))])
+  }
 
-  return <div className={`assistant-page fullscreen-page page-enter ${pending ? 'has-pending' : ''}`}>
-    {!compact ? <PageHeader pageLabel="¿En qué te ayudo?" /> : null}
+  const summary = pending ? assistantCommandSummary(pending.plan.command, assistantLanguage, now) : null
+
+  return <div hidden={!visible} className={`assistant-page fullscreen-page page-enter ${pending ? 'has-pending' : ''}`}>
+    <div className="assistant-chat-header" data-swipe-block>
+      {!compact ? <PageHeader pageLabel="¿En qué te ayudo?" /> : null}
+      <button type="button" className="assistant-new-chat" onClick={startNewChat} disabled={processing} title={tx('Nuevo chat')}><MessageSquarePlus size={18} aria-hidden="true" />{tx('Nuevo chat')}</button>
+    </div>
     {voiceMode ? <div className={`lumi-voice-indicator ${listening ? 'is-listening' : speaking ? 'is-speaking' : ''}`} role="status" aria-label={listening ? tx('Escuchando') : speaking ? tx('Hablando') : tx('Lumi preparada')}><span aria-hidden="true"><i /><i /><i /><i /><i /></span><small>{listening ? tx('Escuchando') : speaking ? tx('Hablando') : tx('Lumi preparada')}</small></div> : null}
     {!compact ? <div className="assistant-status" role="status">
       <span className={enabled ? 'is-ready' : 'is-disabled'}><i />{enabled ? tx('Peticiones locales · voz según el dispositivo') : tx('Desactivado')}</span>
-      <small>{tx('{{count}}/30 peticiones en esta sesión · el historial no se guarda', { count: requestCount })}</small>
+      <small>{tx('{{count}}/30 peticiones · el chat se conserva al cambiar de página', { count: requestCount })}</small>
     </div> : null}
 
     <div className="assistant-log" ref={logRef} role="log" aria-live="polite" aria-label={tx('Conversación del Asistente')}>
@@ -351,6 +444,24 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
       {pending && summary ? <section ref={confirmationRef} className="assistant-confirmation" aria-label={tx('Acción pendiente de confirmación')}>
         <header><span><Check size={18} /></span><div><small>{tx('Revisa antes de ejecutar')}</small><h2>{summary.title}</h2></div></header>
         <ul>{summary.details.map((detail) => <li key={detail}>{detail}</li>)}</ul>
+        {!compact && pending.plan.command.type === 'create_task_reminder' ? <label className="settings-select-row">
+          <span>{tx('Antelación del aviso')}</span>
+          <select aria-label={tx('Antelación del aviso')} value={pending.plan.command.args.reminderMinutesBefore ?? 60} onChange={event => {
+            const current = pendingRef.current
+            if (!current || current.plan.command.type !== 'create_task_reminder') return
+            abortRef.current?.abort()
+            listeningControllerRef.current?.abort()
+            listeningControllerRef.current = null
+            setListening(false)
+            const command = validateAssistantCommand({ ...current.plan.command, args: { ...current.plan.command.args, reminderMinutesBefore: Number(event.target.value) } })
+            const updated = { ...current, plan: { ...current.plan, command } }
+            pendingRef.current = updated
+            setPending(updated)
+          }}>
+            {![15, 30, 60, 120, 1440].includes(pending.plan.command.args.reminderMinutesBefore ?? 60) ? <option value={pending.plan.command.args.reminderMinutesBefore}>{tx('{{count}} minutos antes', { count: pending.plan.command.args.reminderMinutesBefore })}</option> : null}
+            {([15, 30, 60, 120, 1440] as const).map(minutes => <option key={minutes} value={minutes}>{tx(minutes === 15 ? '15 minutos antes' : minutes === 30 ? '30 minutos antes' : minutes === 60 ? '1 hora antes' : minutes === 120 ? '2 horas antes' : '1 día antes')}</option>)}
+          </select>
+        </label> : null}
         <p>{pending.plan.explanation}</p>
         {!compact ? <div className="assistant-confirmation-actions">
           <button type="button" className="assistant-confirm" onClick={() => void confirmPending()}><Check size={17} />{tx('Confirmar')}</button>
