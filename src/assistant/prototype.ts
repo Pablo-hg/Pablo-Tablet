@@ -63,6 +63,7 @@ export class PrototypeAssistantProvider implements AssistantProvider {
 
 const proposal = (command: unknown, explanation: string): AssistantProposal => ({ command, explanation })
 const consumedWritePlans = new WeakSet<ValidatedAssistantPlan>()
+const consumedProposalIds = new Set<string>()
 
 export async function planAssistantRequest(
   provider: AssistantProvider,
@@ -73,6 +74,7 @@ export async function planAssistantRequest(
   const command = validateAssistantCommand(proposalResult.command)
   return {
     command,
+    ...(requiresAssistantConfirmation(command) ? { proposalId: crypto.randomUUID() } : {}),
     explanation: proposalResult.explanation,
     requiresConfirmation: requiresAssistantConfirmation(command),
   }
@@ -89,8 +91,9 @@ export async function executeAssistantPlan(
     throw new InvalidAssistantCommandError(tx('La acción requiere confirmación explícita antes de ejecutarse.'))
   }
   if (isWrite) {
-    if (consumedWritePlans.has(plan)) throw new InvalidAssistantCommandError(tx('Esta acción ya se ha procesado.'))
+    if (consumedWritePlans.has(plan) || (plan.proposalId && consumedProposalIds.has(plan.proposalId))) throw new InvalidAssistantCommandError(tx('Esta acción ya se ha procesado.'))
     consumedWritePlans.add(plan)
+    if (plan.proposalId) consumedProposalIds.add(plan.proposalId)
   }
   return executor.execute(command)
 }

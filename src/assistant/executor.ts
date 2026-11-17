@@ -250,6 +250,49 @@ export function executeAssistantCommand(
     }
     case 'get_local_help':
       return unchanged(state, helpForTopic(command.args.topic, language))
+    case 'request_note_rename':
+    case 'request_event_change':
+    case 'request_task_change':
+      throw new Error(tx('Primero hay que identificar la tarea.'))
+    case 'rename_local_note': {
+      const note = state.notes.find(item => item.id === command.args.id)
+      if (!note || note.archived || JSON.stringify(note) !== command.args.expected) throw new Error(tx('La nota ha cambiado o ya no está disponible. Vuelve a pedir el cambio.'))
+      const updated = { ...note, title: command.args.newTitle, updatedAt: now.toISOString() }
+      return { state: { ...state, notes: state.notes.map(item => item.id === note.id ? updated : item) }, response: tx('Nota «{{title}}» actualizada.', { title: updated.title }), openPage: 'notes' }
+    }
+    case 'update_local_event': {
+      const event = state.calendarEvents.find(item => item.id === command.args.id)
+      if (!event || event.source !== 'local' || event.type !== 'event' || event.recurrence !== 'none' || JSON.stringify(event) !== command.args.expected) throw new Error(tx('El evento ha cambiado o ya no está disponible. Vuelve a pedir el cambio.'))
+      const updated = { ...event, title: command.args.newTitle, updatedAt: now.toISOString() }
+      return { state: { ...state, calendarEvents: state.calendarEvents.map(item => item.id === event.id ? updated : item) }, response: tx('Evento «{{title}}» actualizado.', { title: updated.title }), openPage: 'calendar' }
+    }
+    case 'update_local_task': {
+      const task = state.calendarEvents.find(item => item.id === command.args.id)
+      if (!task || task.source !== 'local' || task.type !== 'task' || task.recurrence !== 'none' || JSON.stringify(task) !== command.args.expected) throw new Error(tx('La tarea ha cambiado o ya no está disponible. Vuelve a pedir el cambio.'))
+      const updated = { ...task, ...(command.args.action === 'complete' ? { completed: true } : { title: command.args.newTitle }), updatedAt: now.toISOString() }
+      return { state: { ...state, calendarEvents: state.calendarEvents.map(item => item.id === task.id ? updated : item) }, response: tx('Tarea «{{title}}» actualizada.', { title: updated.title }), openPage: 'calendar' }
+    }
+    case 'create_birthday': {
+      const timestamp = now.toISOString()
+      const birthday: DashboardState['calendarEvents'][number] = {
+        id: createId(), source: 'local', accountId: null, calendarId: null, externalId: null, externalVersion: null,
+        syncStatus: 'local', type: 'birthday', recurrence: 'yearly', completed: false,
+        title: command.args.title, date: command.args.date, endDate: command.args.date, startTime: '00:00', endTime: '23:59',
+        allDay: true, timeZone: command.args.timeZone, location: '', notes: '', color: 'mint', reminders: [], createdAt: timestamp, updatedAt: timestamp,
+      }
+      return { state: { ...state, calendarEvents: [...state.calendarEvents, birthday] }, response: tx('Cumpleaños «{{title}}» guardado para {{date}}. Se repite cada año.', { title: birthday.title, date: assistantDateText(birthday.date, now, birthday.timeZone, language) }), openPage: 'calendar' }
+    }
+    case 'create_event': {
+      const timestamp = now.toISOString()
+      const event: DashboardState['calendarEvents'][number] = {
+        id: createId(), source: 'local', accountId: null, calendarId: null,
+        externalId: null, externalVersion: null, syncStatus: 'local', type: 'event', recurrence: 'none', completed: false,
+        title: command.args.title, date: command.args.date, endDate: command.args.date,
+        startTime: command.args.startTime, endTime: command.args.endTime, allDay: false, timeZone: command.args.timeZone,
+        location: '', notes: '', color: 'mint', reminders: [], createdAt: timestamp, updatedAt: timestamp,
+      }
+      return { state: { ...state, calendarEvents: [...state.calendarEvents, event] }, response: tx('Evento «{{title}}» creado en el calendario local para {{date}}, de {{start}} a {{end}}.', { title: event.title, date: assistantDateText(event.date, now, event.timeZone, language), start: event.startTime, end: event.endTime }), openPage: 'calendar' }
+    }
     case 'create_task_reminder':
     case 'create_task': {
       const timestamp = now.toISOString()
@@ -320,6 +363,16 @@ export function executeAssistantCommand(
 export function assistantCommandSummary(command: AssistantCommand, language?: SupportedLanguage, now = new Date()) {
   const tx = translateFor(language)
   switch (command.type) {
+    case 'rename_local_note':
+      return { title: tx('Cambiar nombre de nota'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Nuevo título: {{value}}', { value: command.args.newTitle })] }
+    case 'update_local_event':
+      return { title: tx('Cambiar nombre de evento'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: assistantDateText(command.args.date, now, command.args.timeZone, language) }), tx('Nuevo título: {{value}}', { value: command.args.newTitle }), tx('Destino: calendario local')] }
+    case 'update_local_task':
+      return { title: tx(command.args.action === 'complete' ? 'Completar tarea' : 'Cambiar nombre de tarea'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: assistantDateText(command.args.date, now, command.args.timeZone, language) }), ...(command.args.action === 'rename' ? [tx('Nuevo título: {{value}}', { value: command.args.newTitle })] : []), tx('Destino: calendario local')] }
+    case 'create_birthday':
+      return { title: tx('Crear cumpleaños'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: assistantDateText(command.args.date, now, command.args.timeZone, language) }), tx('Se repite cada año'), tx('Todo el día · sin aviso'), tx('Destino: calendario local')] }
+    case 'create_event':
+      return { title: tx('Crear evento local'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: assistantDateText(command.args.date, now, command.args.timeZone, language) }), tx('Inicio: {{value}}', { value: command.args.startTime }), tx('Fin: {{value}}', { value: command.args.endTime }), tx('Sin aviso'), tx('Destino: calendario local')] }
     case 'create_task_reminder': {
       return { title: tx('Crear tarea local'), details: [tx('Título: {{value}}', { value: command.args.title }), tx('Fecha: {{value}}', { value: assistantDateText(command.args.date, now, command.args.timeZone, language) }), tx('Hora: {{value}}', { value: command.args.time }), tx('Aviso: {{duration}} antes', { duration: formatTimerDuration((command.args.reminderMinutesBefore ?? 60) * 60, language) }), tx('Destino: calendario local')] }
     }

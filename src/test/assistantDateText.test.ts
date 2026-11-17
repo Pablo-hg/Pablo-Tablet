@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assistantDateText } from '../assistant/dateText'
+import { assistantDateText, assistantSpokenDateText } from '../assistant/dateText'
 import { executeAssistantCommand } from '../assistant/executor'
 import { DEFAULT_DASHBOARD_STATE } from '../dashboardState'
 
@@ -27,4 +27,8 @@ describe('fechas de Lumi para lectura natural', () => {
     expect(result.response).toBe('Tarea «comprar pilas» creada en el calendario local para mañana, viernes, día 13.')
     expect(result.state.calendarEvents[0].date).toBe('2026-11-13')
   })
+})
+
+it('lee la próxima fecha cercana con el día de la semana', () => {
+  expect(assistantSpokenDateText('2026-11-16', new Date('2026-11-12T09:00:00Z'), 'Europe/Madrid')).toBe('el próximo lunes, día 16')
 })

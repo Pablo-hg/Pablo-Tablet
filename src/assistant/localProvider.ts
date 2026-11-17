@@ -132,8 +132,78 @@ export class LocalAssistantProvider implements AssistantProvider {
       return proposal({ type: 'search_notes', args: { query, limit: 5 } }, tx('Buscar en las notas guardadas localmente.'))
     }
 
+    const renameNote = request.text.trim().match(/^(?:cambia el nombre de|renombra) la nota (?:de )?(.+?) (?:a|por) (.+)$/i)
+    if (renameNote) return proposal({ type: 'request_note_rename', args: { title: renameNote[1].trim(), newTitle: renameNote[2].trim() } }, tx('Revisa el cambio antes de confirmarlo.'))
+    const renameEvent = request.text.trim().match(/^(?:cambia el nombre de|renombra) el evento (?:de )?(.+?) (?:a|por) (.+)$/i)
+    const renameTask = request.text.trim().match(/^(?:cambia el nombre de|renombra) la tarea (?:de )?(.+?) (?:a|por) (.+)$/i)
+    const completeTask = request.text.trim().match(/^(?:completa|termina|marca como completada) la tarea (?:de )?(.+)$/i)
+    if (renameEvent || renameTask || completeTask) {
+      const rawTitle = (renameEvent?.[1] ?? renameTask?.[1] ?? completeTask![1]).trim()
+      const dateSuffix = /\s+(?:del|para) (hoy|mañana|manana|pasado mañana|pasado manana|\d{4}-\d{2}-\d{2})$/i.exec(rawTitle)
+      const day = dateSuffix ? normalize(dateSuffix[1]) : null
+      const date = day === 'hoy' ? today : day === 'manana' ? tomorrow : day === 'pasado manana' ? addLocalDays(today, 2) : day ?? undefined
+      return proposal({ type: renameEvent ? 'request_event_change' : 'request_task_change', args: { title: dateSuffix ? rawTitle.slice(0, dateSuffix.index).trim() : rawTitle, action: renameEvent || renameTask ? 'rename' : 'complete', newTitle: (renameEvent?.[2] ?? renameTask?.[2])?.trim() ?? '', ...(date ? { date } : {}) } }, tx('Revisa el cambio antes de confirmarlo.'))
+    }
+
     const reminder = interpretTaskReminder(request)
     if (reminder) return reminder
+
+    // La intención de escritura debe resolverse antes de las consultas al calendario.
+    const utterance = request.text.trim().replace(/\s+/g, ' ')
+      .replace(/^(añade|anade|agrega|apunta) el calendario\b/i, '$1 al calendario')
+      .replace(/^(?:que era|queda) un evento\b/i, 'crea un evento')
+      .replace(/^(crea un evento para [^ ]+) de de /i, '$1 de ')
+      .replace(/^crea (añade|anade) /i, '$1 ')
+    const relativeDate = (value: string) => {
+      const day = normalize(value)
+      return day === 'hoy' || day === 'today' ? today : day === 'manana' || day === 'tomorrow' ? tomorrow : day === 'pasado manana' || day === 'the day after tomorrow' ? addLocalDays(today, 2) : day
+    }
+    // Un cumpleaños explícito es anual; una obligación explícita es una tarea.
+    const birthday = utterance.match(/^(?:(?:añade|anade|apunta|crea|agrega) (?:al calendario )?(?:que )?)?(hoy|mañana|manana|pasado mañana|pasado manana|\d{4}-\d{2}-\d{2}) (?:es )?(?:el )?cumpleaños de (.+)$/i)
+    if (birthday) return proposal({ type: 'create_birthday', args: { title: `Cumpleaños de ${birthday[2].trim()}`, date: relativeDate(birthday[1]), timeZone: request.timeZone } }, tx('Preparar un cumpleaños local. Revisa sus datos antes de confirmar.'))
+    const birthdayReverse = utterance.match(/^(?:añade|anade|apunta|crea|agrega) (?:al calendario )?(?:el )?cumpleaños de (.+?) (?:para|el) (hoy|mañana|manana|pasado mañana|pasado manana|\d{4}-\d{2}-\d{2})$/i)
+    if (birthdayReverse) return proposal({ type: 'create_birthday', args: { title: `Cumpleaños de ${birthdayReverse[1].trim()}`, date: relativeDate(birthdayReverse[2]), timeZone: request.timeZone } }, tx('Preparar un cumpleaños local. Revisa sus datos antes de confirmar.'))
+    if (/^(?:añade|anade|apunta|crea|agrega)\b/i.test(utterance) && /\bcumpleaños\b/i.test(utterance)) throw new InvalidAssistantCommandError(tx('Indica la fecha del cumpleaños y de quién es.'))
+    const contextualTask = utterance.match(/^(?:añade|anade|apunta|crea|agrega) (?:al calendario )?que (hoy|mañana|manana|pasado mañana|pasado manana|\d{4}-\d{2}-\d{2}) tengo que (.+)$/i)
+    if (contextualTask && /\b(?:a las?|con aviso|recordatorio)\b/i.test(contextualTask[2])) throw new InvalidAssistantCommandError(tx('Para una tarea con hora, usa «Recuérdame» e indica el día y la hora.'))
+    if (contextualTask) return proposal({ type: 'create_task', args: { title: contextualTask[2].trim(), date: relativeDate(contextualTask[1]), timeZone: request.timeZone } }, tx('Preparar una tarea en el calendario local. Revisa sus datos antes de confirmar.'))
+    const calendarWritePrefix = /^(?:añade|anade|agrega|apunta) (?:(?:al|a) calendario\b|que\b)/i
+    const calendarWrite = utterance.match(/^(?:añade|anade|agrega|apunta) (?:(?:al|a) calendario )?que (hoy|mañana|manana|pasado mañana|pasado manana|\d{4}-\d{2}-\d{2}) tengo (.+?) (?:de|desde) (.+)$/i)
+    const calendarTimeFirst = utterance.match(/^(?:añade|anade|agrega|apunta) (?:(?:al|a) calendario )?(?:un evento (?:de )?)?que (hoy|mañana|manana|pasado mañana|pasado manana|\d{4}-\d{2}-\d{2}) (?:de|desde) (.+?) (?:hay|tengo) (.+)$/i)
+    if (calendarWritePrefix.test(utterance) && !calendarWrite && !calendarTimeFirst) {
+      throw new InvalidAssistantCommandError(tx('Indica fecha, hora de inicio y fin en formato de 24 horas y título. Ejemplo: «Crea un evento para mañana de 19:00 a 20:00: Fútbol».'))
+    }
+    const eventInput = calendarWrite ? `crea un evento para ${calendarWrite[1]} de ${calendarWrite[3]}: ${calendarWrite[2]}` : calendarTimeFirst ? `crea un evento para ${calendarTimeFirst[1]} de ${calendarTimeFirst[2]}: ${calendarTimeFirst[3]}` : utterance
+
+    // Comprensión acotada de horas dictadas; una hora ambigua nunca se adivina.
+    if (/^(?:(?:crea|añade|anade) un evento|(?:create|add) an event)\b/i.test(eventInput)) {
+      const input = eventInput
+      const dateMatch = input.match(/^(?:(?:crea|añade|anade) un evento para (hoy|mañana|manana|pasado mañana|pasado manana|\d{4}-\d{2}-\d{2})|(?:create|add) an event for (today|tomorrow|the day after tomorrow|\d{4}-\d{2}-\d{2}))\s+(?:de|desde|from)\s+(.+)$/i)
+      const timePattern = '(\\d{1,2}:\\d{2}|\\d{1,2}|[a-záéíóúñ]+)'
+      const periodPattern = '(?:\\s+(am|pm|de la mañana|de la manana|de la tarde|de la noche))?'
+      const times = dateMatch?.[3].match(new RegExp(`^${timePattern}${periodPattern}\\s+(?:a|hasta|to)\\s+${timePattern}${periodPattern}(?:\\s*:\\s*|\\s+)(.+)$`, 'i'))
+      if (!dateMatch || !times || /^\d/.test(times[5].trim())) throw new InvalidAssistantCommandError(tx('Indica fecha, hora de inicio y fin en formato de 24 horas y título. Ejemplo: «Crea un evento para mañana de 19:00 a 20:00: Fútbol».'))
+      const parseTime = (value: string, period: string | undefined) => {
+        const parts = value.split(':')
+        let hour = readNumber(parts[0])
+        const minute = Number(parts[1] ?? 0)
+        if (hour === null || !Number.isInteger(hour) || hour < 0 || hour > 23 || minute > 59) return null
+        const half = period ? normalize(period) : ''
+        if (half) {
+          if (hour < 1 || hour > 12) return null
+          if (half === 'pm' || half === 'de la tarde') hour = hour % 12 + 12
+          else if (half === 'de la noche') hour = hour === 12 ? 0 : hour <= 5 ? hour : hour + 12
+          else hour %= 12
+        } else if (hour >= 1 && hour <= 12 && !value.includes(':') && !value.startsWith('0')) return null
+        return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+      }
+      const startTime = parseTime(times[1], times[2] ?? times[4])
+      const endTime = parseTime(times[3], times[4] ?? times[2])
+      if (!startTime || !endTime) throw new InvalidAssistantCommandError(tx('Indica si las horas son de la mañana o de la tarde, o usa el formato de 24 horas.'))
+      const day = normalize(dateMatch[1] ?? dateMatch[2])
+      const date = day === 'hoy' || day === 'today' ? today : day === 'manana' || day === 'tomorrow' ? tomorrow : day === 'pasado manana' || day === 'the day after tomorrow' ? addLocalDays(today, 2) : day
+      return proposal({ type: 'create_event', args: { title: times[5].trim(), date, timeZone: request.timeZone, startTime, endTime } }, tx('Preparar un evento en el calendario local. Revisa sus datos antes de confirmar.'))
+    }
 
     // Formato acotado para no inventar fechas ni interpretar el título como una orden.
     const taskPrefix = /^(?:(?:crea|añade|anade|apunta) una tarea|(?:create|add) a task)\b/i
@@ -149,13 +219,15 @@ export class LocalAssistantProvider implements AssistantProvider {
     if (notePrefix.test(request.text.trim())) {
       const noteText = request.text.trim().replace(notePrefix, '').trim()
       if (!noteText) throw new InvalidAssistantCommandError(tx('Indica qué contenido debe tener la nota.'))
+      const dictated = noteText.match(/^(?:que\s+)?se\s+va\s+a\s+llamar\s+(?:eh\s+)?(.+?)\s+y\s+va\s+a\s+tener\s+(?:eh\s+)?(?:(?:de\s+)?contenido\s*:?\s*)?(?:eh\s+)?(.+)$/i)
       const structured = noteText.match(/^(?:(?:de\s+)?que\s+se\s+llame|que\s+se\s+llama|llamada|(?:(?:con\s+)?(?:el\s+)?)?(?:t[ií]tulo|titulada|title|titled))\s*:?\s*(.*?)\s*(?:[,;]\s*|\s+(?:y\s+)?)(?:(?:con\s+)?(?:el\s+)?)?(?:contenido(?:\s+(?:es|sea))?|que\s+(?:diga|contenga)|content(?:\s+is)?|saying)\s*:?\s*([\s\S]*)$/i)
-      const hasTitleMarker = /^(?:(?:de\s+)?que\s+se\s+llam[ae]|llamada|(?:(?:con\s+)?(?:el\s+)?)?(?:t[ií]tulo|titulada|title|titled))\b/i.test(noteText)
-      if (hasTitleMarker && (!structured || !structured[1].trim() || !structured[2].trim())) {
+      const hasTitleMarker = /^(?:(?:que\s+)?se\s+va\s+a\s+llamar|(?:de\s+)?que\s+se\s+llam[ae]|llamada|(?:(?:con\s+)?(?:el\s+)?)?(?:t[ií]tulo|titulada|title|titled))\b/i.test(noteText)
+      if (hasTitleMarker && !(dictated && dictated[1].trim() && dictated[2].trim()) && !(structured && structured[1].trim() && structured[2].trim())) {
         throw new InvalidAssistantCommandError(tx('Indica el título y el contenido. Por ejemplo: «Crea una nota: título Compra, contenido leche y pan».'))
       }
-      const title = structured ? structured[1].trim() : noteText.slice(0, 60)
-      const content = structured ? structured[2].trim() : noteText
+      const fields = dictated ?? structured
+      const title = fields ? fields[1].trim() : noteText.slice(0, 60)
+      const content = fields ? fields[2].trim() : noteText
       return proposal(
         { type: 'create_note', args: { title, content, reminderAt: null } },
         tx('Preparar una nota nueva. Revisa sus datos antes de confirmar.'),

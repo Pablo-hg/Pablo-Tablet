@@ -5,6 +5,7 @@ import { Bot, Check, Edit3, Mic, MicOff, MessageSquarePlus, Send, Volume2, X } f
 import { AssistantTimeRequired, type AssistantTimeContext, validateAssistantCommand, type AssistantCommand, type ValidatedAssistantPlan } from '../assistant/contracts'
 import { addDaysToDateKey, dateKeyToDayNumber } from '../calendarRecurrence'
 import { assistantCommandSummary, type AssistantExecutionResult } from '../assistant/executor'
+import { assistantDateText, assistantSpokenDateText } from '../assistant/dateText'
 import { LocalAssistantProvider } from '../assistant/localProvider'
 import { executeAssistantPlan, planAssistantRequest } from '../assistant/prototype'
 import { recognizeAssistantSpeech, speakAssistantText, stopAssistantSpeech, stopAssistantSpeechRecognition } from '../assistant/voice'
@@ -23,6 +24,7 @@ export interface AssistantPageProps {
   speechVoice?: string
   assistantLanguage?: SupportedLanguage
   now: Date
+  onPrepare?: (command: AssistantCommand) => AssistantCommand
   onExecute: (command: AssistantCommand) => Promise<AssistantExecutionResult>
   onOpenPage: (pageId: DashboardPageId) => void
   onEditingChange: (isEditing: boolean) => void
@@ -48,7 +50,7 @@ const newMessage = (role: AssistantMessage['role'], text: string, openPage?: Das
   openPage,
 })
 
-export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoice = '', assistantLanguage = 'es', now, onExecute, onOpenPage, onEditingChange, visible = true, compact = false, voiceMode = false, onVoiceModeStart, onVoiceResponseReady }: AssistantPageProps) {
+export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoice = '', assistantLanguage = 'es', now, onPrepare, onExecute, onOpenPage, onEditingChange, visible = true, compact = false, voiceMode = false, onVoiceModeStart, onVoiceResponseReady }: AssistantPageProps) {
   const tx = (key: TranslationKey, options?: TOptions) => txFor(assistantLanguage, key, options)
   const inputId = useId()
   const [messages, setMessages] = useState<AssistantMessage[]>([
@@ -107,8 +109,9 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   useEffect(() => {
     const log = logRef.current
     if (!log) return
-    const top = pending && confirmationRef.current
-      ? log.scrollTop + confirmationRef.current.getBoundingClientRect().top - log.getBoundingClientRect().top
+    const card = pending ? confirmationRef.current : null
+    const top = card
+      ? log.scrollTop + card.getBoundingClientRect().top - log.getBoundingClientRect().top + Math.min(0, card.getBoundingClientRect().height - log.clientHeight + 20)
       : log.scrollHeight
     if (typeof log.scrollTo === 'function') log.scrollTo({ top, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
     else log.scrollTop = top
@@ -134,11 +137,23 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
   }
 
   const spokenProposal = (command: AssistantCommand) => {
-    const review = assistantCommandSummary(command, assistantLanguage, now)
-    if (command.type === 'create_task_reminder' || command.type === 'create_task') {
-      const details = review.details.slice(0, command.type === 'create_task_reminder' ? 3 : 2)
-      return `${details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`
+    if (command.type === 'create_note') return tx('Voy a crear la nota {{title}} con el contenido: {{content}}. ¿Te parece bien o lo modificamos?', { title: command.args.title, content: command.args.content })
+    if (command.type === 'rename_local_note') return tx('Voy a cambiar el nombre de la nota {{title}} a {{newTitle}}. ¿Te parece bien o lo modificamos?', { title: command.args.title, newTitle: command.args.newTitle })
+    if (command.type === 'update_local_event') return tx('Voy a cambiar el nombre del evento {{title}} para {{date}} a {{newTitle}}. ¿Te parece bien o lo modificamos?', { title: command.args.title, date: assistantSpokenDateText(command.args.date, now, command.args.timeZone, assistantLanguage), newTitle: command.args.newTitle })
+    if (command.type === 'update_local_task') {
+      const date = assistantSpokenDateText(command.args.date, now, command.args.timeZone, assistantLanguage)
+      return command.args.action === 'complete'
+        ? tx('Voy a completar la tarea {{title}} para {{date}}. ¿Te parece bien o lo modificamos?', { title: command.args.title, date })
+        : tx('Voy a cambiar el nombre de la tarea {{title}} para {{date}} a {{newTitle}}. ¿Te parece bien o lo modificamos?', { title: command.args.title, date, newTitle: command.args.newTitle })
     }
+    if (command.type === 'create_birthday' || command.type === 'create_event' || command.type === 'create_task' || command.type === 'create_task_reminder') {
+      const date = assistantDateText(command.args.date, now, command.args.timeZone, assistantLanguage)
+      if (command.type === 'create_birthday') return tx('Voy a apuntar {{title}} para {{date}} y se repetirá cada año. ¿Te parece bien o lo modificamos?', { title: command.args.title, date })
+      if (command.type === 'create_event') return tx('Voy a apuntar {{title}} para {{date}}, de {{start}} a {{end}}. ¿Te parece bien o lo modificamos?', { title: command.args.title, date, start: command.args.startTime, end: command.args.endTime })
+      if (command.type === 'create_task_reminder') return tx('Voy a apuntar {{title}} para {{date}} a las {{time}}. ¿Te parece bien o lo modificamos?', { title: command.args.title, date, time: command.args.time })
+      return tx('Voy a apuntar {{title}} para {{date}}. ¿Te parece bien o lo modificamos?', { title: command.args.title, date })
+    }
+    const review = assistantCommandSummary(command, assistantLanguage, now)
     return `${review.title}. ${review.details.join('. ')}. ${tx('Puedes decir confirmar, editar o cancelar.')}`
   }
 
@@ -176,6 +191,12 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
     setMessages((current) => [...current, newMessage('user', trimmed)])
     try {
       const normalized = trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[¿?¡!.,]/g, '').trim().replace(/\s+/g, ' ')
+      // Una petición nueva sustituye una aclaración pendiente de una petición anterior.
+      if (timeContextRef.current && /^(?:crea|crear|anade|agrega|apunta|recuerdame|create|add|que era un evento|queda un evento)\b/.test(normalized)) {
+        timeContextRef.current = null
+        timeSourceRef.current = ''
+        setAwaitingTime(false)
+      }
       const candidates = noteCandidatesRef.current
       const readReference = /^(?:lee|leeme|leer) (?:esa|esta|la) nota$|^(?:lee|leeme)la$/.test(normalized)
       const choice = /^(?:la|el) (?:de|del) (.+)$/.exec(normalized)
@@ -212,7 +233,9 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         }, controller.signal)
       if (controller.signal.aborted) return
       if (plan.requiresConfirmation) {
-        const proposal = { plan, sourceText: timeSourceRef.current || trimmed }
+        if ((plan.command.type === 'request_task_change' || plan.command.type === 'request_event_change' || plan.command.type === 'request_note_rename') && !onPrepare) throw new Error(tx('Primero hay que identificar la tarea.'))
+        const prepared = onPrepare ? { ...plan, command: validateAssistantCommand(onPrepare(plan.command)) } : plan
+        const proposal = { plan: prepared, sourceText: timeSourceRef.current || trimmed }
         timeContextRef.current = null
         timeSourceRef.current = ''
         setAwaitingTime(false)
@@ -222,7 +245,7 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         setProcessing(false)
         if (voiceRequest || readAloud) {
           if (voiceRequest) onVoiceResponseReady?.()
-          await speakResponse(spokenProposal(plan.command))
+          await speakResponse(spokenProposal(prepared.command))
           if (voiceRequest && !controller.signal.aborted && pendingRef.current === proposal) await listenForPendingDecision(proposal)
         }
       } else {
@@ -332,12 +355,12 @@ export function AssistantPage({ ref, enabled, voiceEnabled, readAloud, speechVoi
         return
       }
       const normalized = answer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, ' ')
-      if (/^(si|si confirmo|confirmo|confirmar|confirma|confirm|yes|yes confirm)$/.test(normalized)) {
+      if (/^(si|si confirmo|confirmo|confirmar|confirma|me parece bien|esta bien|de acuerdo|confirm|yes|yes confirm|sounds good)$/.test(normalized)) {
         await confirmPending(proposal, true)
       } else if (/^(cancelo|cancelar|cancela|cancel|no|no gracias)$/.test(normalized)) {
         cancelPending()
         await speakResponse(tx('Acción cancelada. No se ha modificado ningún dato.'))
-      } else if (/^(edito|editar|edita|edit|modificar|modifico)$/.test(normalized)) {
+      } else if (/^(edito|editar|edita|edit|modificar|modifico|modificamos|lo modificamos|quiero modificarlo|cambiar|cambialo)$/.test(normalized)) {
         pendingRef.current = null
         setPending(null)
         setInput(proposal.sourceText)

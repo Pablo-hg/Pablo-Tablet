@@ -62,6 +62,7 @@ import {
 import {
   DASHBOARD_PAGES,
   loadDashboardState,
+  saveDashboardState,
   type DashboardPageDefinition,
   type DashboardPageId,
   type Alarm,
@@ -82,7 +83,9 @@ import {
   type GalleryPhoto,
   EVERY_ALARM_WEEKDAY,
 } from './dashboardState'
+import { usesNativeAppStorage } from './appStorage'
 import type { AssistantCommand } from './assistant/contracts'
+import { prepareAssistantCommand } from './assistant/prepare'
 import { executeAssistantCommand } from './assistant/executor'
 import { DEFAULT_ALARM_SOUND, getDeviceAlarmSounds, previewAlarmSound, stopAlarmSoundPreview, type DeviceAlarmSound } from './alarmSounds'
 import { notificationId, snoozeAlarmNotification, snoozeCalendarEventNotification } from './reminderNotifications'
@@ -1008,6 +1011,8 @@ function App() {
     })
   }
 
+  const prepareAssistant = (command: AssistantCommand) => prepareAssistantCommand(dashboardStateRef.current, command, now)
+
   const executeAssistant = async (command: AssistantCommand) => {
     const current = dashboardStateRef.current
     const homeLocation = current.weatherLocations.find((location) => location.id === current.homeWeatherLocationId) ?? current.weatherLocations[0] ?? null
@@ -1023,6 +1028,11 @@ function App() {
       language: current.preferences.assistantLanguage,
     })
     if (result.state !== current) {
+      if (!usesNativeAppStorage()) {
+        try { saveDashboardState(result.state) } catch {
+          throw new Error(txFor(current.preferences.assistantLanguage, 'No se ha podido guardar la acción. Comprueba el almacenamiento y vuelve a intentarlo.'))
+        }
+      }
       dashboardStateRef.current = result.state
       setDashboardState(result.state)
     }
@@ -1207,6 +1217,7 @@ function App() {
           speechVoice={dashboardState.preferences.assistantVoices[dashboardState.preferences.assistantLanguage]}
           assistantLanguage={dashboardState.preferences.assistantLanguage}
           now={now}
+          onPrepare={prepareAssistant}
           onExecute={executeAssistant}
           onOpenPage={openDashboardPage}
           onEditingChange={setInteractionLocked}
@@ -1318,6 +1329,7 @@ function App() {
             onVoiceModeStart={() => { setAssistantVoiceMode(true); setAssistantPopupOpen(true) }}
             onVoiceResponseReady={() => setAssistantPopupOpen(true)}
             now={now}
+            onPrepare={prepareAssistant}
             onExecute={executeAssistant}
             onOpenPage={(pageId) => { setAssistantVoiceMode(false); setAssistantPopupOpen(false); setScreen('home'); openDashboardPage(pageId) }}
             onEditingChange={setInteractionLocked}
