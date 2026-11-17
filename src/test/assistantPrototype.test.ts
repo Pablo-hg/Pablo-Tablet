@@ -55,6 +55,17 @@ describe('prototipo del asistente', () => {
     await expect(executeAssistantPlan(plan, { execute }, true)).rejects.toThrow('ya se ha procesado')
   })
 
+  it('bloquea una copia reconstruida de la misma propuesta sin impedir otra propuesta igual', async () => {
+    const plan = await planAssistantRequest(provider, request('Guarda una nota: comprar pilas'))
+    const copy = structuredClone(plan)
+    const execute = vi.fn().mockResolvedValue({ ok: true })
+    await executeAssistantPlan(plan, { execute }, true)
+    await expect(executeAssistantPlan(copy, { execute }, true)).rejects.toThrow('ya se ha procesado')
+    const another = await planAssistantRequest(provider, request('Guarda una nota: comprar pilas'))
+    await executeAssistantPlan(another, { execute }, true)
+    expect(execute).toHaveBeenCalledTimes(2)
+  })
+
   it('rechaza tipos, campos extra y valores fuera de límites', () => {
     expect(() => validateAssistantCommand({ type: 'delete_all', args: {} })).toThrow(InvalidAssistantCommandError)
     expect(() =>

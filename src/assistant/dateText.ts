@@ -19,3 +19,17 @@ export function assistantDateText(date: string, now: Date, timeZone: string, lan
   if (date >= nextMonday && date < addDaysToDateKey(nextMonday, 7)) return `${tx('la semana que viene')}, ${day}`
   return `${day}, ${formatter({ month: 'long' })}${date.slice(0, 4) !== today.slice(0, 4) ? `, ${value.getUTCFullYear()}` : ''}`
 }
+
+/** Fecha breve para lectura de propuestas, manteniendo el día civil de la tarea. */
+export function assistantSpokenDateText(date: string, now: Date, timeZone: string, language: SupportedLanguage = 'es') {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)!.value
+  const today = `${part('year')}-${part('month')}-${part('day')}`
+  const delta = dateKeyToDayNumber(date) - dateKeyToDayNumber(today)
+  if (delta >= 3 && delta <= 7) {
+    const value = new Date(`${date}T12:00:00Z`)
+    const weekday = new Intl.DateTimeFormat(activeLocale(language), { weekday: 'long', timeZone: 'UTC' }).format(value)
+    return txFor(language, 'el próximo {{weekday}}, día {{day}}', { weekday, day: value.getUTCDate() })
+  }
+  return assistantDateText(date, now, timeZone, language)
+}

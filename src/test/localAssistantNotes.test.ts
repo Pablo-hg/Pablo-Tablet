@@ -7,6 +7,9 @@ const request = (text: string) => ({ text, locale: 'es-ES' as const, now: '2026-
 
 describe('creación de notas del asistente local', () => {
   it.each([
+    ['crea una nota que se va a llamar receta y va a tener leche y pan', 'receta', 'leche y pan'],
+    ['crea una nota se va a llamar eh receta y va a tener eh de contenido leche y pan', 'receta', 'leche y pan'],
+    ['crea una nota se va a llamar receta y va a tener contenido leche y pan', 'receta', 'leche y pan'],
     ['Crea una nota: título Compra, contenido leche y pan', 'Compra', 'leche y pan'],
     ['Guarda una nota con título Plan y contenido consultar el tiempo y la agenda', 'Plan', 'consultar el tiempo y la agenda'],
     ['Crea una nota titulada Viaje que diga llevar paraguas', 'Viaje', 'llevar paraguas'],
@@ -21,7 +24,7 @@ describe('creación de notas del asistente local', () => {
     expect(plan.requiresConfirmation).toBe(true)
   })
 
-  it.each(['Crea una nota: título Compra', 'Crea una nota: título Compra, contenido', 'Crea una nota: título , contenido leche', 'Crea una nota que se llame Compra', 'Crea una nota que se llame Compra y el contenido es'])('pide completar los datos: %s', async (text) => {
+  it.each(['Crea una nota que se va a llamar receta', 'Crea una nota se va a llamar receta', 'Crea una nota: título Compra', 'Crea una nota: título Compra, contenido', 'Crea una nota: título , contenido leche', 'Crea una nota que se llame Compra', 'Crea una nota que se llame Compra y el contenido es'])('pide completar los datos: %s', async (text) => {
     await expect(planAssistantRequest(provider, request(text))).rejects.toThrow('Indica el título y el contenido')
   })
 })
