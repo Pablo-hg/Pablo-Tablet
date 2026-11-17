@@ -16,6 +16,7 @@ const AssistantVoice = registerPlugin<AssistantVoicePlugin>('AssistantVoice')
 
 interface BrowserSpeechRecognitionResult {
   0: { transcript: string }
+  isFinal?: boolean
 }
 
 interface BrowserSpeechRecognitionEvent extends Event {
@@ -67,7 +68,16 @@ export async function recognizeAssistantSpeech(signal?: AbortSignal, language?: 
   return new Promise((resolve, reject) => {
     const recognition = new Recognition()
     let settled = false
-    const cleanup = () => signal?.removeEventListener('abort', onAbort)
+    let silenceTimer: ReturnType<typeof setTimeout> | undefined
+    let transcript = ''
+    const cleanup = () => { clearTimeout(silenceTimer); signal?.removeEventListener('abort', onAbort) }
+    const finish = () => {
+      if (settled) return
+      settled = true
+      cleanup()
+      recognition.stop()
+      resolve(transcript.trim())
+    }
     const onAbort = () => {
       if (settled) return
       settled = true
@@ -76,13 +86,13 @@ export async function recognizeAssistantSpeech(signal?: AbortSignal, language?: 
       reject(new DOMException('Aborted', 'AbortError'))
     }
     recognition.lang = activeLocale(language)
-    recognition.interimResults = false
-    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.continuous = true
     recognition.onresult = (event) => {
       if (settled) return
-      settled = true
-      cleanup()
-      resolve(event.results[0]?.[0]?.transcript?.trim() ?? '')
+      transcript = Array.from(event.results, result => result[0]?.transcript ?? '').join(' ').trim()
+      clearTimeout(silenceTimer)
+      if (transcript) silenceTimer = setTimeout(finish, 1000)
     }
     recognition.onerror = (event) => {
       if (settled) return
@@ -105,7 +115,8 @@ export async function recognizeAssistantSpeech(signal?: AbortSignal, language?: 
       if (!settled) {
         settled = true
         cleanup()
-        reject(new Error(tx('No se ha detectado voz.')))
+        if (transcript) resolve(transcript)
+        else reject(new Error(tx('No se ha detectado voz.')))
       }
     }
     signal?.addEventListener('abort', onAbort, { once: true })

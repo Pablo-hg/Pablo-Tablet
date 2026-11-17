@@ -22,9 +22,11 @@ export function useNotesKeyboardViewport() {
 
     const update = () => {
       const focused = document.activeElement
+      const isTitle = focused instanceof HTMLElement && focused.matches('.note-title-input')
       const editingNote = focused instanceof HTMLElement
         && notesPage.contains(focused)
         && focused.matches('textarea, input:not([type="checkbox"]):not([type="radio"]), [contenteditable="true"], [data-notes-editing-control]')
+        && (!isTitle || shell.classList.contains('is-notes-keyboard-open'))
       const nativeOrientation = window.screen.orientation?.type
       const landscape = nativeOrientation
         ? nativeOrientation.startsWith('landscape')
@@ -41,8 +43,13 @@ export function useNotesKeyboardViewport() {
       pendingUpdate = window.setTimeout(update, 120)
     }
 
+    const onFocusOut = (event: FocusEvent) => {
+      // Preserve the expanded editor when moving directly from content to title.
+      if (event.relatedTarget instanceof HTMLElement && event.relatedTarget.matches('.note-title-input') && notesPage.contains(event.relatedTarget)) return
+      scheduleUpdate()
+    }
     notesPage.addEventListener('focusin', scheduleUpdate)
-    notesPage.addEventListener('focusout', scheduleUpdate)
+    notesPage.addEventListener('focusout', onFocusOut)
     window.addEventListener('resize', scheduleUpdate)
     viewport?.addEventListener('resize', scheduleUpdate)
     viewport?.addEventListener('scroll', scheduleUpdate)
@@ -51,7 +58,7 @@ export function useNotesKeyboardViewport() {
     return () => {
       window.clearTimeout(pendingUpdate)
       notesPage.removeEventListener('focusin', scheduleUpdate)
-      notesPage.removeEventListener('focusout', scheduleUpdate)
+      notesPage.removeEventListener('focusout', onFocusOut)
       window.removeEventListener('resize', scheduleUpdate)
       viewport?.removeEventListener('resize', scheduleUpdate)
       viewport?.removeEventListener('scroll', scheduleUpdate)

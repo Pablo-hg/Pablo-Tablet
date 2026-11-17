@@ -22,7 +22,7 @@ final class MobileAdminServiceController {
         Context applicationContext = context.getApplicationContext();
         MobileAdminManager manager = MobileAdminManager.get(applicationContext);
         manager.setEnabled(enabled);
-        if (enabled) start(applicationContext);
+        if (manager.isEnabled()) start(applicationContext);
         else applicationContext.stopService(serviceIntent(applicationContext));
     }
 

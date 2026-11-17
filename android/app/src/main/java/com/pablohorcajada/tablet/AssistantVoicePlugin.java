@@ -52,6 +52,9 @@ public class AssistantVoicePlugin extends Plugin implements RecognitionListener 
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, call.getString("language", "es-ES"));
             intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+            // These are hints: the recognition service may choose its own endpointing.
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1000L);
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 750L);
             intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
             recognizer.startListening(intent);
         });

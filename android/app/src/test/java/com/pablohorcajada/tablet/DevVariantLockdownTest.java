@@ -11,6 +11,8 @@ import org.robolectric.RuntimeEnvironment;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
+import static org.robolectric.Shadows.shadowOf;
 
 /** La variante DEV nunca puede levantar la administración móvil (puerto fijo 8765), aunque se active. */
 @RunWith(RobolectricTestRunner.class)
@@ -33,5 +35,14 @@ public class DevVariantLockdownTest {
         MobileAdminAccessPreference preference = new MobileAdminAccessPreference(context);
         preference.setEnabled(true);
         assertFalse(preference.isEnabled());
+    }
+
+    @Test
+    public void enablingDevDoesNotStartForegroundService() {
+        Context context = RuntimeEnvironment.getApplication();
+        context.getSharedPreferences("mobile-admin-security", Context.MODE_PRIVATE).edit().clear().commit();
+        MobileAdminServiceController.setEnabled(context, true);
+        assertFalse(new MobileAdminAccessPreference(context).isEnabled());
+        assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedService());
     }
 }

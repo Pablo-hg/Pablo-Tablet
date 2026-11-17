@@ -51,6 +51,10 @@ public class MobileAdminPlugin extends Plugin {
             call.reject(AppLocale.text(getContext(), R.string.error_mobile_admin_enabled_missing));
             return;
         }
+        if (enabled && DevVariant.lockdown()) {
+            call.reject(AppLocale.text(getContext(), R.string.error_mobile_admin_dev_unavailable));
+            return;
+        }
         if (enabled && shouldRequestNotificationPermission()) {
             requestPermissionForAlias(NOTIFICATIONS_PERMISSION, call, "enableAfterNotificationPermission");
             return;

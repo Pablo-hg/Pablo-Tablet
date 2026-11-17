@@ -81,6 +81,7 @@
     <string name="error_mobile_admin_unknown_network">error de red desconocido</string>
     <string name="error_mobile_admin_status">No se pudo consultar el servidor local.</string>
     <string name="error_mobile_admin_enabled_missing">Falta indicar si el acceso móvil debe estar activado.</string>
+    <string name="error_mobile_admin_dev_unavailable">La administración desde otros dispositivos no está disponible en Pablo Tablet DEV.</string>
     <string name="error_mobile_admin_notifications_permission">Permite las notificaciones para mantener visible el servicio de administración móvil.</string>
     <string name="error_mobile_admin_pairing_qr">No se pudo crear el QR de vinculación.</string>
     <string name="error_mobile_admin_request_approve">La solicitud ya no se puede aprobar.</string>
