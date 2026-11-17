@@ -100,7 +100,7 @@ export class LocalAssistantProvider implements AssistantProvider {
     const today = dateInTimeZone(request.now, request.timeZone)
     const tomorrow = addLocalDays(today, 1)
 
-    const taskSearch = request.text.trim().match(/^(?:busca|buscar|encuentra|find|search for)\s+(?:(?:una|la|a|the)\s+)?(?:tarea|task)\s+(?:(?:llamada|con titulo|titulada|called|named)\s+)?(.+?)\s*[?.!¿¡]*$/i)
+    const taskSearch = request.text.trim().match(/^(?:busca|buscar|encuentra|find|search for)\s+(?:(?:una|la|las|mis|a|the|my)\s+)?(?:tareas|tarea|tasks|task)\s+(?:(?:llamada|con titulo|titulada|called|named)\s+)?(.+?)\s*[?.!¿¡]*$/i)
     if (taskSearch) {
       const query = taskSearch[1].trim()
       if (query.length > 120) throw new InvalidAssistantCommandError(tx('Indica el título de la tarea que quieres buscar.'))

@@ -31,6 +31,14 @@ const unchanged = (state: DashboardState, response: string, openPage?: Dashboard
 const formatDateTime = (value: string, language?: SupportedLanguage) => new Intl.DateTimeFormat(activeLocale(language), { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 const translateFor = (language?: SupportedLanguage) => (key: TranslationKey, options?: TOptions) => language ? txFor(language, key, options) : appTx(key, options)
 
+function calendarCaveat(state: DashboardState, language?: SupportedLanguage) {
+  const tx = translateFor(language)
+  const hasExternal = state.calendarAccounts.some(account => account.enabled) || state.calendarEvents.some(event => event.source !== 'local' && event.source !== 'native')
+  const offline = state.calendarAccounts.some(account => account.enabled && account.status !== 'connected')
+  return (offline ? ` ${tx('Alguna cuenta no está sincronizada; los datos podrían no estar actualizados.')}` : '') +
+    (hasExternal ? ` ${tx('Los calendarios externos pueden estar desactualizados y sus cambios o cancelaciones individuales de series podrían no reflejarse. Compruébalos en el calendario de origen.')}` : '')
+}
+
 function formatTimerDuration(totalSeconds: number, language?: SupportedLanguage) {
   const tx = translateFor(language)
   const hours = Math.floor(totalSeconds / 3_600)
@@ -76,14 +84,14 @@ export function executeAssistantCommand(
       const events = state.calendarEvents.flatMap((event) => {
         const occurrence = calendarOccurrenceForDate(event, command.args.date)
         return occurrence ? [eventForOccurrence(event, occurrence)] : []
-      }).filter((event) => !event.completed)
+      }).filter((event) => !event.completed && event.syncStatus !== 'pending-delete')
       const alarms = state.alarms.filter((alarm) => alarm.enabled).length
       const weather = homeWeatherForecast
         ? tx('{{temperature}}°, {{description}} en {{location}}', { temperature: Math.round(homeWeatherForecast.current.temperature), description: weatherDescription(homeWeatherForecast.current.weatherCode, language).toLowerCase(), location: homeWeatherLocation?.name ?? 'Casa' })
         : tx('sin previsión disponible')
       const eventSummary = events.length ? tx(events.length === 1 ? '{{count}} elemento en la agenda' : '{{count}} elementos en la agenda', { count: events.length }) : tx('ningún elemento en la agenda')
       const alarmSummary = tx(alarms === 1 ? '{{count}} alarma activa' : '{{count}} alarmas activas', { count: alarms })
-      return unchanged(state, tx('Hoy tienes {{events}}, {{alarms}} y {{weather}}.', { events: eventSummary, alarms: alarmSummary, weather }))
+      return unchanged(state, tx('Hoy tienes {{events}}, {{alarms}} y {{weather}}.', { events: eventSummary, alarms: alarmSummary, weather }) + calendarCaveat(state, language))
     }
     case 'get_weather': {
       if (!homeWeatherLocation || !homeWeatherForecast) return unchanged(state, tx('No hay una previsión de Casa disponible. Añade o actualiza una ubicación en Tiempo.'), 'weather')
@@ -127,8 +135,7 @@ export function executeAssistantCommand(
         }
       }
       const events = [...occurrences.values()].sort((a, b) => a.date.localeCompare(b.date) || (a.allDay ? '' : a.startTime).localeCompare(b.allDay ? '' : b.startTime) || a.title.localeCompare(b.title))
-      const syncWarning = state.calendarAccounts.some((account) => account.enabled && account.status !== 'connected')
-        ? ` ${tx('Alguna cuenta no está sincronizada; los datos podrían no estar actualizados.')}` : ''
+      const syncWarning = calendarCaveat(state, language)
       if (!events.length) {
         const formatDate = (date: string) => new Intl.DateTimeFormat(activeLocale(language), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`))
         const fromDate = new Date(`${from}T12:00:00Z`)
@@ -177,13 +184,18 @@ export function executeAssistantCommand(
       const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ')
       const query = normalize(command.args.query)
       const tasks = state.calendarEvents.filter(event => event.type === 'task' && event.syncStatus !== 'pending-delete' && normalize(event.title).includes(query)).sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
-      if (!tasks.length) return unchanged(state, tx('No he encontrado tareas con el título «{{query}}».', { query: command.args.query }), 'calendar')
-      const descriptions = tasks.slice(0, 10).map(task => {
+      const warning = calendarCaveat(state, language)
+      if (!tasks.length) return unchanged(state, tx('No he encontrado tareas con el título «{{query}}».', { query: command.args.query }) + warning, 'calendar')
+      const descriptions = tasks.map(task => {
         const date = new Intl.DateTimeFormat(activeLocale(language), { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${task.date}T12:00:00Z`))
-        return tx(task.completed ? '«{{title}}» · {{date}} · completada' : '«{{title}}» · {{date}} · pendiente', { title: task.title, date })
-      }).join('; ')
-      const warning = state.calendarAccounts.some(account => account.enabled && account.status !== 'connected') ? ` ${tx('Alguna cuenta no está sincronizada; los datos podrían no estar actualizados.')}` : ''
-      return unchanged(state, tx(tasks.length === 1 ? 'He encontrado una tarea: {{tasks}}.' : 'He encontrado {{count}} tareas. Mostrando hasta 10: {{tasks}}.', { count: tasks.length, tasks: descriptions }) + warning, 'calendar')
+        const calendar = state.externalCalendars.find(item => item.provider === task.source && item.accountId === task.accountId && item.remoteId === task.calendarId)
+        const source = task.source !== 'local' && task.source !== 'native' ? ` ${tx('Calendario: {{calendar}}.', { calendar: calendar?.name ?? task.source })}` : ''
+        const status = task.syncStatus !== 'local' && task.syncStatus !== 'synced' ? ` ${tx('Sincronización pendiente o con error.')}` : ''
+        return tx(task.completed ? '«{{title}}» · {{date}} · completada' : '«{{title}}» · {{date}} · pendiente', { title: task.title, date }) + source + status
+      }).join('\n')
+      const response = tx(tasks.length === 1 ? 'He encontrado una tarea: {{tasks}}.' : 'He encontrado {{count}} tareas: {{tasks}}.', { count: tasks.length, tasks: descriptions }) + warning
+      if (response.length > 2_000 || tasks.length > 10) return { state, response, spokenResponse: tx('He encontrado {{count}} tareas. La lista completa está en la conversación.', { count: tasks.length }) + warning, openPage: 'calendar' }
+      return unchanged(state, response, 'calendar')
     }
     case 'get_notes': {
       const notes = [...state.notes].filter((note) => !note.archived).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, command.args.limit)
@@ -202,7 +214,7 @@ export function executeAssistantCommand(
       if (!matches.length) return unchanged(state, command.type === 'read_note_id' ? tx('La nota seleccionada ya no está disponible.') : tx('No he encontrado notas que coincidan con «{{query}}».', { query }), 'notes')
       const candidates = matches.slice(0, 5).map(note => ({ id: note.id, title: note.title || tx('Sin título') }))
       if (command.type === 'read_note' || command.type === 'read_note_id') {
-        if (matches.length > 1) return { ...unchanged(state, tx('He encontrado varias notas: {{notes}}. Indica un título más concreto.', { notes: candidates.map(note => note.title).join('; ') }), 'notes'), noteCandidates: candidates }
+        if (matches.length > 1) return { ...unchanged(state, tx('He encontrado varias notas: {{notes}}. Indica un título más concreto.', { notes: candidates.map(note => note.title).join('; ') }) + (matches.length > candidates.length ? ` ${tx('Hay más coincidencias; afina la búsqueda para encontrarlas.')}` : ''), 'notes'), noteCandidates: candidates }
         const note = matches[0]
         if (note.type === 'drawing') return unchanged(state, tx('La nota «{{title}}» es un dibujo y no puedo leer su contenido.', { title: note.title || tx('Sin título') }), 'notes')
         const content = note.type === 'list' ? parseNoteList(note.content).map(item => item.text).join('; ') : note.content
@@ -210,7 +222,7 @@ export function executeAssistantCommand(
         return unchanged(state, tx('Nota «{{title}}»: {{content}}', { title: note.title || tx('Sin título'), content }), 'notes')
       }
       const titles = matches.slice(0, command.args.limit).map(note => note.title || tx('Sin título')).join('; ')
-      return { ...unchanged(state, tx(matches.length === 1 ? 'He encontrado una nota: {{notes}}.' : 'He encontrado {{count}} notas. Mostrando: {{notes}}.', { count: matches.length, notes: titles }), 'notes'), noteCandidates: candidates }
+      return { ...unchanged(state, tx(matches.length === 1 ? 'He encontrado una nota: {{notes}}.' : 'He encontrado {{count}} notas. Mostrando: {{notes}}.', { count: matches.length, notes: titles }) + (matches.length > command.args.limit ? ` ${tx('Hay más coincidencias; afina la búsqueda para encontrarlas.')}` : ''), 'notes'), noteCandidates: candidates }
     }
     case 'get_clock_status': {
       const sections: string[] = []

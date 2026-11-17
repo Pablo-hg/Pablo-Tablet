@@ -1,4 +1,8 @@
 const english = {
+  'Los calendarios externos pueden estar desactualizados y sus cambios o cancelaciones individuales de series podrían no reflejarse. Compruébalos en el calendario de origen.': 'External calendars may be out of date, and individual changes or cancellations in recurring series may not be reflected. Check the original calendar.',
+  'He encontrado {{count}} tareas: {{tasks}}.': 'I found {{count}} tasks: {{tasks}}.',
+  'He encontrado {{count}} tareas. La lista completa está en la conversación.': 'I found {{count}} tasks. The full list is in the conversation.',
+  'Hay más coincidencias; afina la búsqueda para encontrarlas.': 'There are more matches; refine the search to find them.',
   'He encontrado una tarea: {{tasks}}.': 'I found one task: {{tasks}}.',
   'Indica el título de la tarea que quieres buscar.': 'Specify the title of the task to search for.',
   'Buscar tareas por título.': 'Search tasks by title.',

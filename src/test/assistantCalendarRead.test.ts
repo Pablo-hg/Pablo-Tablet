@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { executeAssistantCommand } from '../assistant/executor'
 import { DEFAULT_DASHBOARD_STATE, type CalendarEvent } from '../dashboardState'
+import { validateAssistantCommand } from '../assistant/contracts'
 
 const environment = { now: new Date('2026-11-16T12:00:00Z'), homeWeatherLocation: null, homeWeatherForecast: null, createId: () => 'id' }
 const event = (id: string, overrides: Partial<CalendarEvent> = {}): CalendarEvent => ({
@@ -39,5 +40,35 @@ describe('consultas de calendario de Lumi', () => {
     const result = executeAssistantCommand(state, { type: 'get_calendar', args }, environment)
     expect(result.response).toContain('Evento número 79')
     expect(result.spokenResponse).toContain('80')
+  })
+  it('muestra todas las tareas encontradas y resume las listas largas por voz', () => {
+    const state = structuredClone(DEFAULT_DASHBOARD_STATE)
+    state.calendarEvents = Array.from({ length: 25 }, (_, i) => event(`Compra ${String(i).padStart(2, '0')}`, { type: 'task' }))
+    const before = structuredClone(state)
+    const result = executeAssistantCommand(state, { type: 'search_tasks', args: { query: 'compra' } }, environment)
+    expect(result.response).toContain('Compra 24')
+    expect(result.spokenResponse).toContain('25 tareas')
+    expect(result.state).toBe(state)
+    expect(state).toEqual(before)
+  })
+  it('advierte de la incertidumbre externa incluso sin resultados o con cuenta conectada', () => {
+    const state = structuredClone(DEFAULT_DASHBOARD_STATE)
+    state.calendarAccounts = [{ id: 'g', provider: 'google', email: '', displayName: '', status: 'connected', enabled: true, lastSyncedAt: null, error: null }]
+    for (const command of [{ type: 'get_calendar', args }, { type: 'search_tasks', args: { query: 'ausente' } }, { type: 'get_daily_summary', args: { date: '2026-11-16' } }]) {
+      const result = executeAssistantCommand(state, validateAssistantCommand(command), environment)
+      expect(result.response).toContain('cancelaciones individuales')
+      expect(result.state).toBe(state)
+    }
+  })
+  it('no incluye eliminaciones pendientes en el resumen diario', () => {
+    const state = structuredClone(DEFAULT_DASHBOARD_STATE)
+    state.calendarEvents = [event('borrado', { syncStatus: 'pending-delete' })]
+    const result = executeAssistantCommand(state, { type: 'get_daily_summary', args: { date: '2026-11-16' } }, environment)
+    expect(result.response).toContain('ningún elemento')
+  })
+  it('rechaza rangos y consultas inválidos antes de ejecutarlos', () => {
+    expect(() => validateAssistantCommand({ type: 'get_calendar', args: { from: '2026-01-01T00:00:00', to: '2026-03-01T23:59:59' } })).toThrow()
+    expect(() => validateAssistantCommand({ type: 'search_tasks', args: { query: ' ' } })).toThrow()
+    expect(() => validateAssistantCommand({ type: 'search_tasks', args: { query: 'x', extra: true } })).toThrow()
   })
 })
